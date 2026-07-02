@@ -109,12 +109,13 @@ type AgnesVideoSubmitResponse struct {
 }
 
 type AgnesVideoStatusResponse struct {
-	Status   string `json:"status"`
-	Progress int    `json:"progress"`
-	URL      string `json:"url,omitempty"`
-	Error    any    `json:"error,omitempty"`
-	Seconds  string `json:"seconds,omitempty"`
-	Size     string `json:"size,omitempty"`
+	Status             string `json:"status"`
+	Progress           int    `json:"progress"`
+	URL                string `json:"url,omitempty"`
+	RemixedFromVideoID string `json:"remixed_from_video_id,omitempty"`
+	Error              any    `json:"error,omitempty"`
+	Seconds            string `json:"seconds,omitempty"`
+	Size               string `json:"size,omitempty"`
 }
 
 // ==================== 脚本生成 ====================

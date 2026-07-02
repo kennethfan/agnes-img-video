@@ -336,6 +336,11 @@ func (c *AgnesClient) CheckVideoStatus(videoID string) (*model.AgnesVideoStatusR
 		return nil, fmt.Errorf("解析状态响应失败: %w", err)
 	}
 
+	// 兼容：Agnes API 有时将视频 URL 放在 remixed_from_video_id 字段
+	if status.URL == "" && status.RemixedFromVideoID != "" {
+		status.URL = status.RemixedFromVideoID
+	}
+
 	return &status, nil
 }
 
