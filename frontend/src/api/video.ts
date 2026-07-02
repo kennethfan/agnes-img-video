@@ -1,5 +1,10 @@
 import client from './client'
-import type { VideoCreateRequest, VideoTaskResponse, VideoStatus } from '../types'
+import type { ScriptGenRequest, ScriptGenResponse, VideoCreateRequest, VideoTaskResponse, VideoStatus } from '../types'
+
+export async function generateScript(data: ScriptGenRequest): Promise<ScriptGenResponse> {
+  const res = await client.post('/api/v1/videos/generate-script', data, { timeout: 120000 })
+  return res.data
+}
 
 export async function createTextToVideo(data: VideoCreateRequest): Promise<VideoTaskResponse> {
   const res = await client.post('/api/v1/videos/text-to-video', data, { timeout: 300000 })

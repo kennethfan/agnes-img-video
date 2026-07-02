@@ -5,6 +5,7 @@ import ApiConfig from './components/ApiConfig.vue'
 import TextToImage from './views/TextToImage.vue'
 import ImageToImage from './views/ImageToImage.vue'
 import BatchGen from './views/BatchGen.vue'
+import ScriptGen from './views/ScriptGen.vue'
 import TextToVideo from './views/TextToVideo.vue'
 import ImageToVideo from './views/ImageToVideo.vue'
 import MultiImageVideo from './views/MultiImageVideo.vue'
@@ -36,6 +37,9 @@ onMounted(async () => {
         </el-tab-pane>
         <el-tab-pane label="批量生成" name="batch">
           <BatchGen />
+        </el-tab-pane>
+        <el-tab-pane label="脚本生成" name="script">
+          <ScriptGen />
         </el-tab-pane>
         <el-tab-pane label="文生视频" name="text2vid">
           <TextToVideo />

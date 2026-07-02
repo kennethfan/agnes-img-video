@@ -63,6 +63,17 @@ export interface HistoryRecord {
   extra?: Record<string, unknown>
 }
 
+export interface ScriptGenRequest {
+  topic: string
+  duration?: number
+  style?: string
+  language?: string
+}
+
+export interface ScriptGenResponse {
+  script: string
+}
+
 export interface SSEHandlers {
   onProgress?: (event: VideoEvent) => void
   onComplete?: (event: VideoEvent) => void
