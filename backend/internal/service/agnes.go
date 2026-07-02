@@ -354,7 +354,11 @@ type VideoOptions struct {
 	NumFrames         *int
 	ImageURLs         []string
 	Mode              string
+	RecordType        string // "text2video" / "image2video" / "multi_image_video" — 用于历史记录
 }
+
+// VideoCompleteFunc 视频完成回调
+type VideoCompleteFunc func(taskID, prompt, resultURL string, opts VideoOptions)
 
 func ratioToSize(aspectRatio string) map[string]int {
 	sizes := map[string]map[string]int{

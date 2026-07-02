@@ -65,6 +65,9 @@ func main() {
 	historyHandler := handler.NewHistoryHandler()
 	configHandler := handler.NewConfigHandler(configPath)
 
+	// 设置视频完成回调（自动保存历史记录）
+	handler.SetupVideoHistoryCallback(taskMgr, svc)
+
 	// 设置路由
 	r := gin.Default()
 	r.Use(middleware.SetupCORS())

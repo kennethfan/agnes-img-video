@@ -30,10 +30,16 @@ type VideoTask struct {
 
 // TaskManager 视频任务管理器
 type TaskManager struct {
-	mu       sync.RWMutex
-	tasks    map[string]*VideoTask
-	client   *AgnesClient
-	sem      chan struct{} // 并发限制信号量
+	mu         sync.RWMutex
+	tasks      map[string]*VideoTask
+	client     *AgnesClient
+	sem        chan struct{} // 并发限制信号量
+	onComplete VideoCompleteFunc
+}
+
+// SetOnComplete 设置视频完成回调（供 handler 调用，用于保存历史记录等）
+func (tm *TaskManager) SetOnComplete(fn VideoCompleteFunc) {
+	tm.onComplete = fn
 }
 
 // NewTaskManager 创建任务管理器
@@ -212,6 +218,10 @@ func (tm *TaskManager) startPolling(task *VideoTask, prompt string, opts VideoOp
 				URL:     status.URL,
 				Seconds: status.Seconds,
 			})
+			// 触发完成回调（保存历史记录等）
+			if tm.onComplete != nil {
+				tm.onComplete(task.ID, prompt, status.URL, opts)
+			}
 			return
 
 		case "failed":

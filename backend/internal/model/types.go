@@ -116,3 +116,37 @@ type AgnesVideoStatusResponse struct {
 	Seconds  string `json:"seconds,omitempty"`
 	Size     string `json:"size,omitempty"`
 }
+
+// ==================== 脚本生成 ====================
+
+type ScriptGenRequest struct {
+	Topic       string `json:"topic" binding:"required"`
+	Duration    int    `json:"duration"`
+	Style       string `json:"style"`
+	Language    string `json:"language"`
+}
+
+type ScriptGenResponse struct {
+	Script string `json:"script"`
+}
+
+// ChatCompletionRequest OpenAI 兼容的聊天请求
+type ChatCompletionRequest struct {
+	Model       string              `json:"model"`
+	Messages    []ChatMessage       `json:"messages"`
+	Temperature float64             `json:"temperature,omitempty"`
+	MaxTokens   int                 `json:"max_tokens,omitempty"`
+}
+
+type ChatMessage struct {
+	Role    string `json:"role"`
+	Content string `json:"content"`
+}
+
+type ChatCompletionResponse struct {
+	Choices []ChatChoice `json:"choices"`
+}
+
+type ChatChoice struct {
+	Message ChatMessage `json:"message"`
+}
