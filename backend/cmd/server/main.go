@@ -11,6 +11,7 @@ import (
 	"github.com/agnes-image-tool/backend/internal/config"
 	"github.com/agnes-image-tool/backend/internal/handler"
 	"github.com/agnes-image-tool/backend/internal/middleware"
+	"github.com/agnes-image-tool/backend/internal/repository"
 	"github.com/agnes-image-tool/backend/internal/service"
 )
 
@@ -30,7 +31,7 @@ func main() {
 	}
 
 	configPath := filepath.Join(projectRoot, ".config.json")
-	historyPath := filepath.Join(projectRoot, "history.json")
+	dbPath := filepath.Join(projectRoot, "history.db")
 	outputsPath := filepath.Join(projectRoot, "outputs")
 
 	// 确保 outputs/ 目录存在
@@ -47,14 +48,19 @@ func main() {
 
 	log.Printf("配置加载完成: base_url=%s, model=%s", cfg.BaseURL, cfg.Model)
 	log.Printf("配置文件: %s", configPath)
-	log.Printf("历史文件: %s", historyPath)
+	log.Printf("数据库: %s", dbPath)
 	log.Printf("输出目录: %s", outputsPath)
 
 	// 创建服务
 	svc := service.NewAgnesClient(cfg.APIKey, cfg.BaseURL)
 
-	// 设置历史记录路径
-	handler.SetHistoryPath(historyPath)
+	// 初始化 SQLite 数据库
+	histRepo, err := repository.NewHistoryRepo(dbPath)
+	if err != nil {
+		log.Fatalf("初始化数据库失败: %v", err)
+	}
+	defer histRepo.Close()
+	handler.SetHistoryRepo(histRepo)
 
 	// 创建视频任务管理器
 	taskMgr := service.NewTaskManager(svc)
@@ -62,7 +68,7 @@ func main() {
 	// 创建 handler
 	imageHandler := handler.NewImageHandler(svc)
 	videoHandler := handler.NewVideoHandler(svc, taskMgr)
-	historyHandler := handler.NewHistoryHandler()
+	historyHandler := handler.NewHistoryHandler(histRepo)
 	configHandler := handler.NewConfigHandler(configPath)
 
 	// 设置视频完成回调（自动保存历史记录）

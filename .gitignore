@@ -22,7 +22,12 @@ env/
 # App generated files
 outputs/
 history.json
+history.db
+*.db
 .config.json
+
+# Build artifacts
+backend/bin/
 
 # OS
 .DS_Store

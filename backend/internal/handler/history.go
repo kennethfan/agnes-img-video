@@ -1,120 +1,56 @@
 package handler
 
 import (
-	"encoding/json"
+	"log"
 	"net/http"
-	"os"
-	"sync"
-	"time"
 
 	"github.com/gin-gonic/gin"
 
 	"github.com/agnes-image-tool/backend/internal/model"
+	"github.com/agnes-image-tool/backend/internal/repository"
 )
 
-var (
-	historyMu     sync.RWMutex
-	historyMaxLen = 100
-	historyPath   = "../history.json" // 相对于 backend/ 目录
-)
+var historyRepo *repository.HistoryRepo
 
-// SetHistoryPath 设置历史记录文件路径（由 main.go 调用）
-func SetHistoryPath(path string) {
-	historyMu.Lock()
-	defer historyMu.Unlock()
-	historyPath = path
+func SetHistoryRepo(repo *repository.HistoryRepo) {
+	historyRepo = repo
 }
 
-// GetHistoryPath 获取当前历史记录文件路径
-func GetHistoryPath() string {
-	historyMu.RLock()
-	defer historyMu.RUnlock()
-	return historyPath
+type HistoryHandler struct {
+	repo *repository.HistoryRepo
 }
 
-// HistoryHandler 历史记录相关 handler
-type HistoryHandler struct{}
-
-func NewHistoryHandler() *HistoryHandler {
-	return &HistoryHandler{}
+func NewHistoryHandler(repo *repository.HistoryRepo) *HistoryHandler {
+	return &HistoryHandler{repo: repo}
 }
 
-// GetHistory 获取历史记录列表
-// GET /api/v1/history
 func (h *HistoryHandler) GetHistory(c *gin.Context) {
-	records := loadHistory()
-	if records == nil {
+	records, err := h.repo.GetRecords(100)
+	if err != nil {
+		log.Printf("[History] 读取失败: %v", err)
 		records = []model.HistoryRecord{}
 	}
 	c.JSON(http.StatusOK, gin.H{"records": records})
 }
 
-// ClearHistory 清空历史记录
-// DELETE /api/v1/history
 func (h *HistoryHandler) ClearHistory(c *gin.Context) {
-	historyMu.Lock()
-	defer historyMu.Unlock()
-
-	if err := os.WriteFile(historyPath, []byte("[]"), 0644); err != nil {
+	if err := h.repo.ClearRecords(); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "清空历史记录失败: " + err.Error()})
 		return
 	}
-
 	c.JSON(http.StatusOK, gin.H{"ok": true})
 }
 
-// ==================== 文件 I/O ====================
-
-func loadHistory() []model.HistoryRecord {
-	historyMu.RLock()
-	path := historyPath
-	historyMu.RUnlock()
-
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return nil
-	}
-
-	var records []model.HistoryRecord
-	if err := json.Unmarshal(data, &records); err != nil {
-		return nil
-	}
-	return records
-}
-
-func saveHistory(records []model.HistoryRecord) {
-	historyMu.Lock()
-	path := historyPath
-	historyMu.Unlock()
-
-	data, err := json.MarshalIndent(records, "", "  ")
-	if err != nil {
+func saveHistoryRecord(prompt string, imagePaths []string, mode string, extra any) {
+	if historyRepo == nil {
+		log.Printf("[History] repository 未初始化，跳过历史记录")
 		return
 	}
-	os.WriteFile(path, data, 0644)
-}
-
-// saveHistoryRecord 插入一条新历史记录（供其他 handler 调用）
-func saveHistoryRecord(prompt string, imagePaths []string, mode string, extra any) {
-	records := loadHistory()
-	if records == nil {
-		records = make([]model.HistoryRecord, 0, historyMaxLen)
+	if err := historyRepo.InsertRecord(prompt, imagePaths, mode, extra); err != nil {
+		log.Printf("[History] 保存失败: %v", err)
+		return
 	}
-
-	record := model.HistoryRecord{
-		Time:   time.Now().Format("2006-01-02 15:04:05"),
-		Mode:   mode,
-		Prompt: prompt,
-		Images: imagePaths,
+	if err := historyRepo.TrimRecords(100); err != nil {
+		log.Printf("[History] 清理旧记录失败: %v", err)
 	}
-	if extra != nil {
-		record.Extra = extra
-	}
-
-	records = append([]model.HistoryRecord{record}, records...)
-	if len(records) > historyMaxLen {
-		records = records[:historyMaxLen]
-	}
-
-	saveHistory(records)
 }
