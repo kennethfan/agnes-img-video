@@ -20,6 +20,7 @@ const (
 	T2IModel      = "agnes-image-2.1-flash"
 	IMG2IMGModel  = "agnes-image-2.1-flash"
 	VideoModel    = "agnes-video-v2.0"
+	ChatModel     = "agnes-2.0-flash"
 	OutputDir     = "outputs"
 	DownloadDir   = "../outputs" // 相对于 backend/ 目录
 )
@@ -213,6 +214,46 @@ func (c *AgnesClient) DownloadVideo(url, prefix string) (string, error) {
 	}
 
 	return filepath, nil
+}
+
+// ==================== 脚本生成 ====================
+
+// GenerateScript 调用聊天 API 生成视频脚本
+func (c *AgnesClient) GenerateScript(topic string, duration int, style, language string) (string, error) {
+	systemPrompt := "你是一个专业的视频脚本撰写专家。请根据用户提供的主题，生成一份结构化的视频脚本。" +
+		"脚本应包含：场景描述、旁白文案、镜头建议、时长分配。请用 Markdown 格式输出。"
+
+	if language == "en" {
+		systemPrompt = "You are a professional video script writer. Generate a structured video script based on the user's topic. " +
+			"Include: scene descriptions, narration text, camera suggestions, and duration allocation. Output in Markdown format."
+	}
+
+	userPrompt := fmt.Sprintf("主题：%s\n视频时长：%d秒\n风格：%s",
+		topic, duration, style)
+	if style == "" {
+		userPrompt = fmt.Sprintf("主题：%s\n视频时长：%d秒", topic, duration)
+	}
+
+	req := model.ChatCompletionRequest{
+		Model: ChatModel,
+		Messages: []model.ChatMessage{
+			{Role: "system", Content: systemPrompt},
+			{Role: "user", Content: userPrompt},
+		},
+		Temperature: 0.7,
+		MaxTokens:   2048,
+	}
+
+	var resp model.ChatCompletionResponse
+	if err := c.doRequest("POST", "/chat/completions", req, &resp); err != nil {
+		return "", fmt.Errorf("生成脚本失败: %w", err)
+	}
+
+	if len(resp.Choices) == 0 {
+		return "", fmt.Errorf("API 返回中未找到脚本内容")
+	}
+
+	return resp.Choices[0].Message.Content, nil
 }
 
 // ==================== 视频生成 ====================

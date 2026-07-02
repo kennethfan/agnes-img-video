@@ -83,10 +83,11 @@ func main() {
 		api.GET("/config", configHandler.GetConfig)
 		api.PUT("/config", configHandler.UpdateConfig)
 
-		// 视频
+		// 视频 & 脚本
 		api.POST("/videos/text-to-video", videoHandler.TextToVideo)
 		api.POST("/videos/image-to-video", videoHandler.ImageToVideo)
 		api.POST("/videos/multi-image", videoHandler.MultiImageVideo)
+		api.POST("/videos/generate-script", videoHandler.GenerateScript)
 		api.GET("/videos/:taskId", videoHandler.GetTaskStatus)
 		api.GET("/videos/stream/:taskId", videoHandler.StreamSSE)
 

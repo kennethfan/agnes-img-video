@@ -34,6 +34,7 @@ func (h *VideoHandler) TextToVideo(c *gin.Context) {
 	}
 
 	opts := h.buildVideoOptions(req)
+	opts.RecordType = "text2video"
 
 	// 提交任务
 	videoID, err := h.svc.SubmitVideoTask(h.svc.BuildVideoPayload(req.Prompt, opts))
@@ -67,6 +68,7 @@ func (h *VideoHandler) ImageToVideo(c *gin.Context) {
 	}
 
 	opts := h.buildVideoOptions(req)
+	opts.RecordType = "image2video"
 
 	var videoID string
 	var err error
@@ -140,6 +142,7 @@ func (h *VideoHandler) MultiImageVideo(c *gin.Context) {
 	}
 
 	opts := h.buildVideoOptions(req)
+	opts.RecordType = "multi_image_video"
 	opts.ImageURLs = req.ImageURLs
 	opts.Mode = req.Mode
 
@@ -161,6 +164,31 @@ func (h *VideoHandler) MultiImageVideo(c *gin.Context) {
 	h.mgr.CreateTask(videoID, req.Prompt, opts)
 	log.Printf("[Video] 多图视频任务已创建: %s", videoID)
 	c.JSON(http.StatusOK, model.VideoTaskResponse{TaskID: videoID})
+}
+
+// GenerateScript 生成视频脚本
+func (h *VideoHandler) GenerateScript(c *gin.Context) {
+	var req model.ScriptGenRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "参数错误: " + err.Error()})
+		return
+	}
+
+	if req.Topic == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "主题不能为空"})
+		return
+	}
+	if req.Duration <= 0 {
+		req.Duration = 30
+	}
+
+	script, err := h.svc.GenerateScript(req.Topic, req.Duration, req.Style, req.Language)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "生成脚本失败: " + err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, model.ScriptGenResponse{Script: script})
 }
 
 // GetTaskStatus 查询任务状态
@@ -232,6 +260,28 @@ func (h *VideoHandler) StreamSSE(c *gin.Context) {
 		case <-c.Request.Context().Done():
 			return false
 		}
+	})
+}
+
+// SetupVideoHistoryCallback 设置视频完成时自动保存历史记录
+func SetupVideoHistoryCallback(tm *service.TaskManager, svc *service.AgnesClient) {
+	tm.SetOnComplete(func(taskID, prompt, resultURL string, opts service.VideoOptions) {
+		if resultURL == "" {
+			return
+		}
+		// 下载视频到本地
+		localPath, err := svc.DownloadVideo(resultURL, "video_"+opts.RecordType)
+		if err != nil {
+			log.Printf("[History] 下载视频失败 %s: %v", taskID, err)
+			return
+		}
+		// 保存历史记录
+		recordType := opts.RecordType
+		if recordType == "" {
+			recordType = "video"
+		}
+		saveHistoryRecord(prompt, []string{localPath}, recordType, nil)
+		log.Printf("[History] 视频任务 %s 历史已保存", taskID)
 	})
 }
 
