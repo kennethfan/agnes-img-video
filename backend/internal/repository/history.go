@@ -4,6 +4,8 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"log"
+	"os"
 
 	"github.com/agnes-image-tool/backend/internal/model"
 	_ "github.com/mattn/go-sqlite3"
@@ -43,6 +45,10 @@ func (r *HistoryRepo) Close() error {
 }
 
 func (r *HistoryRepo) InsertRecord(prompt string, images []string, mode string, extra any) error {
+	return r.insertRecordAt("datetime('now','localtime')", prompt, images, mode, extra)
+}
+
+func (r *HistoryRepo) insertRecordAt(time string, prompt string, images []string, mode string, extra any) error {
 	imagesJSON, err := json.Marshal(images)
 	if err != nil {
 		return fmt.Errorf("序列化图片列表失败: %w", err)
@@ -59,10 +65,51 @@ func (r *HistoryRepo) InsertRecord(prompt string, images []string, mode string, 
 	}
 
 	_, err = r.db.Exec(
-		"INSERT INTO history (time, mode, prompt, images, extra) VALUES (datetime('now','localtime'), ?, ?, ?, ?)",
-		mode, prompt, string(imagesJSON), extraJSON,
+		"INSERT INTO history (time, mode, prompt, images, extra) VALUES (?, ?, ?, ?, ?)",
+		time, mode, prompt, string(imagesJSON), extraJSON,
 	)
 	return err
+}
+
+func (r *HistoryRepo) ImportFromJSON(jsonPath string) (int, error) {
+	data, err := os.ReadFile(jsonPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return 0, nil // 文件不存在，跳过
+		}
+		return 0, fmt.Errorf("读取 JSON 文件失败: %w", err)
+	}
+
+	var records []model.HistoryRecord
+	if err := json.Unmarshal(data, &records); err != nil {
+		return 0, fmt.Errorf("解析 JSON 失败: %w", err)
+	}
+
+	if len(records) == 0 {
+		return 0, nil
+	}
+
+	imported := 0
+	for _, rec := range records {
+		if rec.Time == "" {
+			continue
+		}
+		if err := r.insertRecordAt(rec.Time, rec.Prompt, rec.Images, rec.Mode, rec.Extra); err != nil {
+			log.Printf("[Migration] 导入记录失败 (time=%s, mode=%s): %v", rec.Time, rec.Mode, err)
+			continue
+		}
+		imported++
+	}
+
+	// 重命名已导入的文件，防止二次导入
+	if imported > 0 {
+		backupPath := jsonPath + ".migrated"
+		if err := os.Rename(jsonPath, backupPath); err != nil {
+			log.Printf("[Migration] 备份文件失败: %v", err)
+		}
+	}
+
+	return imported, nil
 }
 
 func (r *HistoryRepo) GetRecords(limit int) ([]model.HistoryRecord, error) {

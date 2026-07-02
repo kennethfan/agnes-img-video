@@ -62,6 +62,14 @@ func main() {
 	defer histRepo.Close()
 	handler.SetHistoryRepo(histRepo)
 
+	// 从 history.json 导入旧数据（如果存在）
+	oldJSONPath := filepath.Join(projectRoot, "history.json")
+	if n, err := histRepo.ImportFromJSON(oldJSONPath); err != nil {
+		log.Printf("[Migration] 导入 history.json 失败: %v", err)
+	} else if n > 0 {
+		log.Printf("[Migration] 成功从 history.json 导入 %d 条记录", n)
+	}
+
 	// 创建视频任务管理器
 	taskMgr := service.NewTaskManager(svc)
 
