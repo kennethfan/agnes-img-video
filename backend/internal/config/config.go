@@ -46,6 +46,15 @@ func LoadConfig(configPath, apiKeyEnv string) (*model.Config, error) {
 	if envKey := os.Getenv(apiKeyEnv); envKey != "" {
 		cfg.APIKey = envKey
 	}
+	if envToken := os.Getenv("GITHUB_TOKEN"); envToken != "" {
+		cfg.GithubToken = envToken
+	}
+	if envRepo := os.Getenv("GITHUB_REPO"); envRepo != "" {
+		cfg.GithubRepo = envRepo
+	}
+	if envBranch := os.Getenv("GITHUB_BRANCH"); envBranch != "" {
+		cfg.GithubBranch = envBranch
+	}
 
 	mu.Lock()
 	cached = cfg
