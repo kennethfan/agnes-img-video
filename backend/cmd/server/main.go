@@ -17,7 +17,7 @@ import (
 
 func main() {
 	// 加载 .env 文件
-	_ = godotenv.Load("../.env") // 从 backend/ 目录加载项目根目录的 .env
+	_ = godotenv.Load(".env") // 从 backend/ 目录加载 .env
 
 	apiKey := os.Getenv("AGNES_API_KEY")
 	if apiKey == "" {
