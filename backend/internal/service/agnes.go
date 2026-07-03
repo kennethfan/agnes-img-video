@@ -23,14 +23,13 @@ const (
 )
 
 type AgnesClient struct {
-	apiKey      string
-	baseURL     string
-	client      *http.Client
-	github      *GithubStorage
-	t2iModel    string
-	img2imgModel string
-	videoModel  string
-	chatModel   string
+	apiKey     string
+	baseURL    string
+	client     *http.Client
+	github     *GithubStorage
+	imageModel string
+	videoModel string
+	chatModel  string
 }
 
 // SetGithubStorage 配置 GitHub 文件存储（启用后下载会自动上传到仓库）
@@ -38,17 +37,16 @@ func (c *AgnesClient) SetGithubStorage(gs *GithubStorage) {
 	c.github = gs
 }
 
-func NewAgnesClient(apiKey, baseURL, t2iModel, img2imgModel, videoModel, chatModel string) *AgnesClient {
+func NewAgnesClient(apiKey, baseURL, imageModel, videoModel, chatModel string) *AgnesClient {
 	return &AgnesClient{
-		apiKey:       apiKey,
-		baseURL:      strings.TrimRight(baseURL, "/"),
+		apiKey:  apiKey,
+		baseURL: strings.TrimRight(baseURL, "/"),
 		client: &http.Client{
 			Timeout: 120 * time.Second,
 		},
-		t2iModel:     t2iModel,
-		img2imgModel: img2imgModel,
-		videoModel:   videoModel,
-		chatModel:    chatModel,
+		imageModel: imageModel,
+		videoModel: videoModel,
+		chatModel:  chatModel,
 	}
 }
 
@@ -63,7 +61,7 @@ func (c *AgnesClient) TextToImage(prompt, size string, n int, negativePrompt str
 	}
 
 	payload := map[string]any{
-		"model":  c.t2iModel,
+		"model":  c.imageModel,
 		"prompt": prompt,
 		"size":   size,
 		"n":      n,
@@ -120,7 +118,7 @@ func (c *AgnesClient) ImageToImage(imagePath, prompt, size string, n int, streng
 	imageURL := fmt.Sprintf("data:%s;base64,%s", mimeType, b64)
 
 	payload := map[string]any{
-		"model":  c.img2imgModel,
+		"model":  c.imageModel,
 		"prompt": prompt,
 		"size":   size,
 		"n":      n,

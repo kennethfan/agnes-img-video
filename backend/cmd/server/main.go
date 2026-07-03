@@ -46,7 +46,7 @@ func main() {
 	log.Printf("输出目录: %s", outputsPath)
 
 	// 创建服务
-	svc := service.NewAgnesClient(cfg.APIKey, cfg.BaseURL, cfg.T2IModel, cfg.IMG2IMGModel, cfg.VideoModel, cfg.ChatModel)
+	svc := service.NewAgnesClient(cfg.APIKey, cfg.BaseURL, cfg.ImageModel, cfg.VideoModel, cfg.ChatModel)
 
 	// GitHub 文件存储（如果配置了）
 	if cfg.GithubToken != "" && cfg.GithubRepo != "" {
