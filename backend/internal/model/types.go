@@ -3,9 +3,12 @@ package model
 // ==================== 配置 ====================
 
 type Config struct {
-	APIKey  string `json:"api_key"`
-	BaseURL string `json:"base_url"`
-	Model   string `json:"model"`
+	APIKey       string `json:"api_key"`
+	BaseURL      string `json:"base_url"`
+	Model        string `json:"model"`
+	GithubToken  string `json:"github_token"`
+	GithubRepo   string `json:"github_repo"`
+	GithubBranch string `json:"github_branch"`
 }
 
 // ==================== 图片请求/响应 ====================

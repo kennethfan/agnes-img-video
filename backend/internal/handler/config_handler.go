@@ -21,10 +21,12 @@ func NewConfigHandler(cfgPath string) *ConfigHandler {
 // GET /api/v1/config
 func (h *ConfigHandler) GetConfig(c *gin.Context) {
 	cfg := config.GetConfig()
-	// 不返回 API Key（安全原因）
+	// 不返回 API Key / Github Token（安全原因）
 	c.JSON(http.StatusOK, gin.H{
-		"base_url": cfg.BaseURL,
-		"model":    cfg.Model,
+		"base_url":      cfg.BaseURL,
+		"model":         cfg.Model,
+		"github_repo":   cfg.GithubRepo,
+		"github_branch": cfg.GithubBranch,
 	})
 }
 
@@ -47,6 +49,15 @@ func (h *ConfigHandler) UpdateConfig(c *gin.Context) {
 	}
 	if req.Model != "" {
 		current.Model = req.Model
+	}
+	if req.GithubToken != "" {
+		current.GithubToken = req.GithubToken
+	}
+	if req.GithubRepo != "" {
+		current.GithubRepo = req.GithubRepo
+	}
+	if req.GithubBranch != "" {
+		current.GithubBranch = req.GithubBranch
 	}
 
 	if err := config.SaveConfig(h.configPath, current); err != nil {

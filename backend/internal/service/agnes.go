@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"mime/multipart"
 	"net/http"
 	"os"
@@ -29,6 +30,12 @@ type AgnesClient struct {
 	apiKey  string
 	baseURL string
 	client  *http.Client
+	github  *GithubStorage
+}
+
+// SetGithubStorage 配置 GitHub 文件存储（启用后下载会自动上传到仓库）
+func (c *AgnesClient) SetGithubStorage(gs *GithubStorage) {
+	c.github = gs
 }
 
 func NewAgnesClient(apiKey, baseURL string) *AgnesClient {
@@ -176,6 +183,16 @@ func (c *AgnesClient) DownloadAndSave(url, prefix string) (string, error) {
 		return "", fmt.Errorf("写入文件失败: %w", err)
 	}
 
+	// 如果配置了 GitHub 存储，同步上传
+	if c.github != nil {
+		remotePath := fmt.Sprintf("images/%s", filename)
+		if dlURL, err := c.github.UploadFile(filepath, remotePath); err != nil {
+			log.Printf("[GitHub] 上传图片失败: %v", err)
+		} else {
+			log.Printf("[GitHub] 图片已上传: %s", dlURL)
+		}
+	}
+
 	return filepath, nil
 }
 
@@ -211,6 +228,16 @@ func (c *AgnesClient) DownloadVideo(url, prefix string) (string, error) {
 
 	if _, err := io.Copy(out, resp.Body); err != nil {
 		return "", fmt.Errorf("写入视频文件失败: %w", err)
+	}
+
+	// 如果配置了 GitHub 存储，同步上传
+	if c.github != nil {
+		remotePath := fmt.Sprintf("videos/%s", filename)
+		if dlURL, err := c.github.UploadFile(filepath, remotePath); err != nil {
+			log.Printf("[GitHub] 上传视频失败: %v", err)
+		} else {
+			log.Printf("[GitHub] 视频已上传: %s", dlURL)
+		}
 	}
 
 	return filepath, nil

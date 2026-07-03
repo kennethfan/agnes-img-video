@@ -38,6 +38,23 @@ async function handleSave() {
         <el-form-item label="Model">
           <el-input v-model="configStore.model" placeholder="agnes-image-2.1-flash" />
         </el-form-item>
+
+        <el-divider content-position="left">GitHub 存储（可选）</el-divider>
+
+        <el-form-item label="Token">
+          <el-input
+            v-model="configStore.githubToken"
+            type="password"
+            placeholder="GitHub Personal Access Token"
+            show-password
+          />
+        </el-form-item>
+        <el-form-item label="仓库">
+          <el-input v-model="configStore.githubRepo" placeholder="owner/repo" />
+        </el-form-item>
+        <el-form-item label="分支">
+          <el-input v-model="configStore.githubBranch" placeholder="main" />
+        </el-form-item>
         <el-form-item>
           <el-button type="primary" :loading="saving" @click="handleSave">
             保存配置

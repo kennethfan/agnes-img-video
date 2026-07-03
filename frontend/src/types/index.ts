@@ -2,6 +2,9 @@ export interface Config {
   api_key?: string
   base_url?: string
   model?: string
+  github_token?: string
+  github_repo?: string
+  github_branch?: string
 }
 
 export interface TextToImageRequest {

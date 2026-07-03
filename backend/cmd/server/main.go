@@ -54,6 +54,13 @@ func main() {
 	// 创建服务
 	svc := service.NewAgnesClient(cfg.APIKey, cfg.BaseURL)
 
+	// GitHub 文件存储（如果配置了）
+	if cfg.GithubToken != "" && cfg.GithubRepo != "" {
+		gs := service.NewGithubStorage(cfg.GithubToken, cfg.GithubRepo, cfg.GithubBranch)
+		svc.SetGithubStorage(gs)
+		log.Printf("[GitHub] 文件存储已启用: %s (branch: %s)", cfg.GithubRepo, cfg.GithubBranch)
+	}
+
 	// 初始化 SQLite 数据库
 	histRepo, err := repository.NewHistoryRepo(dbPath)
 	if err != nil {
