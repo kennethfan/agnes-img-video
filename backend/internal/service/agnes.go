@@ -18,19 +18,19 @@ import (
 )
 
 const (
-	T2IModel      = "agnes-image-2.1-flash"
-	IMG2IMGModel  = "agnes-image-2.1-flash"
-	VideoModel    = "agnes-video-v2.0"
-	ChatModel     = "agnes-2.0-flash"
-	OutputDir     = "outputs"
-	DownloadDir   = "../outputs" // 相对于 backend/ 目录
+	OutputDir   = "outputs"
+	DownloadDir = "../outputs" // 相对于 backend/ 目录
 )
 
 type AgnesClient struct {
-	apiKey  string
-	baseURL string
-	client  *http.Client
-	github  *GithubStorage
+	apiKey      string
+	baseURL     string
+	client      *http.Client
+	github      *GithubStorage
+	t2iModel    string
+	img2imgModel string
+	videoModel  string
+	chatModel   string
 }
 
 // SetGithubStorage 配置 GitHub 文件存储（启用后下载会自动上传到仓库）
@@ -38,13 +38,17 @@ func (c *AgnesClient) SetGithubStorage(gs *GithubStorage) {
 	c.github = gs
 }
 
-func NewAgnesClient(apiKey, baseURL string) *AgnesClient {
+func NewAgnesClient(apiKey, baseURL, t2iModel, img2imgModel, videoModel, chatModel string) *AgnesClient {
 	return &AgnesClient{
-		apiKey:  apiKey,
-		baseURL: strings.TrimRight(baseURL, "/"),
+		apiKey:       apiKey,
+		baseURL:      strings.TrimRight(baseURL, "/"),
 		client: &http.Client{
 			Timeout: 120 * time.Second,
 		},
+		t2iModel:     t2iModel,
+		img2imgModel: img2imgModel,
+		videoModel:   videoModel,
+		chatModel:    chatModel,
 	}
 }
 
@@ -59,7 +63,7 @@ func (c *AgnesClient) TextToImage(prompt, size string, n int, negativePrompt str
 	}
 
 	payload := map[string]any{
-		"model":  T2IModel,
+		"model":  c.t2iModel,
 		"prompt": prompt,
 		"size":   size,
 		"n":      n,
@@ -116,7 +120,7 @@ func (c *AgnesClient) ImageToImage(imagePath, prompt, size string, n int, streng
 	imageURL := fmt.Sprintf("data:%s;base64,%s", mimeType, b64)
 
 	payload := map[string]any{
-		"model":  IMG2IMGModel,
+		"model":  c.img2imgModel,
 		"prompt": prompt,
 		"size":   size,
 		"n":      n,
@@ -262,7 +266,7 @@ func (c *AgnesClient) GenerateScript(topic string, duration int, style, language
 	}
 
 	req := model.ChatCompletionRequest{
-		Model: ChatModel,
+		Model: c.chatModel,
 		Messages: []model.ChatMessage{
 			{Role: "system", Content: systemPrompt},
 			{Role: "user", Content: userPrompt},
@@ -374,7 +378,7 @@ func (c *AgnesClient) CheckVideoStatus(videoID string) (*model.AgnesVideoStatusR
 // BuildVideoPayload 构建视频请求 payload（共享逻辑）
 func (c *AgnesClient) BuildVideoPayload(prompt string, opts VideoOptions) map[string]any {
 	payload := map[string]any{
-		"model":  VideoModel,
+		"model":  c.videoModel,
 		"prompt": prompt,
 	}
 

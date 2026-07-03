@@ -9,9 +9,13 @@ import (
 )
 
 const (
-	DefaultBaseURL = "https://apihub.agnes-ai.com/v1"
-	DefaultModel   = "agnes-image-2.1-flash"
-	ConfigFileName = ".config.json"
+	DefaultBaseURL    = "https://apihub.agnes-ai.com/v1"
+	DefaultModel      = "agnes-image-2.1-flash"
+	DefaultT2IModel   = "agnes-image-2.1-flash"
+	DefaultIMG2IMG    = "agnes-image-2.1-flash"
+	DefaultVideoModel = "agnes-video-v2.0"
+	DefaultChatModel  = "agnes-2.0-flash"
+	ConfigFileName    = ".config.json"
 )
 
 var (
@@ -54,6 +58,26 @@ func LoadConfig(configPath, apiKeyEnv string) (*model.Config, error) {
 	}
 	if envBranch := os.Getenv("GITHUB_BRANCH"); envBranch != "" {
 		cfg.GithubBranch = envBranch
+	}
+	if v := os.Getenv("T2I_MODEL"); v != "" {
+		cfg.T2IModel = v
+	} else if cfg.T2IModel == "" {
+		cfg.T2IModel = DefaultT2IModel
+	}
+	if v := os.Getenv("IMG2IMG_MODEL"); v != "" {
+		cfg.IMG2IMGModel = v
+	} else if cfg.IMG2IMGModel == "" {
+		cfg.IMG2IMGModel = DefaultIMG2IMG
+	}
+	if v := os.Getenv("VIDEO_MODEL"); v != "" {
+		cfg.VideoModel = v
+	} else if cfg.VideoModel == "" {
+		cfg.VideoModel = DefaultVideoModel
+	}
+	if v := os.Getenv("CHAT_MODEL"); v != "" {
+		cfg.ChatModel = v
+	} else if cfg.ChatModel == "" {
+		cfg.ChatModel = DefaultChatModel
 	}
 
 	mu.Lock()

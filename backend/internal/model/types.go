@@ -9,6 +9,10 @@ type Config struct {
 	GithubToken  string `json:"github_token"`
 	GithubRepo   string `json:"github_repo"`
 	GithubBranch string `json:"github_branch"`
+	T2IModel     string `json:"t2i_model,omitempty"`
+	IMG2IMGModel string `json:"img2img_model,omitempty"`
+	VideoModel   string `json:"video_model,omitempty"`
+	ChatModel    string `json:"chat_model,omitempty"`
 }
 
 // ==================== 图片请求/响应 ====================

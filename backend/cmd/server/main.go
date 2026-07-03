@@ -3,7 +3,6 @@ package main
 import (
 	"log"
 	"os"
-	"path/filepath"
 
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
@@ -24,15 +23,10 @@ func main() {
 		log.Fatal("AGNES_API_KEY 环境变量未设置")
 	}
 
-	// 确定项目根目录（backend/ 的父目录）
-	projectRoot, err := findProjectRoot()
-	if err != nil {
-		log.Fatalf("无法确定项目根目录: %v", err)
-	}
-
-	configPath := filepath.Join(projectRoot, ".config.json")
-	dbPath := filepath.Join(projectRoot, "history.db")
-	outputsPath := filepath.Join(projectRoot, "outputs")
+	// 所有运行时数据都在 backend/ 目录下
+	configPath := ".config.json"
+	dbPath := "history.db"
+	outputsPath := "outputs"
 
 	// 确保 outputs/ 目录存在
 	os.MkdirAll(outputsPath, 0755)
@@ -52,7 +46,7 @@ func main() {
 	log.Printf("输出目录: %s", outputsPath)
 
 	// 创建服务
-	svc := service.NewAgnesClient(cfg.APIKey, cfg.BaseURL)
+	svc := service.NewAgnesClient(cfg.APIKey, cfg.BaseURL, cfg.T2IModel, cfg.IMG2IMGModel, cfg.VideoModel, cfg.ChatModel)
 
 	// GitHub 文件存储（如果配置了）
 	if cfg.GithubToken != "" && cfg.GithubRepo != "" {
@@ -70,8 +64,7 @@ func main() {
 	handler.SetHistoryRepo(histRepo)
 
 	// 从 history.json 导入旧数据（如果存在）
-	oldJSONPath := filepath.Join(projectRoot, "history.json")
-	if n, err := histRepo.ImportFromJSON(oldJSONPath); err != nil {
+	if n, err := histRepo.ImportFromJSON("history.json"); err != nil {
 		log.Printf("[Migration] 导入 history.json 失败: %v", err)
 	} else if n > 0 {
 		log.Printf("[Migration] 成功从 history.json 导入 %d 条记录", n)
@@ -129,25 +122,4 @@ func main() {
 	if err := r.Run(":" + port); err != nil {
 		log.Fatalf("服务器启动失败: %v", err)
 	}
-}
-
-func findProjectRoot() (string, error) {
-	// 尝试从当前工作目录找到项目根（包含 outputs/ 目录）
-	wd, err := os.Getwd()
-	if err != nil {
-		return "", err
-	}
-
-	// 如果当前在 backend/ 目录，返回父目录
-	if filepath.Base(wd) == "backend" {
-		return filepath.Dir(wd), nil
-	}
-
-	// 如果 outputs/ 目录存在，则当前就是根目录
-	if _, err := os.Stat(filepath.Join(wd, "outputs")); err == nil {
-		return wd, nil
-	}
-
-	// 否则使用 CWD
-	return wd, nil
 }
