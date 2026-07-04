@@ -44,7 +44,7 @@ func NewAgnesClient(apiKey, baseURL, imageModel, videoModel, chatModel string) *
 		apiKey:  apiKey,
 		baseURL: strings.TrimRight(baseURL, "/"),
 		client: &http.Client{
-			Timeout: 120 * time.Second,
+			Timeout: 180 * time.Second, // 增加到180秒，处理大图片需要更长时间
 		},
 		imageModel: imageModel,
 		videoModel: videoModel,
