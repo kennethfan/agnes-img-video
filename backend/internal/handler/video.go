@@ -46,18 +46,33 @@ func (h *VideoHandler) TextToVideo(c *gin.Context) {
 	// 创建任务管理器中的跟踪
 	h.mgr.CreateTask(videoID, req.Prompt, opts)
 
+	// 立即写入历史记录（待更新）
+	saveHistoryRecord(req.Prompt, []string{}, "text2video", map[string]any{"taskId": videoID})
+
 	log.Printf("[Video] 文生视频任务已创建: %s", videoID)
 	c.JSON(http.StatusOK, model.VideoTaskResponse{TaskID: videoID})
 }
 
 // ImageToVideo 图生视频
+// POST /api/v1/videos/image-to-video
+// Content-Type application/json: {"image_url": "https://...", "prompt": "...", ...}
+//   also supports {"image_urls": ["https://..."], ...} for compatibility
+// Content-Type multipart/form-data: image file + prompt + ...
 func (h *VideoHandler) ImageToVideo(c *gin.Context) {
 	var req model.VideoCreateRequest
 	// 尝试 JSON 绑定或表单
 	if c.Request.Header.Get("Content-Type") == "application/json" {
-		if err := c.ShouldBindJSON(&req); err != nil {
+		var jsonReq struct {
+			model.VideoCreateRequest
+			ImageURL string `json:"image_url"`
+		}
+		if err := c.ShouldBindJSON(&jsonReq); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "参数错误: " + err.Error()})
 			return
+		}
+		req = jsonReq.VideoCreateRequest
+		if jsonReq.ImageURL != "" && len(req.ImageURLs) == 0 {
+			req.ImageURLs = []string{jsonReq.ImageURL}
 		}
 	} else {
 		req.Prompt = c.PostForm("prompt")
@@ -124,6 +139,7 @@ func (h *VideoHandler) ImageToVideo(c *gin.Context) {
 	}
 
 	h.mgr.CreateTask(videoID, req.Prompt, opts)
+	saveHistoryRecord(req.Prompt, []string{}, "image2video", map[string]any{"taskId": videoID})
 	log.Printf("[Video] 图生视频任务已创建: %s", videoID)
 	c.JSON(http.StatusOK, model.VideoTaskResponse{TaskID: videoID})
 }
@@ -162,6 +178,7 @@ func (h *VideoHandler) MultiImageVideo(c *gin.Context) {
 	}
 
 	h.mgr.CreateTask(videoID, req.Prompt, opts)
+	saveHistoryRecord(req.Prompt, []string{}, "multi_image_video", map[string]any{"taskId": videoID})
 	log.Printf("[Video] 多图视频任务已创建: %s", videoID)
 	c.JSON(http.StatusOK, model.VideoTaskResponse{TaskID: videoID})
 }
@@ -187,6 +204,14 @@ func (h *VideoHandler) GenerateScript(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "生成脚本失败: " + err.Error()})
 		return
 	}
+
+	// 保存到历史记录
+	saveHistoryRecord(req.Topic, []string{}, "script_gen", map[string]any{
+		"script":   script,
+		"duration": req.Duration,
+		"style":    req.Style,
+		"language": req.Language,
+	})
 
 	c.JSON(http.StatusOK, model.ScriptGenResponse{Script: script})
 }
@@ -269,18 +294,28 @@ func SetupVideoHistoryCallback(tm *service.TaskManager, svc *service.AgnesClient
 		if resultURL == "" {
 			return
 		}
-		// 下载视频到本地
+		// 尝试下载视频到本地
+		paths := []string{resultURL}
 		localPath, err := svc.DownloadVideo(resultURL, "video_"+opts.RecordType)
 		if err != nil {
-			log.Printf("[History] 下载视频失败 %s: %v", taskID, err)
-			return
+			log.Printf("[History] 下载视频失败 %s: %v，将使用原始 URL", taskID, err)
+		} else {
+			paths = []string{localPath}
 		}
-		// 保存历史记录
+		// 更新已有的待完成记录（通过 extra.taskId 匹配）
+		if historyRepo != nil {
+			if id, err := historyRepo.FindByTaskId(taskID); err == nil && id > 0 {
+				updateHistoryImages(id, paths)
+				log.Printf("[History] 视频任务 %s 历史已更新", taskID)
+				return
+			}
+		}
+		// 未找到待更新记录时，创建新记录
 		recordType := opts.RecordType
 		if recordType == "" {
 			recordType = "video"
 		}
-		saveHistoryRecord(prompt, []string{localPath}, recordType, nil)
+		saveHistoryRecord(prompt, paths, recordType, nil)
 		log.Printf("[History] 视频任务 %s 历史已保存", taskID)
 	})
 }

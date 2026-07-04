@@ -1,10 +1,11 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { ElMessage } from 'element-plus'
-import { UploadFilled } from '@element-plus/icons-vue'
+import { UploadFilled, Link } from '@element-plus/icons-vue'
 import { imageToImage } from '../api/image'
 import ImageResult from '../components/ImageResult.vue'
 
+const inputMode = ref<'upload' | 'url'>('upload')
 const prompt = ref('')
 const negativePrompt = ref('')
 const size = ref('1024x1024')
@@ -12,6 +13,7 @@ const strength = ref(0.75)
 const loading = ref(false)
 const images = ref<string[]>([])
 const file = ref<File | null>(null)
+const imageUrl = ref('')
 
 const sizeOptions = [
   { value: '1024x1024', label: '1024x1024 (1:1)' },
@@ -24,8 +26,9 @@ function handleFileChange(uploadFile: any) {
 }
 
 async function handleGenerate() {
-  if (!file.value) {
-    ElMessage.warning('请上传图片')
+  const source = inputMode.value === 'upload' ? file.value : imageUrl.value.trim()
+  if (!source) {
+    ElMessage.warning(inputMode.value === 'upload' ? '请上传图片' : '请输入图片 URL')
     return
   }
   if (!prompt.value.trim()) {
@@ -36,7 +39,7 @@ async function handleGenerate() {
   images.value = []
   try {
     const res = await imageToImage(
-      file.value,
+      source,
       prompt.value,
       size.value,
       strength.value,
@@ -54,7 +57,20 @@ async function handleGenerate() {
 <template>
   <div>
     <el-form label-width="100px">
-      <el-form-item label="上传图片">
+      <el-form-item label="输入方式">
+        <el-radio-group v-model="inputMode">
+          <el-radio-button value="upload">
+            <el-icon style="vertical-align: middle"><upload-filled /></el-icon>
+            <span style="vertical-align: middle">上传图片</span>
+          </el-radio-button>
+          <el-radio-button value="url">
+            <el-icon style="vertical-align: middle"><Link /></el-icon>
+            <span style="vertical-align: middle">图片 URL</span>
+          </el-radio-button>
+        </el-radio-group>
+      </el-form-item>
+
+      <el-form-item v-if="inputMode === 'upload'" label="上传图片">
         <el-upload
           drag
           accept="image/*"
@@ -67,6 +83,14 @@ async function handleGenerate() {
           </el-icon>
           <div class="el-upload__text">拖拽图片到此处或 <em>点击上传</em></div>
         </el-upload>
+      </el-form-item>
+
+      <el-form-item v-if="inputMode === 'url'" label="图片 URL">
+        <el-input
+          v-model="imageUrl"
+          placeholder="请输入图片公网 URL，如 https://example.com/image.png"
+          clearable
+        />
       </el-form-item>
       <el-form-item label="风格描述">
         <el-input

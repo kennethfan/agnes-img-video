@@ -4,11 +4,23 @@ defineProps<{
   loading: boolean
 }>()
 
-function downloadImage(url: string) {
-  const a = document.createElement('a')
-  a.href = url
-  a.download = url.split('/').pop() || 'image.png'
-  a.click()
+async function downloadImage(url: string) {
+  try {
+    const resp = await fetch(url)
+    const blob = await resp.blob()
+    const blobUrl = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = blobUrl
+    a.download = url.split('/').pop() || 'image.png'
+    a.click()
+    URL.revokeObjectURL(blobUrl)
+  } catch (e) {
+    // fallback: 直接打开（同源场景）
+    const a = document.createElement('a')
+    a.href = url
+    a.download = url.split('/').pop() || 'image.png'
+    a.click()
+  }
 }
 </script>
 

@@ -62,6 +62,9 @@ func main() {
 	}
 	defer histRepo.Close()
 	handler.SetHistoryRepo(histRepo)
+	if gs := svc.GetGithubStorage(); gs != nil {
+		handler.SetGithubStorage(gs)
+	}
 
 	// 从 history.json 导入旧数据（如果存在）
 	if n, err := histRepo.ImportFromJSON("history.json"); err != nil {
@@ -81,6 +84,9 @@ func main() {
 
 	// 设置视频完成回调（自动保存历史记录）
 	handler.SetupVideoHistoryCallback(taskMgr, svc)
+
+	// 启动时恢复未完成的视频任务
+	go recoverPendingVideoTasks(svc, histRepo)
 
 	// 设置路由
 	r := gin.Default()
@@ -108,6 +114,8 @@ func main() {
 		// 历史
 		api.GET("/history", historyHandler.GetHistory)
 		api.DELETE("/history", historyHandler.ClearHistory)
+		api.DELETE("/history/:id", historyHandler.DeleteRecord)
+		api.POST("/history/delete", historyHandler.DeleteHistory)
 	}
 
 	// 静态文件服务 - outputs/ 目录
@@ -121,5 +129,41 @@ func main() {
 	log.Printf("启动服务器在 :%s", port)
 	if err := r.Run(":" + port); err != nil {
 		log.Fatalf("服务器启动失败: %v", err)
+	}
+}
+
+// recoverPendingVideoTasks 启动时检查未完成的视频任务，更新历史记录
+func recoverPendingVideoTasks(svc *service.AgnesClient, repo *repository.HistoryRepo) {
+	pending, err := repo.FindPendingVideos()
+	if err != nil {
+		log.Printf("[Recovery] 查询待处理视频任务失败: %v", err)
+		return
+	}
+	if len(pending) == 0 {
+		return
+	}
+	log.Printf("[Recovery] 发现 %d 个待处理视频任务，开始检查状态...", len(pending))
+	for _, p := range pending {
+		status, err := svc.CheckVideoStatus(p.TaskID)
+		if err != nil {
+			log.Printf("[Recovery] 查询任务 %s 状态失败: %v", p.TaskID, err)
+			continue
+		}
+		switch status.Status {
+		case "completed":
+			log.Printf("[Recovery] 任务 %s 已完成，更新历史记录", p.TaskID)
+			paths := []string{status.URL}
+			localPath, err := svc.DownloadVideo(status.URL, "video_recover_"+p.Mode)
+			if err != nil {
+				log.Printf("[Recovery] 下载视频 %s 失败: %v", p.TaskID, err)
+			} else {
+				paths = []string{localPath}
+			}
+			repo.UpdateRecordImages(p.ID, paths)
+		case "failed":
+			log.Printf("[Recovery] 任务 %s 已失败，跳过", p.TaskID)
+		default:
+			log.Printf("[Recovery] 任务 %s 仍在处理中（%s），跳过", p.TaskID, status.Status)
+		}
 	}
 }

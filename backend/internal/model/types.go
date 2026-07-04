@@ -43,11 +43,17 @@ type ImageResponse struct {
 // ==================== 历史记录 ====================
 
 type HistoryRecord struct {
+	ID     int64    `json:"id"`
 	Time   string   `json:"time"`
 	Mode   string   `json:"mode"`
 	Prompt string   `json:"prompt"`
 	Images []string `json:"images"`
 	Extra  any      `json:"extra,omitempty"`
+}
+
+type BatchDeleteRequest struct {
+	IDs         []int64 `json:"ids" binding:"required"`
+	DeleteFiles bool    `json:"delete_files"`
 }
 
 // ==================== 视频 ====================

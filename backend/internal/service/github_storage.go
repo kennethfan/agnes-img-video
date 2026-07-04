@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"path"
 	"strings"
 )
 
@@ -103,4 +104,76 @@ func (g *GithubStorage) UploadFile(localPath, remotePath string) (string, error)
 	}
 
 	return url, nil
+}
+
+func (g *GithubStorage) DeleteFile(remotePath string) error {
+	infoURL := fmt.Sprintf("https://api.github.com/repos/%s/contents/%s", g.repo, remotePath)
+	req, err := http.NewRequest("GET", infoURL, nil)
+	if err != nil {
+		return fmt.Errorf("创建查询请求失败: %w", err)
+	}
+	req.Header.Set("Authorization", "Bearer "+g.token)
+	req.Header.Set("Accept", "application/vnd.github.v3+json")
+
+	resp, err := g.client.Do(req)
+	if err != nil {
+		return fmt.Errorf("查询文件信息失败: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusNotFound {
+		return nil
+	}
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("查询文件返回 %d: %s", resp.StatusCode, string(body))
+	}
+
+	var info struct {
+		SHA string `json:"sha"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&info); err != nil {
+		return fmt.Errorf("解析文件信息失败: %w", err)
+	}
+
+	payload := map[string]any{
+		"message": fmt.Sprintf("delete %s", remotePath),
+		"branch":  g.branch,
+		"sha":     info.SHA,
+	}
+	body, err := json.Marshal(payload)
+	if err != nil {
+		return fmt.Errorf("序列化删除请求失败: %w", err)
+	}
+
+	delURL := fmt.Sprintf("https://api.github.com/repos/%s/contents/%s", g.repo, remotePath)
+	delReq, err := http.NewRequest("DELETE", delURL, strings.NewReader(string(body)))
+	if err != nil {
+		return fmt.Errorf("创建删除请求失败: %w", err)
+	}
+	delReq.Header.Set("Authorization", "Bearer "+g.token)
+	delReq.Header.Set("Content-Type", "application/json")
+	delReq.Header.Set("Accept", "application/vnd.github.v3+json")
+
+	delResp, err := g.client.Do(delReq)
+	if err != nil {
+		return fmt.Errorf("删除请求失败: %w", err)
+	}
+	defer delResp.Body.Close()
+
+	if delResp.StatusCode < 200 || delResp.StatusCode >= 300 {
+		respBody, _ := io.ReadAll(delResp.Body)
+		return fmt.Errorf("GitHub API 删除返回 %d: %s", delResp.StatusCode, string(respBody))
+	}
+
+	return nil
+}
+
+func (g *GithubStorage) DeleteByURL(rawURL string) error {
+	prefix := fmt.Sprintf("https://raw.githubusercontent.com/%s/%s/", g.repo, g.branch)
+	if !strings.HasPrefix(rawURL, prefix) {
+		return fmt.Errorf("不是本仓库的 GitHub URL: %s", rawURL)
+	}
+	remotePath := path.Clean(strings.TrimPrefix(rawURL, prefix))
+	return g.DeleteFile(remotePath)
 }

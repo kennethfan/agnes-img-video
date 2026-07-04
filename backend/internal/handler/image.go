@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"encoding/base64"
 	"fmt"
 	"net/http"
 	"os"
@@ -57,31 +58,87 @@ func (h *ImageHandler) TextToImage(c *gin.Context) {
 
 // ImageToImage 图生图
 // POST /api/v1/images/image-to-image
+// Content-Type application/json: {"image_url": "https://...", "prompt": "...", "size": "...", "strength": 0.75}
+// Content-Type multipart/form-data: image file + prompt + size + strength
 func (h *ImageHandler) ImageToImage(c *gin.Context) {
-	file, err := c.FormFile("image")
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "请上传图片文件"})
-		return
+	var imageValue string
+	var prompt string
+	size := "1024x1024"
+	strength := 0.75
+	negativePrompt := ""
+	n := 1
+
+	if c.Request.Header.Get("Content-Type") == "application/json" {
+		var req struct {
+			ImageURL       string  `json:"image_url"`
+			Prompt         string  `json:"prompt" binding:"required"`
+			Size           string  `json:"size"`
+			Strength       float64 `json:"strength"`
+			NegativePrompt string  `json:"negative_prompt"`
+		}
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "参数错误: " + err.Error()})
+			return
+		}
+		if req.ImageURL == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "image_url 不能为空"})
+			return
+		}
+		imageValue = req.ImageURL
+		prompt = req.Prompt
+		if req.Size != "" {
+			size = req.Size
+		}
+		if req.Strength > 0 {
+			strength = req.Strength
+		}
+		negativePrompt = req.NegativePrompt
+	} else {
+		// multipart/form-data：上传图片文件
+		file, err := c.FormFile("image")
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "请上传图片文件"})
+			return
+		}
+
+		tmpDir := "tmp"
+		os.MkdirAll(tmpDir, 0755)
+		tmpPath := filepath.Join(tmpDir, fmt.Sprintf("upload_%d_%s", time.Now().UnixNano(), file.Filename))
+		if err := c.SaveUploadedFile(file, tmpPath); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "保存上传文件失败: " + err.Error()})
+			return
+		}
+		defer os.Remove(tmpPath)
+
+		// 读取图片并编码为 base64 Data URI
+		imageData, err := os.ReadFile(tmpPath)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "读取图片失败: " + err.Error()})
+			return
+		}
+		b64 := base64.StdEncoding.EncodeToString(imageData)
+		ext := strings.ToLower(filepath.Ext(file.Filename))
+		mimeType := map[string]string{
+			".png": "image/png", ".jpg": "image/jpeg",
+			".jpeg": "image/jpeg", ".gif": "image/gif",
+			".webp": "image/webp",
+		}[ext]
+		if mimeType == "" {
+			mimeType = "image/png"
+		}
+		imageValue = fmt.Sprintf("data:%s;base64,%s", mimeType, b64)
+
+		prompt = c.PostForm("prompt")
+		if s := c.PostForm("size"); s != "" {
+			size = s
+		}
+		if s := c.PostForm("strength"); s != "" {
+			strength = parseFloat(s)
+		}
+		negativePrompt = c.PostForm("negative_prompt")
 	}
 
-	// 保存上传文件到临时目录
-	tmpDir := "tmp"
-	os.MkdirAll(tmpDir, 0755)
-	tmpPath := filepath.Join(tmpDir, fmt.Sprintf("upload_%d_%s", time.Now().UnixNano(), file.Filename))
-	if err := c.SaveUploadedFile(file, tmpPath); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "保存上传文件失败: " + err.Error()})
-		return
-	}
-	defer os.Remove(tmpPath)
-
-	prompt := c.PostForm("prompt")
-	size := c.DefaultPostForm("size", "1024x1024")
-	strength := c.DefaultPostForm("strength", "0.75")
-	negativePrompt := c.PostForm("negative_prompt")
-
-	n := 1 // 图生图默认 1 张
-
-	urls, err := h.svc.ImageToImage(tmpPath, prompt, size, n, parseFloat(strength), negativePrompt)
+	urls, err := h.svc.ImageToImage(imageValue, prompt, size, n, strength, negativePrompt)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return

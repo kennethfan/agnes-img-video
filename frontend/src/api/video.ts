@@ -12,15 +12,26 @@ export async function createTextToVideo(data: VideoCreateRequest): Promise<Video
 }
 
 export async function createImageToVideo(
-  imageFile: File,
+  image: File | string,
   prompt: string,
   duration: number = 5,
   aspectRatio: string = '16:9',
   frameRate: number = 24,
   negativePrompt: string = ''
 ): Promise<VideoTaskResponse> {
+  if (typeof image === 'string') {
+    const res = await client.post('/api/v1/videos/image-to-video', {
+      image_url: image,
+      prompt,
+      duration,
+      aspect_ratio: aspectRatio,
+      frame_rate: frameRate,
+      negative_prompt: negativePrompt || undefined,
+    }, { timeout: 300000 })
+    return res.data
+  }
   const formData = new FormData()
-  formData.append('image', imageFile)
+  formData.append('image', image)
   formData.append('prompt', prompt)
   formData.append('duration', String(duration))
   formData.append('aspect_ratio', aspectRatio)

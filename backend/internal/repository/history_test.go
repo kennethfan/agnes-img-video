@@ -18,11 +18,24 @@ func TestHistoryRepo(t *testing.T) {
 	defer repo.Close()
 
 	// Test Insert
-	err = repo.InsertRecord("test prompt", []string{"outputs/img.png"}, "test_mode", nil)
+	id, err := repo.InsertRecord("test prompt", []string{"outputs/img.png"}, "test_mode", nil)
 	if err != nil {
 		t.Fatalf("InsertRecord failed: %v", err)
 	}
-	t.Log("Insert OK")
+	t.Logf("Insert OK, id=%d", id)
+
+	// Test FindByTaskId (negative)
+	_, err = repo.FindByTaskId("nonexistent")
+	if err == nil {
+		t.Log("FindByTaskId: nonexistent returns no error (ok)")
+	}
+
+	// Test UpdateRecordImages
+	err = repo.UpdateRecordImages(id, []string{"outputs/updated.png"})
+	if err != nil {
+		t.Fatalf("UpdateRecordImages failed: %v", err)
+	}
+	t.Log("UpdateRecordImages OK")
 
 	// Test Query
 	records, err := repo.GetRecords(10)

@@ -2,7 +2,6 @@ package service
 
 import (
 	"bytes"
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -32,9 +31,12 @@ type AgnesClient struct {
 	chatModel  string
 }
 
-// SetGithubStorage 配置 GitHub 文件存储（启用后下载会自动上传到仓库）
 func (c *AgnesClient) SetGithubStorage(gs *GithubStorage) {
 	c.github = gs
+}
+
+func (c *AgnesClient) GetGithubStorage() *GithubStorage {
+	return c.github
 }
 
 func NewAgnesClient(apiKey, baseURL, imageModel, videoModel, chatModel string) *AgnesClient {
@@ -87,7 +89,7 @@ func (c *AgnesClient) TextToImage(prompt, size string, n int, negativePrompt str
 	return urls, nil
 }
 
-func (c *AgnesClient) ImageToImage(imagePath, prompt, size string, n int, strength float64, negativePrompt string) ([]string, error) {
+func (c *AgnesClient) ImageToImage(imageValue, prompt, size string, n int, strength float64, negativePrompt string) ([]string, error) {
 	if size == "" {
 		size = "1024x1024"
 	}
@@ -98,32 +100,13 @@ func (c *AgnesClient) ImageToImage(imagePath, prompt, size string, n int, streng
 		strength = 0.75
 	}
 
-	// 读取图片并编码为 base64
-	imageData, err := os.ReadFile(imagePath)
-	if err != nil {
-		return nil, fmt.Errorf("读取图片失败: %w", err)
-	}
-	b64 := base64.StdEncoding.EncodeToString(imageData)
-	ext := strings.ToLower(filepath.Ext(imagePath))
-	mimeType := map[string]string{
-		".png":  "image/png",
-		".jpg":  "image/jpeg",
-		".jpeg": "image/jpeg",
-		".gif":  "image/gif",
-		".webp": "image/webp",
-	}[ext]
-	if mimeType == "" {
-		mimeType = "image/png"
-	}
-	imageURL := fmt.Sprintf("data:%s;base64,%s", mimeType, b64)
-
 	payload := map[string]any{
 		"model":  c.imageModel,
 		"prompt": prompt,
 		"size":   size,
 		"n":      n,
 		"extra_body": map[string]any{
-			"image":    []string{imageURL},
+			"image":    []string{imageValue},
 			"strength": strength,
 		},
 	}
@@ -185,13 +168,15 @@ func (c *AgnesClient) DownloadAndSave(url, prefix string) (string, error) {
 		return "", fmt.Errorf("写入文件失败: %w", err)
 	}
 
-	// 如果配置了 GitHub 存储，同步上传
+	// 如果配置了 GitHub 存储，同步上传并返回 GitHub URL
 	if c.github != nil {
 		remotePath := fmt.Sprintf("images/%s", filename)
-		if dlURL, err := c.github.UploadFile(filepath, remotePath); err != nil {
+		dlURL, err := c.github.UploadFile(filepath, remotePath)
+		if err != nil {
 			log.Printf("[GitHub] 上传图片失败: %v", err)
 		} else {
 			log.Printf("[GitHub] 图片已上传: %s", dlURL)
+			return dlURL, nil
 		}
 	}
 
@@ -232,13 +217,15 @@ func (c *AgnesClient) DownloadVideo(url, prefix string) (string, error) {
 		return "", fmt.Errorf("写入视频文件失败: %w", err)
 	}
 
-	// 如果配置了 GitHub 存储，同步上传
+	// 如果配置了 GitHub 存储，同步上传并返回 GitHub URL
 	if c.github != nil {
 		remotePath := fmt.Sprintf("videos/%s", filename)
-		if dlURL, err := c.github.UploadFile(filepath, remotePath); err != nil {
+		dlURL, err := c.github.UploadFile(filepath, remotePath)
+		if err != nil {
 			log.Printf("[GitHub] 上传视频失败: %v", err)
 		} else {
 			log.Printf("[GitHub] 视频已上传: %s", dlURL)
+			return dlURL, nil
 		}
 	}
 

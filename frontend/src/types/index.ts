@@ -59,11 +59,17 @@ export interface VideoEvent {
 }
 
 export interface HistoryRecord {
+  id: number
   time: string
   mode: string
   prompt: string
   images: string[]
   extra?: Record<string, unknown>
+}
+
+export interface DeleteHistoryRequest {
+  ids: number[]
+  delete_files?: boolean
 }
 
 export interface ScriptGenRequest {

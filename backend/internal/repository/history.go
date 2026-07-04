@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strings"
 
 	"github.com/agnes-image-tool/backend/internal/model"
 	_ "github.com/mattn/go-sqlite3"
@@ -44,8 +45,30 @@ func (r *HistoryRepo) Close() error {
 	return r.db.Close()
 }
 
-func (r *HistoryRepo) InsertRecord(prompt string, images []string, mode string, extra any) error {
-	return r.insertRecordAt("datetime('now','localtime')", prompt, images, mode, extra)
+func (r *HistoryRepo) InsertRecord(prompt string, images []string, mode string, extra any) (int64, error) {
+	imagesJSON, err := json.Marshal(images)
+	if err != nil {
+		return 0, fmt.Errorf("序列化图片列表失败: %w", err)
+	}
+
+	var extraJSON *string
+	if extra != nil {
+		b, err := json.Marshal(extra)
+		if err != nil {
+			return 0, fmt.Errorf("序列化 extra 失败: %w", err)
+		}
+		s := string(b)
+		extraJSON = &s
+	}
+
+	res, err := r.db.Exec(
+		"INSERT INTO history (time, mode, prompt, images, extra) VALUES (datetime('now','localtime'), ?, ?, ?, ?)",
+		mode, prompt, string(imagesJSON), extraJSON,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return res.LastInsertId()
 }
 
 func (r *HistoryRepo) insertRecordAt(time string, prompt string, images []string, mode string, extra any) error {
@@ -117,7 +140,7 @@ func (r *HistoryRepo) GetRecords(limit int) ([]model.HistoryRecord, error) {
 		limit = 100
 	}
 	rows, err := r.db.Query(
-		"SELECT time, mode, prompt, images, extra FROM history ORDER BY id DESC LIMIT ?",
+		"SELECT id, time, mode, prompt, images, extra FROM history ORDER BY id DESC LIMIT ?",
 		limit,
 	)
 	if err != nil {
@@ -128,11 +151,12 @@ func (r *HistoryRepo) GetRecords(limit int) ([]model.HistoryRecord, error) {
 	var records []model.HistoryRecord
 	for rows.Next() {
 		var (
+			id                int64
 			time, mode, prompt string
 			imagesJSON         string
 			extraJSON          *string
 		)
-		if err := rows.Scan(&time, &mode, &prompt, &imagesJSON, &extraJSON); err != nil {
+		if err := rows.Scan(&id, &time, &mode, &prompt, &imagesJSON, &extraJSON); err != nil {
 			return nil, err
 		}
 
@@ -143,6 +167,7 @@ func (r *HistoryRepo) GetRecords(limit int) ([]model.HistoryRecord, error) {
 		}
 
 		rec := model.HistoryRecord{
+			ID:     id,
 			Time:   time,
 			Mode:   mode,
 			Prompt: prompt,
@@ -159,9 +184,102 @@ func (r *HistoryRepo) GetRecords(limit int) ([]model.HistoryRecord, error) {
 	return records, rows.Err()
 }
 
+func (r *HistoryRepo) DeleteRecord(id int64) error {
+	_, err := r.db.Exec("DELETE FROM history WHERE id = ?", id)
+	return err
+}
+
+func (r *HistoryRepo) DeleteRecords(ids []int64) error {
+	if len(ids) == 0 {
+		return nil
+	}
+	placeholders := make([]string, len(ids))
+	args := make([]any, len(ids))
+	for i, id := range ids {
+		placeholders[i] = "?"
+		args[i] = id
+	}
+	q := fmt.Sprintf("DELETE FROM history WHERE id IN (%s)", strings.Join(placeholders, ","))
+	_, err := r.db.Exec(q, args...)
+	return err
+}
+
 func (r *HistoryRepo) ClearRecords() error {
 	_, err := r.db.Exec("DELETE FROM history")
 	return err
+}
+
+// PendingVideoInfo 待恢复的视频任务信息
+type PendingVideoInfo struct {
+	ID      int64
+	TaskID  string
+	Prompt  string
+	Mode    string
+}
+
+// FindByTaskId 通过 extra.taskId 查找历史记录 ID
+func (r *HistoryRepo) FindByTaskId(taskId string) (int64, error) {
+	var id int64
+	err := r.db.QueryRow(
+		"SELECT id FROM history WHERE json_extract(extra, '$.taskId') = ? ORDER BY id DESC LIMIT 1",
+		taskId,
+	).Scan(&id)
+	if err != nil {
+		return 0, err
+	}
+	return id, nil
+}
+
+// UpdateRecordImages 更新历史记录的图片列表
+func (r *HistoryRepo) UpdateRecordImages(id int64, images []string) error {
+	imagesJSON, err := json.Marshal(images)
+	if err != nil {
+		return fmt.Errorf("序列化图片列表失败: %w", err)
+	}
+	_, err = r.db.Exec("UPDATE history SET images = ? WHERE id = ?", string(imagesJSON), id)
+	return err
+}
+
+// FindPendingVideos 查找等待完成的视频任务（images 为空且有 taskId）
+func (r *HistoryRepo) FindPendingVideos() ([]PendingVideoInfo, error) {
+	rows, err := r.db.Query(`
+		SELECT id, mode, prompt, extra FROM history
+		WHERE images = '[]' AND extra IS NOT NULL AND extra != ''
+		ORDER BY id DESC
+	`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var results []PendingVideoInfo
+	for rows.Next() {
+		var id int64
+		var mode, prompt string
+		var extraJSON string
+		if err := rows.Scan(&id, &mode, &prompt, &extraJSON); err != nil {
+			continue
+		}
+		// 只筛选视频类型的记录
+		if !strings.HasSuffix(mode, "video") && mode != "video" {
+			continue
+		}
+		var extra map[string]any
+		if err := json.Unmarshal([]byte(extraJSON), &extra); err != nil {
+			continue
+		}
+		taskID, _ := extra["taskId"].(string)
+		if taskID == "" {
+			continue
+		}
+		results = append(results, PendingVideoInfo{
+			ID:     id,
+			TaskID: taskID,
+			Prompt: prompt,
+			Mode:   mode,
+		})
+	}
+	return results, rows.Err()
 }
 
 func (r *HistoryRepo) TrimRecords(max int) error {
