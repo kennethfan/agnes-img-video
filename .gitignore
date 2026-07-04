@@ -23,8 +23,13 @@ env/
 outputs/
 history.json
 history.db
+history.db-shm
+history.db-wal
 *.db
 .config.json
+
+# OpenCode
+.omo/
 
 # Build artifacts
 backend/bin/
