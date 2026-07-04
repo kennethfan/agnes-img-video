@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { textToImage } from '../api/image'
 import ImageResult from '../components/ImageResult.vue'
+import { useRedoStore } from '../stores/redo'
 
 const prompt = ref('')
 const negativePrompt = ref('')
@@ -10,12 +11,23 @@ const size = ref('1024x1024')
 const n = ref(1)
 const loading = ref(false)
 const images = ref<string[]>([])
+const redoStore = useRedoStore()
 
 const sizeOptions = [
   { value: '1024x1024', label: '1024x1024 (1:1)' },
   { value: '1024x1792', label: '1024x1792 (9:16)' },
   { value: '1792x1024', label: '1792x1024 (16:9)' },
 ]
+
+// 监听重做数据（flush: sync 确保同步触发）
+watch(() => redoStore.redoData, (newData) => {
+  if (newData && newData.mode === 'text2image') {
+    prompt.value = newData.prompt || ''
+    negativePrompt.value = newData.negativePrompt || ''
+    size.value = newData.size || '1024x1024'
+    n.value = newData.n || 1
+  }
+}, { flush: 'sync' })
 
 async function handleGenerate() {
   if (!prompt.value.trim()) {

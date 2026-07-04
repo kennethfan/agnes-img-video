@@ -1,26 +1,66 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { UploadFilled, Link } from '@element-plus/icons-vue'
 import { createImageToVideo } from '../api/video'
+import { useRedoStore } from '../stores/redo'
 
 const inputMode = ref<'upload' | 'url'>('upload')
 const prompt = ref('')
 const file = ref<File | null>(null)
 const imageUrl = ref('')
+const filePreviewUrl = ref('')
 const duration = ref(5)
 const aspectRatio = ref('16:9')
 const frameRate = ref(24)
 const loading = ref(false)
 const taskId = ref('')
+const redoStore = useRedoStore()
 
 const durationOptions = [3, 5, 8, 10, 15, 18]
 const ratioOptions = ['16:9', '9:16', '1:1', '4:3', '3:4']
 const fpsOptions = [12, 24, 30, 60]
 
+const previewUrl = computed(() => {
+  if (inputMode.value === 'upload') {
+    return filePreviewUrl.value
+  }
+  return imageUrl.value.trim()
+})
+
+// 监听重做数据（flush: sync 确保同步触发）
+watch(() => redoStore.redoData, (newData) => {
+  if (newData && newData.mode === 'image2video') {
+    prompt.value = newData.prompt || ''
+    inputMode.value = newData.inputMode || 'url'
+    imageUrl.value = newData.imageUrl || ''
+    duration.value = newData.duration || 5
+    aspectRatio.value = newData.aspectRatio || '16:9'
+    frameRate.value = newData.frameRate || 24
+  }
+}, { flush: 'sync' })
+
 function handleFileChange(uploadFile: any) {
+  // 清理旧的预览URL
+  if (filePreviewUrl.value) {
+    URL.revokeObjectURL(filePreviewUrl.value)
+  }
   file.value = uploadFile.raw || null
+  // 创建新的预览URL
+  if (file.value) {
+    filePreviewUrl.value = URL.createObjectURL(file.value)
+  } else {
+    filePreviewUrl.value = ''
+  }
 }
+
+// 切换输入模式时清理预览
+watch(inputMode, () => {
+  if (inputMode.value === 'url' && filePreviewUrl.value) {
+    URL.revokeObjectURL(filePreviewUrl.value)
+    filePreviewUrl.value = ''
+  }
+})
 
 async function handleGenerate() {
   const source = inputMode.value === 'upload' ? file.value : imageUrl.value.trim()
@@ -86,6 +126,15 @@ async function handleGenerate() {
           v-model="imageUrl"
           placeholder="请输入图片公网 URL，如 https://example.com/image.png"
           clearable
+        />
+      </el-form-item>
+
+      <el-form-item v-if="previewUrl" label="预览">
+        <el-image
+          :src="previewUrl"
+          fit="contain"
+          style="max-width: 300px; max-height: 200px; border-radius: 8px; border: 1px solid #e5e6eb"
+          :preview-src-list="[previewUrl]"
         />
       </el-form-item>
       <el-form-item label="提示词">

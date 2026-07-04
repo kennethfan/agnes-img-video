@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { createMultiImageVideo } from '../api/video'
+import { useRedoStore } from '../stores/redo'
 
 const prompt = ref('')
 const imageUrlsText = ref('')
@@ -11,6 +12,7 @@ const aspectRatio = ref('16:9')
 const frameRate = ref(24)
 const loading = ref(false)
 const taskId = ref('')
+const redoStore = useRedoStore()
 
 const durationOptions = [3, 5, 8, 10, 15, 18]
 const ratioOptions = ['16:9', '9:16', '1:1', '4:3', '3:4']
@@ -19,6 +21,18 @@ const modeOptions = [
   { value: 'ti2vid', label: '多图过渡' },
   { value: 'keyframes', label: '关键帧动画' },
 ]
+
+// 监听重做数据（flush: sync 确保同步触发）
+watch(() => redoStore.redoData, (newData) => {
+  if (newData && newData.mode === 'multi_image_video') {
+    prompt.value = newData.prompt || ''
+    imageUrlsText.value = newData.imageUrlsText || ''
+    mode.value = newData.videoMode || 'ti2vid'
+    duration.value = newData.duration || 5
+    aspectRatio.value = newData.aspectRatio || '16:9'
+    frameRate.value = newData.frameRate || 24
+  }
+}, { flush: 'sync' })
 
 async function handleGenerate() {
   const urls = imageUrlsText.value

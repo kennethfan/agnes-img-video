@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { generateScript } from '../api/video'
+import { useRedoStore } from '../stores/redo'
 
 const topic = ref('')
 const style = ref('')
@@ -10,6 +11,7 @@ const language = ref('zh')
 const loading = ref(false)
 const script = ref('')
 const copied = ref(false)
+const redoStore = useRedoStore()
 
 const durationOptions = [15, 30, 60, 90, 120, 180]
 const styleOptions = [
@@ -21,6 +23,17 @@ const styleOptions = [
   { value: '宣传片', label: '宣传片' },
   { value: '教程说明', label: '教程说明' },
 ]
+
+// 监听重做数据（flush: sync 确保同步触发）
+watch(() => redoStore.redoData, (newData) => {
+  if (newData && newData.mode === 'script_gen') {
+    topic.value = newData.topic || ''
+    script.value = newData.script || ''
+    style.value = newData.style || ''
+    duration.value = newData.duration || 30
+    language.value = newData.language || 'zh'
+  }
+}, { flush: 'sync' })
 
 async function handleGenerate() {
   if (!topic.value.trim()) {

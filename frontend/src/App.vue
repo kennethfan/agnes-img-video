@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 import TextToImage from './views/TextToImage.vue'
 import ImageToImage from './views/ImageToImage.vue'
 import BatchGen from './views/BatchGen.vue'
@@ -8,8 +8,26 @@ import TextToVideo from './views/TextToVideo.vue'
 import ImageToVideo from './views/ImageToVideo.vue'
 import MultiImageVideo from './views/MultiImageVideo.vue'
 import History from './views/History.vue'
+import { useRedoStore } from './stores/redo'
 
 const activeTab = ref('text2img')
+const redoStore = useRedoStore()
+
+// 监听重做事件 — 只负责切换tab
+function handleRedoTrigger() {
+  const tab = redoStore.targetTab
+  if (tab) {
+    activeTab.value = tab
+  }
+}
+
+onMounted(() => {
+  window.addEventListener('redo-trigger', handleRedoTrigger)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('redo-trigger', handleRedoTrigger)
+})
 </script>
 
 <template>

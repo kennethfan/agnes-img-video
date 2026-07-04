@@ -3,6 +3,7 @@ import { ref, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { getHistory, clearHistory, deleteHistory, deleteRecord } from '../api/history'
 import type { HistoryRecord } from '../types'
+import { useRedoStore } from '../stores/redo'
 
 const records = ref<HistoryRecord[]>([])
 const loading = ref(false)
@@ -11,6 +12,7 @@ const previewVideoUrl = ref('')
 const selectedIds = ref<Set<number>>(new Set())
 const deleteFiles = ref(false)
 const expandedScripts = ref<Set<number>>(new Set())
+const redoStore = useRedoStore()
 
 const modeConfig: Record<string, { label: string; type: string; color: string }> = {
   text2image:        { label: '文生图',     type: 'primary', color: '#409eff' },
@@ -54,6 +56,89 @@ function toggleScript(id: number) {
   if (next.has(id)) next.delete(id)
   else next.add(id)
   expandedScripts.value = next
+}
+
+// 根据历史记录构建重做数据
+function handleRedo(rec: HistoryRecord) {
+  const extra = rec.extra || {}
+  
+  switch (rec.mode) {
+    case 'text2image':
+      redoStore.setRedoData({
+        mode: rec.mode,
+        prompt: rec.prompt,
+        negativePrompt: (extra.negative_prompt as string) || '',
+        size: (extra.size as string) || '1024x1024',
+        n: (extra.n as number) || 1,
+      })
+      break
+    case 'image2image':
+      redoStore.setRedoData({
+        mode: rec.mode,
+        prompt: rec.prompt,
+        negativePrompt: (extra.negative_prompt as string) || '',
+        size: (extra.size as string) || '1024x1024',
+        strength: (extra.strength as number) || 0.75,
+        inputMode: 'url',
+        imageUrl: rec.images?.[0] || '',
+      })
+      break
+    case 'batch':
+      redoStore.setRedoData({
+        mode: rec.mode,
+        promptsText: rec.prompt,
+        size: (extra.size as string) || '1024x1024',
+      })
+      break
+    case 'script_gen':
+      redoStore.setRedoData({
+        mode: rec.mode,
+        topic: rec.prompt,
+        script: (extra.script as string) || '',
+        style: (extra.style as string) || '',
+        duration: (extra.duration as number) || 30,
+        language: (extra.language as string) || 'zh',
+      })
+      break
+    case 'text2video':
+      redoStore.setRedoData({
+        mode: rec.mode,
+        prompt: rec.prompt,
+        duration: (extra.duration as number) || 5,
+        aspectRatio: (extra.aspect_ratio as string) || '16:9',
+        frameRate: (extra.frame_rate as number) || 24,
+      })
+      break
+    case 'image2video':
+      redoStore.setRedoData({
+        mode: rec.mode,
+        prompt: rec.prompt,
+        inputMode: 'url',
+        imageUrl: rec.images?.[0] || '',
+        duration: (extra.duration as number) || 5,
+        aspectRatio: (extra.aspect_ratio as string) || '16:9',
+        frameRate: (extra.frame_rate as number) || 24,
+      })
+      break
+    case 'multi_image_video':
+      redoStore.setRedoData({
+        mode: rec.mode,
+        prompt: rec.prompt,
+        imageUrlsText: (extra.image_urls as string[])?.join('\n') || rec.images?.join('\n') || '',
+        videoMode: (extra.mode as string) || 'ti2vid',
+        duration: (extra.duration as number) || 5,
+        aspectRatio: (extra.aspect_ratio as string) || '16:9',
+        frameRate: (extra.frame_rate as number) || 24,
+      })
+      break
+    default:
+      ElMessage.warning('不支持的模式')
+      return
+  }
+  
+  // 触发tab切换（通过自定义事件）
+  window.dispatchEvent(new CustomEvent('redo-trigger'))
+  ElMessage.success('已加载到对应页面')
 }
 
 async function loadHistory() {
@@ -187,6 +272,9 @@ onMounted(loadHistory)
               <el-tooltip :content="rec.time" placement="top">
                 <span class="rec-time">{{ relativeTime(rec.time) }}</span>
               </el-tooltip>
+              <el-button size="small" type="primary" link class="redo-btn" @click="handleRedo(rec)">
+                重做
+              </el-button>
               <el-popconfirm
                 title="确定删除？"
                 confirm-button-text="确定"
@@ -408,7 +496,13 @@ onMounted(loadHistory)
   opacity: 0;
   transition: opacity 0.2s;
 }
-.rec-card:hover .del-btn {
+.redo-btn {
+  font-size: 12px;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+.rec-card:hover .del-btn,
+.rec-card:hover .redo-btn {
   opacity: 1;
 }
 
