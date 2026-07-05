@@ -81,6 +81,7 @@ func main() {
 	videoHandler := handler.NewVideoHandler(svc, taskMgr)
 	historyHandler := handler.NewHistoryHandler(histRepo)
 	configHandler := handler.NewConfigHandler(configPath)
+	ideasHandler := handler.NewIdeasHandler(svc)
 
 	// 设置视频完成回调（自动保存历史记录）
 	handler.SetupVideoHistoryCallback(taskMgr, svc)
@@ -116,6 +117,9 @@ func main() {
 		api.DELETE("/history", historyHandler.ClearHistory)
 		api.DELETE("/history/:id", historyHandler.DeleteRecord)
 		api.POST("/history/delete", historyHandler.DeleteHistory)
+
+		// 点子库
+		api.POST("/ideas/expand", ideasHandler.ExpandIdea)
 	}
 
 	// 静态文件服务 - outputs/ 目录

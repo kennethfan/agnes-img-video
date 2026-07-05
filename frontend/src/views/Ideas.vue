@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { ElMessage } from 'element-plus'
+import { expandIdea } from '../api/ideas'
 
 interface Idea {
   id: number
@@ -239,6 +240,24 @@ const newContent = ref('')
 const newTags = ref('')
 const showDialog = ref(false)
 const selectedTemplate = ref<Template | null>(null)
+const expanding = ref(false)
+
+async function handleExpand() {
+  if (!newTitle.value.trim() && !newContent.value.trim()) {
+    ElMessage.warning('请先输入标题或内容')
+    return
+  }
+  expanding.value = true
+  try {
+    const result = await expandIdea(newTitle.value, newContent.value, newTags.value)
+    newContent.value = result
+    ElMessage.success('AI 已完善点子内容')
+  } catch (e: any) {
+    ElMessage.error(e.message || 'AI 完善失败')
+  } finally {
+    expanding.value = false
+  }
+}
 
 function addIdea() {
   if (!newTitle.value.trim()) {
@@ -390,12 +409,24 @@ loadIdeas()
           />
         </el-form-item>
         <el-form-item label="内容">
-          <el-input
-            v-model="newContent"
-            type="textarea"
-            :rows="8"
-            placeholder="详细描述你的点子..."
-          />
+          <div style="display: flex; gap: 8px; width: 100%">
+            <el-input
+              v-model="newContent"
+              type="textarea"
+              :rows="8"
+              placeholder="详细描述你的点子..."
+              style="flex: 1"
+            />
+            <el-button
+              type="primary"
+              :loading="expanding"
+              :disabled="expanding"
+              @click="handleExpand"
+              style="height: fit-content; margin-top: 28px"
+            >
+              {{ expanding ? '完善中...' : 'AI 完善' }}
+            </el-button>
+          </div>
         </el-form-item>
         <el-form-item label="标签">
           <el-input

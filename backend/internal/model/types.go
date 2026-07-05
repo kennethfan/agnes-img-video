@@ -143,6 +143,18 @@ type ScriptGenResponse struct {
 	Script string `json:"script"`
 }
 
+// ==================== 点子库 ====================
+
+type ExpandIdeaRequest struct {
+	Title   string `json:"title"`
+	Content string `json:"content"`
+	Tags    string `json:"tags"`
+}
+
+type ExpandIdeaResponse struct {
+	Result string `json:"result"`
+}
+
 // ChatCompletionRequest OpenAI 兼容的聊天请求
 type ChatCompletionRequest struct {
 	Model       string              `json:"model"`

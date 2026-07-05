@@ -272,7 +272,39 @@ func (c *AgnesClient) GenerateScript(topic string, duration int, style, language
 	return resp.Choices[0].Message.Content, nil
 }
 
-// ==================== 视频生成 ====================
+func (c *AgnesClient) ExpandIdea(title, content, tags string) (string, error) {
+	systemPrompt := "你是一个创意助手。用户会给你一个点子的标题、简要内容和标签。" +
+		"请根据这些信息，帮用户完善和扩展这个点子。" +
+		"输出格式要求：" +
+		"1. 如果内容是结构化模板（含 ## 标题），保留原有结构，填充和完善每个部分" +
+		"2. 如果内容是自由文本，在保留原意的基础上丰富细节" +
+		"3. 如果内容为空，根据标题和标签自动创作" +
+		"4. 使用 Markdown 格式输出" +
+		"5. 保持中文输出"
+
+	userPrompt := fmt.Sprintf("标题：%s\n标签：%s\n内容：\n%s", title, tags, content)
+
+	req := model.ChatCompletionRequest{
+		Model: c.chatModel,
+		Messages: []model.ChatMessage{
+			{Role: "system", Content: systemPrompt},
+			{Role: "user", Content: userPrompt},
+		},
+		Temperature: 0.8,
+		MaxTokens:   2048,
+	}
+
+	var resp model.ChatCompletionResponse
+	if err := c.doRequest("POST", "/chat/completions", req, &resp); err != nil {
+		return "", fmt.Errorf("AI 完善点子失败: %w", err)
+	}
+
+	if len(resp.Choices) == 0 {
+		return "", fmt.Errorf("API 返回中未找到内容")
+	}
+
+	return resp.Choices[0].Message.Content, nil
+}
 
 // SubmitVideoTask 提交视频生成任务到 Agnes API
 func (c *AgnesClient) SubmitVideoTask(payload map[string]any) (string, error) {
