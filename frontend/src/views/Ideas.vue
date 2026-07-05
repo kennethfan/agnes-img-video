@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import { ElMessage } from 'element-plus'
 import { expandIdea } from '../api/ideas'
 
@@ -8,6 +8,7 @@ interface Idea {
   title: string
   content: string
   tags: string[]
+  completed: boolean
   createdAt: string
 }
 
@@ -241,6 +242,26 @@ const newTags = ref('')
 const showDialog = ref(false)
 const selectedTemplate = ref<Template | null>(null)
 const expanding = ref(false)
+const searchText = ref('')
+const filterStatus = ref<'all' | 'pending' | 'completed'>('all')
+
+const filteredIdeas = computed(() => {
+  let result = ideas.value
+  if (filterStatus.value === 'pending') {
+    result = result.filter(i => !i.completed)
+  } else if (filterStatus.value === 'completed') {
+    result = result.filter(i => i.completed)
+  }
+  if (searchText.value.trim()) {
+    const q = searchText.value.trim().toLowerCase()
+    result = result.filter(i =>
+      i.title.toLowerCase().includes(q) ||
+      i.content.toLowerCase().includes(q) ||
+      i.tags.some(t => t.toLowerCase().includes(q))
+    )
+  }
+  return result
+})
 
 async function handleExpand() {
   if (!newTitle.value.trim() && !newContent.value.trim()) {
@@ -270,6 +291,7 @@ function addIdea() {
     title: newTitle.value,
     content: newContent.value,
     tags: newTags.value.split(',').map(t => t.trim()).filter(Boolean),
+    completed: false,
     createdAt: new Date().toLocaleString('zh-CN'),
   }
 
@@ -292,6 +314,11 @@ function copyIdea(idea: Idea) {
   }).catch(() => {
     ElMessage.error('复制失败')
   })
+}
+
+function toggleComplete(idea: Idea) {
+  idea.completed = !idea.completed
+  saveIdeas()
 }
 
 function resetForm() {
@@ -330,57 +357,69 @@ loadIdeas()
 
 <template>
   <div>
-    <div style="margin-bottom: 16px">
+    <div style="margin-bottom: 16px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap">
       <el-button type="primary" @click="showDialog = true">
         添加点子
       </el-button>
+      <el-input
+        v-model="searchText"
+        placeholder="搜索标题、内容或标签..."
+        clearable
+        style="width: 300px"
+      />
+      <el-radio-group v-model="filterStatus" size="default">
+        <el-radio-button value="all">全部</el-radio-button>
+        <el-radio-button value="pending">未完成</el-radio-button>
+        <el-radio-button value="completed">已完成</el-radio-button>
+      </el-radio-group>
     </div>
 
-    <!-- 点子列表 -->
     <div v-if="ideas.length === 0" style="text-align: center; padding: 40px; color: #909399">
       <p>还没有点子，点击上方按钮添加第一个点子吧！</p>
     </div>
 
+    <div v-else-if="filteredIdeas.length === 0" style="text-align: center; padding: 40px; color: #909399">
+      <p>没有匹配的点子</p>
+    </div>
+
     <div v-else class="ideas-grid">
       <el-card
-        v-for="idea in ideas"
+        v-for="idea in filteredIdeas"
         :key="idea.id"
         class="idea-card"
+        :class="{ 'idea-completed': idea.completed }"
         shadow="hover"
       >
         <template #header>
           <div class="card-header">
-            <span class="idea-title">{{ idea.title }}</span>
-            <div class="card-actions">
+            <div style="display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0">
               <el-button
-                type="primary"
-                text
+                :type="idea.completed ? 'success' : 'info'"
+                circle
                 size="small"
-                @click="copyIdea(idea)"
+                @click="toggleComplete(idea)"
               >
+                {{ idea.completed ? '✓' : '' }}
+              </el-button>
+              <span class="idea-title" :style="{ textDecoration: idea.completed ? 'line-through' : 'none', opacity: idea.completed ? 0.6 : 1 }">
+                {{ idea.title }}
+              </span>
+            </div>
+            <div class="card-actions">
+              <el-button type="primary" text size="small" @click="copyIdea(idea)">
                 复制
               </el-button>
-              <el-button
-                type="danger"
-                text
-                size="small"
-                @click="deleteIdea(idea.id)"
-              >
+              <el-button type="danger" text size="small" @click="deleteIdea(idea.id)">
                 删除
               </el-button>
             </div>
           </div>
         </template>
-        <div class="idea-content">{{ idea.content }}</div>
+        <div class="idea-content" :style="{ opacity: idea.completed ? 0.5 : 1 }">{{ idea.content }}</div>
         <div class="idea-meta">
           <span class="idea-time">{{ idea.createdAt }}</span>
           <div class="idea-tags">
-            <el-tag
-              v-for="tag in idea.tags"
-              :key="tag"
-              size="small"
-              type="info"
-            >
+            <el-tag v-for="tag in idea.tags" :key="tag" size="small" type="info">
               {{ tag }}
             </el-tag>
           </div>
@@ -471,6 +510,10 @@ loadIdeas()
 
 .idea-card {
   height: fit-content;
+}
+
+.idea-completed {
+  border-color: #67c23a;
 }
 
 .card-header {
