@@ -285,6 +285,15 @@ function deleteIdea(id: number) {
   ElMessage.success('点子已删除')
 }
 
+function copyIdea(idea: Idea) {
+  const text = `【${idea.title}】\n\n${idea.content}\n\n标签：${idea.tags.join(', ')}`
+  navigator.clipboard.writeText(text).then(() => {
+    ElMessage.success('已复制到剪贴板')
+  }).catch(() => {
+    ElMessage.error('复制失败')
+  })
+}
+
 function resetForm() {
   newTitle.value = ''
   newContent.value = ''
@@ -342,14 +351,24 @@ loadIdeas()
         <template #header>
           <div class="card-header">
             <span class="idea-title">{{ idea.title }}</span>
-            <el-button
-              type="danger"
-              text
-              size="small"
-              @click="deleteIdea(idea.id)"
-            >
-              删除
-            </el-button>
+            <div class="card-actions">
+              <el-button
+                type="primary"
+                text
+                size="small"
+                @click="copyIdea(idea)"
+              >
+                复制
+              </el-button>
+              <el-button
+                type="danger"
+                text
+                size="small"
+                @click="deleteIdea(idea.id)"
+              >
+                删除
+              </el-button>
+            </div>
           </div>
         </template>
         <div class="idea-content">{{ idea.content }}</div>
@@ -458,6 +477,11 @@ loadIdeas()
   display: flex;
   justify-content: space-between;
   align-items: center;
+}
+
+.card-actions {
+  display: flex;
+  gap: 4px;
 }
 
 .idea-title {
