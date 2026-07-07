@@ -64,12 +64,27 @@ onUnmounted(() => {
 * {
   box-sizing: border-box;
 }
+:root {
+  --bg-page: #ffffff;
+  --bg-subtle: #fafafa;
+  --bg-card: #ffffff;
+  --border-default: #eaeaea;
+  --border-light: #f0f0f0;
+  --text-primary: #000000;
+  --text-secondary: #666666;
+  --text-muted: #909399;
+  --accent: #000000;
+  --accent-hover: #333333;
+  --radius-card: 12px;
+  --radius-sm: 8px;
+  --shadow-card: none;
+}
 body {
   margin: 0;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC',
     'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
-  background: #ffffff;
-  color: #000;
+  background: var(--bg-page);
+  color: var(--text-primary);
 }
 </style>
 

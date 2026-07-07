@@ -98,22 +98,20 @@ const formattedTime = computed(() => props.asset.time.slice(5, 16))
 <style scoped>
 .asset-card {
   position: relative;
-  background: #fff;
-  border: 1px solid #e4e7ed;
-  border-radius: 8px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-card);
   overflow: hidden;
   cursor: pointer;
-  transition: box-shadow 0.2s, border-color 0.2s;
+  transition: border-color 0.2s;
 }
 
 .asset-card:hover {
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
-  border-color: #409eff;
+  border-color: #d0d0d0;
 }
 
 .asset-card--selected {
   border-color: #409eff;
-  box-shadow: 0 0 0 2px rgba(64, 158, 255, 0.2);
 }
 
 .asset-card__select {

@@ -113,15 +113,15 @@ const hasResult = computed(() => !!props.shot.result_video)
 
 <style scoped>
 .shot-card {
-  background: #fff;
-  border: 1px solid #e4e7ed;
-  border-radius: 8px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-card);
   overflow: hidden;
-  transition: box-shadow 0.2s, border-color 0.2s, background 0.2s;
+  transition: border-color 0.2s, background 0.2s;
 }
 
 .shot-card:hover {
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
+  border-color: #d0d0d0;
 }
 
 .shot-card--generating {
@@ -221,7 +221,7 @@ const hasResult = computed(() => !!props.shot.result_video)
   justify-content: flex-end;
   gap: 0;
   padding: 8px 8px 6px;
-  border-top: 1px solid #e4e7ed;
+  border-top: 1px solid var(--border-light);
   margin-top: 8px;
 }
 </style>

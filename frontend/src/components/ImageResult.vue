@@ -55,9 +55,9 @@ async function downloadImage(url: string) {
   margin-top: 16px;
 }
 .image-card {
-  background: #fff;
-  border: 1px solid #e4e7ed;
-  border-radius: 8px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-card);
   padding: 12px;
 }
 </style>
