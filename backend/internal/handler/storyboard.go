@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"database/sql"
 	"log"
 	"net/http"
 	"strconv"
@@ -29,7 +30,7 @@ func (h *StoryboardHandler) ListProjects(c *gin.Context) {
 	if projects == nil {
 		projects = []model.StoryboardProject{}
 	}
-	c.JSON(http.StatusOK, projects)
+	c.JSON(http.StatusOK, gin.H{"projects": projects})
 }
 
 func (h *StoryboardHandler) GetProject(c *gin.Context) {
@@ -41,8 +42,12 @@ func (h *StoryboardHandler) GetProject(c *gin.Context) {
 
 	project, err := h.repo.GetProject(id)
 	if err != nil {
-		log.Printf("[Storyboard] 获取项目失败: %v", err)
-		c.JSON(http.StatusNotFound, gin.H{"error": "项目不存在"})
+		if err == sql.ErrNoRows {
+			c.JSON(http.StatusNotFound, gin.H{"error": "项目不存在"})
+			return
+		}
+		log.Printf("[Storyboard] 查询项目失败: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "查询项目失败"})
 		return
 	}
 
