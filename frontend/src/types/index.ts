@@ -88,3 +88,30 @@ export interface SSEHandlers {
   onComplete?: (event: VideoEvent) => void
   onError?: (event: VideoEvent) => void
 }
+
+export interface AssetItem {
+  id: number
+  mode: string
+  prompt: string
+  files: string[]
+  thumbnail: string
+  type: 'image' | 'video'
+  time: string
+  favorite: boolean
+}
+
+export interface AssetListResponse {
+  items: AssetItem[]
+  total: number
+  page: number
+}
+
+export interface AssetFavoriteRequest {
+  history_id: number
+  favorite: boolean
+}
+
+export interface AssetDeleteRequest {
+  ids: number[]
+  delete_files?: boolean
+}
