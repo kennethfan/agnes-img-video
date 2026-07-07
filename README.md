@@ -36,6 +36,14 @@ MIT License · Built with Go + Vue 3
 - Node.js 20+ (pnpm)
 - Agnes AI API Key
 
+### 获取 Agnes API Key
+
+1. 打开 [Agnes AI Platform](https://platform.agnes-ai.com)，注册或登录账号。
+2. 进入 Developer Dashboard，点击 **Create API Key** 生成密钥。
+3. 将密钥填入 `backend/.env` 的 `AGNES_API_KEY` 字段。
+
+> **免费政策**：Agnes AI 自 2026 年 6 月起，核心模型（文本/图像/视频）API 永久免费开放，注册即可使用。
+
 ### 启动
 
 ```bash
