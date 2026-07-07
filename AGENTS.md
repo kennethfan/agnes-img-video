@@ -39,8 +39,12 @@ No legacy Python/Gradio code — everything goes through the B/S architecture.
 | `internal/handler/ideas.go` | `ExpandIdea` — AI enhancement for creative ideas via chat completions |
 | `internal/handler/history.go` | History API (SQLite via repository) + file deletion |
 | `internal/handler/config_handler.go` | GET/PUT config |
+| `internal/handler/asset.go` | Asset gallery: list/favorite/batch-download/delete (uses HistoryRepo) |
+| `internal/handler/storyboard.go` | Storyboard CRUD: projects + shots (separate SQLite tables) |
 | `internal/middleware/cors.go` | Allow localhost:5173 / :4173 |
 | `internal/repository/history.go` | SQLite CRUD for history, migration from legacy JSON |
+| `internal/repository/storyboard.go` | SQLite CRUD for storyboard projects + shots (same `history.db`) |
+| `scripts/recover_history.go` | Rebuild history records from `outputs/` filenames after data loss |
 
 ### Routes (all under `/api/v1`)
 
@@ -52,6 +56,14 @@ GET  /videos/:taskId           GET  /videos/stream/:taskId
 GET  /config                   PUT  /config
 GET  /history                  DELETE /history
 DELETE /history/:id            POST /history/delete
+GET  /assets                   POST /assets/favorite
+POST /assets/batch-download    DELETE /assets
+GET  /storyboard/projects      POST /storyboard/projects
+GET  /storyboard/projects/:id  PUT  /storyboard/projects/:id
+DELETE /storyboard/projects/:id POST /storyboard/projects/:id/duplicate
+POST /storyboard/projects/:id/shots PUT /storyboard/projects/:id/shots/reorder
+PUT  /storyboard/shots/:id     DELETE /storyboard/shots/:id
+POST /storyboard/projects/:id/generate
 GET  /outputs/*filepath        (static files)
 ```
 
@@ -84,13 +96,14 @@ When `GITHUB_TOKEN` and `GITHUB_REPO` are set, generated images/videos are uploa
 
 | Path | Role |
 |---|---|
-| `src/views/` | 9 views: TextToImage, ImageToImage, BatchGen, ScriptGen, TextToVideo, ImageToVideo, MultiImageVideo, Ideas, History |
+| `src/views/` | 10 views: TextToImage, ImageToImage, BatchGen, ScriptGen, TextToVideo, ImageToVideo, MultiImageVideo, Ideas, History, Storyboard |
 | `src/components/ImageResult.vue` | Image gallery with preview + download |
 | `src/api/client.ts` | Axios instance (baseURL: '', 120s timeout) |
 | `src/api/image.ts` | textToImage, imageToImage, batchGenerate |
 | `src/api/video.ts` | text-to-video, image-to-video, multi-image, script-gen, task status |
 | `src/api/history.ts` | getHistory, clearHistory, deleteHistory, deleteRecord |
 | `src/api/ideas.ts` | expandIdea — AI idea enhancement |
+| `src/api/storyboard.ts` | Storyboard CRUD: projects + shots API client |
 | `src/stores/redo.ts` | Pinia store: cross-view "redo" data passing via custom event `redo-trigger` |
 | `src/utils/sse.ts` | `connectSSE()` — EventSource helper for video progress |
 | `src/types/index.ts` | TypeScript interfaces for all API request/response types |
@@ -162,7 +175,7 @@ The `modeToTab` mapping in `src/stores/redo.ts` translates `text2image|image2ima
 - **Config & runtime data** (`.config.json`, `history.db`): all in `backend/`. Copy `backend/.env.example` to `backend/.env` for local dev.
 - **No auth middleware** — API is designed for local/dev use only. API key is sent to Agnes AI, not validated by the backend itself.
 - **Startup recovery**: on boot, scans SQLite for pending video tasks (images empty + extra has taskId) and checks their status, updating history records for completed ones.
-- **Frontend navigation**: uses `el-tabs` (Element Plus) in `App.vue` with 9 tabs — not Vue Router, even though `vue-router` is a dependency.
+- **Frontend navigation**: uses `el-tabs` (Element Plus) in `App.vue` with 10 tabs — not Vue Router, even though `vue-router` is a dependency.
 - **Frontend TypeScript 6**: `erasableSyntaxOnly` enabled in tsconfig — no enums or namespaces; use `as const` or union types.
 - **Axios error interceptor**: errors are caught and converted to a plain `Error` with the server message. Always use `.catch()` or try/catch; raw Axios errors are never exposed to views.
 
@@ -179,7 +192,7 @@ The `modeToTab` mapping in `src/stores/redo.ts` translates `text2image|image2ima
 1. **任何情况下不得删除 `history.db`** — 包括测试、调试、清空操作。该文件包含所有历史记录索引 + 原始提示词。
 2. **`outputs/` 中的文件可以删除个别**（通过界面操作），但不得 `rm -rf outputs/` 或 `rm -f *.db`。
 3. **测试时必须备份数据** — 如果测试需要干净数据库，先 `cp history.db history.db.bak`，测试结束后恢复。
-4. **如意外丢失数据** — 运行 `go run ./scripts/recover_history.go` 从 `outputs/` 目录文件名重建记录（提示词无法恢复，标记为 `[已恢复]`）。
+4. **如意外丢失数据** — 从 `backend/` 目录运行 `go run ./scripts/recover_history.go` 从 `outputs/` 目录文件名重建记录（提示词无法恢复，标记为 `[已恢复]`）。
 
 ## Image Input Dual Mode
 
