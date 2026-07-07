@@ -175,3 +175,82 @@ type ChatCompletionResponse struct {
 type ChatChoice struct {
 	Message ChatMessage `json:"message"`
 }
+
+// ==================== 资产管理 ====================
+
+type AssetItem struct {
+	ID        int64    `json:"id"`
+	Mode      string   `json:"mode"`
+	Prompt    string   `json:"prompt"`
+	Files     []string `json:"files"`
+	Thumbnail string   `json:"thumbnail"`
+	Type      string   `json:"type"`
+	Time      string   `json:"time"`
+	Favorite  bool     `json:"favorite"`
+}
+
+type AssetListResponse struct {
+	Items []AssetItem `json:"items"`
+	Total int         `json:"total"`
+	Page  int         `json:"page"`
+}
+
+type AssetFavoriteRequest struct {
+	HistoryID int64 `json:"history_id" binding:"required"`
+	Favorite  bool  `json:"favorite"`
+}
+
+type AssetDeleteRequest struct {
+	IDs         []int64 `json:"ids" binding:"required"`
+	DeleteFiles bool    `json:"delete_files"`
+}
+
+// ==================== 故事板 ====================
+
+type StoryboardProject struct {
+	ID        int64  `json:"id"`
+	Title     string `json:"title"`
+	Script    string `json:"script"`
+	CreatedAt string `json:"created_at"`
+	UpdatedAt string `json:"updated_at"`
+	ShotCount int    `json:"shot_count"`
+}
+
+type StoryboardShot struct {
+	ID            int64  `json:"id"`
+	ProjectID     int64  `json:"project_id"`
+	Sequence      int    `json:"sequence"`
+	Prompt        string `json:"prompt"`
+	Type          string `json:"type"`
+	ReferenceImage string `json:"reference_image"`
+	Status        string `json:"status"`
+	ResultVideo   string `json:"result_video"`
+	TaskID        string `json:"task_id"`
+	CreatedAt     string `json:"created_at"`
+}
+
+type CreateProjectRequest struct {
+	Title  string `json:"title" binding:"required"`
+	Script string `json:"script"`
+}
+
+type UpdateProjectRequest struct {
+	Title  string `json:"title"`
+	Script string `json:"script"`
+}
+
+type CreateShotRequest struct {
+	Prompt         string `json:"prompt" binding:"required"`
+	Type           string `json:"type"`
+	ReferenceImage string `json:"reference_image"`
+}
+
+type UpdateShotRequest struct {
+	Prompt         string `json:"prompt"`
+	Type           string `json:"type"`
+	ReferenceImage string `json:"reference_image"`
+}
+
+type ReorderShotsRequest struct {
+	IDs []int64 `json:"ids" binding:"required"`
+}

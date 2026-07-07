@@ -9,6 +9,8 @@ import ImageToVideo from './views/ImageToVideo.vue'
 import MultiImageVideo from './views/MultiImageVideo.vue'
 import History from './views/History.vue'
 import Ideas from './views/Ideas.vue'
+import Assets from './views/Assets.vue'
+import Storyboard from './views/Storyboard.vue'
 import { useRedoStore } from './stores/redo'
 
 const activeTab = ref('text2img')
@@ -62,6 +64,12 @@ onUnmounted(() => {
         </el-tab-pane>
         <el-tab-pane label="点子库" name="ideas">
           <Ideas />
+        </el-tab-pane>
+        <el-tab-pane label="分镜" name="storyboard">
+          <Storyboard />
+        </el-tab-pane>
+        <el-tab-pane label="作品" name="assets">
+          <Assets />
         </el-tab-pane>
         <el-tab-pane label="历史记录" name="history">
           <History />

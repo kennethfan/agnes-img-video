@@ -1,0 +1,318 @@
+<script setup lang="ts">
+import { ref, onMounted } from 'vue'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import { Search, Star, StarFilled, Download, Delete, PictureFilled } from '@element-plus/icons-vue'
+import { getAssets, toggleFavorite, batchDownload, deleteAssets } from '../api/assets'
+import type { AssetItem } from '../types'
+import AssetCard from '../components/AssetCard.vue'
+
+const items = ref<AssetItem[]>([])
+const total = ref(0)
+const page = ref(1)
+const perPage = 24
+const loading = ref(false)
+const search = ref('')
+const assetType = ref('all')
+const showFavorites = ref(false)
+const selectionMode = ref(false)
+const selectedIds = ref<Set<number>>(new Set())
+const deleteFiles = ref(false)
+const drawerVisible = ref(false)
+const detailAsset = ref<AssetItem | null>(null)
+
+async function loadAssets() {
+  loading.value = true
+  try {
+    const params: Record<string, any> = {
+      page: page.value,
+      per_page: perPage,
+      type: assetType.value === 'all' ? undefined : assetType.value,
+      sort: 'newest',
+    }
+    if (search.value) params.search = search.value
+    if (showFavorites.value) params.favorite = 'true'
+
+    const res = await getAssets(params)
+    items.value = res.items || []
+    total.value = res.total || 0
+    selectedIds.value = new Set()
+  } catch (e: any) {
+    ElMessage.error(e.message || '加载作品失败')
+  } finally {
+    loading.value = false
+  }
+}
+
+function handleSearch() {
+  page.value = 1
+  loadAssets()
+}
+
+function handleTypeChange() {
+  page.value = 1
+  loadAssets()
+}
+
+function toggleShowFavorites() {
+  showFavorites.value = !showFavorites.value
+  page.value = 1
+  loadAssets()
+}
+
+function toggleSelectionMode() {
+  selectionMode.value = !selectionMode.value
+  if (!selectionMode.value) selectedIds.value = new Set()
+}
+
+function handleToggleFavorite(item: AssetItem) {
+  toggleFavorite({ history_id: item.id, favorite: !item.favorite })
+  item.favorite = !item.favorite
+}
+
+function handleToggleSelect(item: AssetItem) {
+  const next = new Set(selectedIds.value)
+  if (next.has(item.id)) next.delete(item.id)
+  else next.add(item.id)
+  selectedIds.value = next
+}
+
+function handleCardClick(item: AssetItem) {
+  detailAsset.value = item
+  drawerVisible.value = true
+}
+
+async function handleBatchDownload() {
+  if (selectedIds.value.size === 0) return
+  try {
+    const blob = await batchDownload(Array.from(selectedIds.value))
+    const blobUrl = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = blobUrl
+    a.download = 'assets.zip'
+    a.click()
+    URL.revokeObjectURL(blobUrl)
+  } catch (e: any) {
+    ElMessage.error(e.message || '下载失败')
+  }
+}
+
+async function handleBatchDelete() {
+  if (selectedIds.value.size === 0) return
+  try {
+    const msg = deleteFiles.value
+      ? `确定删除选中的 ${selectedIds.value.size} 项？关联的文件也将被删除。`
+      : `确定删除选中的 ${selectedIds.value.size} 项？`
+    await ElMessageBox.confirm(msg, '确认', {
+      confirmButtonText: '确定',
+      cancelButtonText: '取消',
+      type: 'warning',
+    })
+    await deleteAssets({ ids: Array.from(selectedIds.value), delete_files: deleteFiles.value })
+    items.value = items.value.filter(r => !selectedIds.value.has(r.id))
+    total.value -= selectedIds.value.size
+    selectedIds.value = new Set()
+    ElMessage.success('已删除')
+  } catch { /* cancelled */ }
+}
+
+onMounted(loadAssets)
+</script>
+
+<template>
+  <div class="assets-page">
+    <div class="assets-toolbar">
+      <div class="toolbar-left">
+        <el-input
+          v-model="search"
+          placeholder="搜索作品"
+          :prefix-icon="Search"
+          clearable
+          style="width: 240px"
+          @keyup.enter="handleSearch"
+          @clear="handleSearch"
+        />
+        <el-select v-model="assetType" style="width: 120px" @change="handleTypeChange">
+          <el-option label="全部" value="all" />
+          <el-option label="图片" value="image" />
+          <el-option label="视频" value="video" />
+        </el-select>
+      </div>
+      <div class="toolbar-right">
+        <el-button
+          :icon="showFavorites ? StarFilled : Star"
+          @click="toggleShowFavorites"
+        >
+          {{ showFavorites ? '仅收藏' : '全部' }}
+        </el-button>
+        <el-button
+          :type="selectionMode ? 'primary' : 'default'"
+          @click="toggleSelectionMode"
+        >
+          {{ selectionMode ? '取消选择' : '多选' }}
+        </el-button>
+      </div>
+    </div>
+
+    <div v-if="selectionMode && selectedIds.size > 0" class="batch-bar">
+      <span class="batch-count">已选 {{ selectedIds.size }} 项</span>
+      <el-button type="primary" :icon="Download" @click="handleBatchDownload">
+        下载 ({{ selectedIds.size }})
+      </el-button>
+      <el-checkbox v-model="deleteFiles" style="margin: 0 8px">删除文件</el-checkbox>
+      <el-button type="danger" :icon="Delete" @click="handleBatchDelete">
+        删除 ({{ selectedIds.size }})
+      </el-button>
+    </div>
+
+    <div v-loading="loading" class="grid-wrap">
+      <div v-if="items.length > 0" class="asset-grid">
+        <AssetCard
+          v-for="item in items"
+          :key="item.id"
+          :asset="item"
+          :selected="selectedIds.has(item.id)"
+          @toggle-favorite="handleToggleFavorite(item)"
+          @toggle-select="handleToggleSelect(item)"
+          @click="selectionMode ? handleToggleSelect(item) : handleCardClick(item)"
+        />
+      </div>
+      <el-empty v-else-if="!loading" description="暂无作品">
+        <el-icon :size="48" style="color: #c0c4cc; margin-bottom: 12px">
+          <PictureFilled />
+        </el-icon>
+      </el-empty>
+    </div>
+
+    <div v-if="total > perPage" class="pagination-wrap">
+      <el-pagination
+        v-model:current-page="page"
+        :page-size="perPage"
+        :total="total"
+        layout="prev, pager, next"
+        @current-change="loadAssets"
+      />
+    </div>
+
+    <el-drawer
+      v-model="drawerVisible"
+      :size="500"
+      :title="detailAsset?.prompt?.slice(0, 50) || ''"
+      destroy-on-close
+    >
+      <template v-if="detailAsset">
+        <div class="detail-preview">
+          <el-image
+            v-if="detailAsset.type === 'image'"
+            :src="detailAsset.thumbnail || detailAsset.files[0]"
+            fit="contain"
+            style="width: 100%; max-height: 400px"
+          />
+          <video
+            v-else
+            :src="detailAsset.files[0]"
+            controls
+            style="width: 100%; max-height: 400px"
+          />
+        </div>
+        <div class="detail-meta">
+          <p class="detail-prompt">{{ detailAsset.prompt }}</p>
+          <p class="detail-info">
+            <span>模式: {{ detailAsset.mode }}</span>
+            <span>{{ detailAsset.time }}</span>
+          </p>
+        </div>
+        <div class="detail-actions">
+          <el-button
+            :type="detailAsset.favorite ? 'warning' : 'default'"
+            :icon="detailAsset.favorite ? StarFilled : Star"
+            @click="handleToggleFavorite(detailAsset)"
+          >
+            {{ detailAsset.favorite ? '已收藏' : '收藏' }}
+          </el-button>
+          <el-button @click="drawerVisible = false">关闭</el-button>
+        </div>
+      </template>
+    </el-drawer>
+  </div>
+</template>
+
+<style scoped>
+.assets-page {
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 8px 0 40px;
+}
+
+.assets-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.toolbar-left,
+.toolbar-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.batch-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px;
+  margin-bottom: 16px;
+  background: #f0f5ff;
+  border: 1px solid #d6e4ff;
+  border-radius: 8px;
+}
+.batch-count {
+  font-size: 14px;
+  font-weight: 500;
+  color: #409eff;
+}
+
+.grid-wrap {
+  min-height: 200px;
+}
+.asset-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 16px;
+}
+
+.pagination-wrap {
+  display: flex;
+  justify-content: center;
+  margin-top: 24px;
+}
+
+.detail-preview {
+  margin-bottom: 16px;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #f5f7fa;
+}
+.detail-meta {
+  margin-bottom: 16px;
+}
+.detail-prompt {
+  font-size: 14px;
+  color: #303133;
+  line-height: 1.6;
+  margin: 0 0 8px;
+}
+.detail-info {
+  font-size: 13px;
+  color: #909399;
+  display: flex;
+  gap: 16px;
+  margin: 0;
+}
+.detail-actions {
+  display: flex;
+  gap: 10px;
+}
+</style>
