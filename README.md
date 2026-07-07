@@ -36,6 +36,14 @@ MIT License · Built with Go + Vue 3
 - Node.js 20+ (pnpm)
 - Agnes AI API Key
 
+### 获取 Agnes API Key
+
+1. 打开 [Agnes AI Platform](https://platform.agnes-ai.com)，注册或登录账号。
+2. 进入 Developer Dashboard，点击 **Create API Key** 生成密钥。
+3. 将密钥填入 `backend/.env` 的 `AGNES_API_KEY` 字段。
+
+> **免费政策**：Agnes AI 自 2026 年 6 月起，核心模型（文本/图像/视频）API 永久免费开放，注册即可使用。
+
 ### 启动
 
 ```bash
@@ -169,6 +177,10 @@ pnpm dev      # 开发服务器，代理 /api → :8080
 - **视频帧数约束**: 必须满足 `8n + 1`（1080p 最大 169 帧，720p 最大 409 帧，480p 最大 961 帧）
 - **视频状态查询**: 状态接口会去掉 baseURL 中的 `/v1`，查询 `{baseDomain}/agnesapi?video_id={id}`
 - **无鉴权**: API 仅用于本地开发，无认证中间件
+
+## 致谢
+
+本项目受 [agnes-image-tool](https://github.com/you-want/agnes-image-tool.git) 的启发，并借鉴了其中的大量设计和代码实现。特此致谢！
 
 ## 相关文档
 
