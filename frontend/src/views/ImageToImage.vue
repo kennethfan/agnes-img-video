@@ -95,83 +95,119 @@ async function handleGenerate() {
 </script>
 
 <template>
-  <div>
-    <el-form label-width="100px">
-      <el-form-item label="输入方式">
-        <el-radio-group v-model="inputMode">
-          <el-radio-button value="upload">
-            <el-icon style="vertical-align: middle"><upload-filled /></el-icon>
-            <span style="vertical-align: middle">上传图片</span>
-          </el-radio-button>
-          <el-radio-button value="url">
-            <el-icon style="vertical-align: middle"><Link /></el-icon>
-            <span style="vertical-align: middle">图片 URL</span>
-          </el-radio-button>
-        </el-radio-group>
-      </el-form-item>
+  <div class="gen-page">
+    <div class="gen-input">
+      <h3 class="gen-title">图生图</h3>
+      <el-form label-width="100px">
+        <el-form-item label="输入方式">
+          <el-radio-group v-model="inputMode">
+            <el-radio-button value="upload">
+              <el-icon style="vertical-align: middle"><upload-filled /></el-icon>
+              <span style="vertical-align: middle">上传图片</span>
+            </el-radio-button>
+            <el-radio-button value="url">
+              <el-icon style="vertical-align: middle"><Link /></el-icon>
+              <span style="vertical-align: middle">图片 URL</span>
+            </el-radio-button>
+          </el-radio-group>
+        </el-form-item>
 
-      <el-form-item v-if="inputMode === 'upload'" label="上传图片">
-        <el-upload
-          drag
-          accept="image/*"
-          :auto-upload="false"
-          :limit="1"
-          :on-change="handleFileChange"
-        >
-          <el-icon class="el-icon--upload" style="font-size: 48px">
-            <upload-filled />
-          </el-icon>
-          <div class="el-upload__text">拖拽图片到此处或 <em>点击上传</em></div>
-        </el-upload>
-      </el-form-item>
+        <el-form-item v-if="inputMode === 'upload'" label="上传图片">
+          <el-upload
+            drag
+            accept="image/*"
+            :auto-upload="false"
+            :limit="1"
+            :on-change="handleFileChange"
+          >
+            <el-icon class="el-icon--upload" style="font-size: 48px">
+              <upload-filled />
+            </el-icon>
+            <div class="el-upload__text">拖拽图片到此处或 <em>点击上传</em></div>
+          </el-upload>
+        </el-form-item>
 
-      <el-form-item v-if="inputMode === 'url'" label="图片 URL">
-        <el-input
-          v-model="imageUrl"
-          placeholder="请输入图片公网 URL，如 https://example.com/image.png"
-          clearable
-        />
-      </el-form-item>
+        <el-form-item v-if="inputMode === 'url'" label="图片 URL">
+          <el-input
+            v-model="imageUrl"
+            placeholder="请输入图片公网 URL，如 https://example.com/image.png"
+            clearable
+          />
+        </el-form-item>
 
-      <el-form-item v-if="previewUrl" label="预览">
-        <el-image
-          :src="previewUrl"
-          fit="contain"
-          style="max-width: 300px; max-height: 200px; border-radius: 8px; border: 1px solid #e5e6eb"
-          :preview-src-list="[previewUrl]"
-        />
-      </el-form-item>
-      <el-form-item label="风格描述">
-        <el-input
-          v-model="prompt"
-          type="textarea"
-          :rows="3"
-          placeholder="描述你想要的风格变化..."
-        />
-      </el-form-item>
-      <el-form-item label="负面提示词">
-        <el-input
-          v-model="negativePrompt"
-          type="textarea"
-          :rows="2"
-          placeholder="不想出现在图片中的内容..."
-        />
-      </el-form-item>
-      <el-form-item label="尺寸">
-        <el-select v-model="size" style="width: 250px">
-          <el-option v-for="opt in sizeOptions" :key="opt.value" :label="opt.label" :value="opt.value" />
-        </el-select>
-      </el-form-item>
-      <el-form-item label="重绘强度">
-        <el-slider v-model="strength" :min="0" :max="1" :step="0.05" style="width: 300px" />
-      </el-form-item>
-      <el-form-item>
-        <el-button type="primary" :loading="loading" size="large" @click="handleGenerate">
-          生成图片
-        </el-button>
-      </el-form-item>
-    </el-form>
+        <el-form-item v-if="previewUrl" label="预览">
+          <el-image
+            :src="previewUrl"
+            fit="contain"
+            style="max-width: 100%; max-height: 200px; border-radius: var(--radius-sm); border: 1px solid var(--border-default)"
+            :preview-src-list="[previewUrl]"
+          />
+        </el-form-item>
+        <el-form-item label="风格描述">
+          <el-input
+            v-model="prompt"
+            type="textarea"
+            :rows="3"
+            placeholder="描述你想要的风格变化..."
+          />
+        </el-form-item>
+        <el-form-item label="负面提示词">
+          <el-input
+            v-model="negativePrompt"
+            type="textarea"
+            :rows="2"
+            placeholder="不想出现在图片中的内容..."
+          />
+        </el-form-item>
+        <el-form-item label="尺寸">
+          <el-select v-model="size" style="width: 250px">
+            <el-option v-for="opt in sizeOptions" :key="opt.value" :label="opt.label" :value="opt.value" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="重绘强度">
+          <el-slider v-model="strength" :min="0" :max="1" :step="0.05" style="width: 100%" />
+        </el-form-item>
+        <el-form-item>
+          <el-button type="primary" :loading="loading" size="large" @click="handleGenerate" style="width: 100%">
+            生成图片
+          </el-button>
+        </el-form-item>
+      </el-form>
+    </div>
 
-    <ImageResult :images="images" :loading="loading" />
+    <div class="gen-preview">
+      <ImageResult :images="images" :loading="loading" />
+    </div>
   </div>
 </template>
+
+<style scoped>
+.gen-page {
+  display: flex;
+  gap: 24px;
+  min-height: 500px;
+}
+.gen-input {
+  flex: 1;
+  max-width: 480px;
+  padding: 20px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-card);
+}
+.gen-preview {
+  flex: 1;
+  padding: 20px;
+  background: var(--bg-subtle);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-card);
+  display: flex;
+  flex-direction: column;
+}
+.gen-title {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-muted);
+  margin: 0 0 16px 0;
+}
+</style>
