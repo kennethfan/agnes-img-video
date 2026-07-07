@@ -132,7 +132,7 @@ pnpm dev        # dev server on :5173 with proxy to :8080
 - **Image-to-Video**: dual input — upload file (multipart) or provide `image_url`/`image_urls` (JSON). Multipart form: `image` + `prompt`. JSON body: `{"image_url": "https://...", ...}` or `{"image_urls": ["https://..."], ...}`. Uploaded files are converted to base64 data URIs.
 - **Multi-Image Video & Keyframes**: accepts JSON with **publicly accessible image URLs** in `image_urls[]`. Uses `extra_body.image` (array of URLs). Keyframes mode sets `extra_body.mode = "keyframes"`.
 - **Script Generation**: calls `POST /videos/generate-script` → goes to chat API (`/chat/completions`) with a system prompt for video script writing. Supports `zh`/`en`.
-- **Ideas (点子库) expansion**: calls `POST /ideas/expand` → goes to chat API with a creative writing system prompt. Supports template-based ideas (video story, idiom story, poem adaptation, fable, art concept) with structured Markdown output.
+- **Ideas (灵感) expansion**: calls `POST /ideas/expand` → goes to chat API with a creative writing system prompt. Supports template-based ideas (video story, idiom story, poem adaptation, fable, art concept) with structured Markdown output.
 - **Video frame count must satisfy `8n + 1`** — enforced in `BuildVideoPayload()`. See `maxFramesForResolution()`: 1080p=169, 720p=409, 480p=961.
 - **Video polling**: 5s interval, 30min timeout, max 10 concurrent tasks (semaphore channel), exponential backoff on errors (max 10 retries, 1s→30s).
 - **Video status API quirk**: status query URL strips `/v1` from baseURL, queries `{baseDomain}/agnesapi?video_id={id}`. Video download URL sometimes appears in `remixed_from_video_id` field.
