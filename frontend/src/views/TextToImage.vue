@@ -53,44 +53,80 @@ async function handleGenerate() {
 </script>
 
 <template>
-  <div>
-    <el-form label-width="100px">
-      <el-form-item label="提示词">
-        <el-input
-          v-model="prompt"
-          type="textarea"
-          :rows="3"
-          placeholder="描述你想要生成的图片..."
-        />
-      </el-form-item>
-      <el-form-item label="负面提示词">
-        <el-input
-          v-model="negativePrompt"
-          type="textarea"
-          :rows="2"
-          placeholder="不想出现在图片中的内容..."
-        />
-      </el-form-item>
-      <el-form-item label="尺寸">
-        <el-select v-model="size" style="width: 250px">
-          <el-option
-            v-for="opt in sizeOptions"
-            :key="opt.value"
-            :label="opt.label"
-            :value="opt.value"
+  <div class="gen-page">
+    <div class="gen-input">
+      <h3 class="gen-title">文生图</h3>
+      <el-form label-width="100px">
+        <el-form-item label="提示词">
+          <el-input
+            v-model="prompt"
+            type="textarea"
+            :rows="3"
+            placeholder="描述你想要生成的图片..."
           />
-        </el-select>
-      </el-form-item>
-      <el-form-item label="数量">
-        <el-input-number v-model="n" :min="1" :max="4" />
-      </el-form-item>
-      <el-form-item>
-        <el-button type="primary" :loading="loading" size="large" @click="handleGenerate">
-          生成图片
-        </el-button>
-      </el-form-item>
-    </el-form>
+        </el-form-item>
+        <el-form-item label="负面提示词">
+          <el-input
+            v-model="negativePrompt"
+            type="textarea"
+            :rows="2"
+            placeholder="不想出现在图片中的内容..."
+          />
+        </el-form-item>
+        <el-form-item label="尺寸">
+          <el-select v-model="size" style="width: 250px">
+            <el-option
+              v-for="opt in sizeOptions"
+              :key="opt.value"
+              :label="opt.label"
+              :value="opt.value"
+            />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="数量">
+          <el-input-number v-model="n" :min="1" :max="4" />
+        </el-form-item>
+        <el-form-item>
+          <el-button type="primary" :loading="loading" size="large" @click="handleGenerate" style="width: 100%">
+            生成图片
+          </el-button>
+        </el-form-item>
+      </el-form>
+    </div>
 
-    <ImageResult :images="images" :loading="loading" />
+    <div class="gen-preview">
+      <ImageResult :images="images" :loading="loading" />
+    </div>
   </div>
 </template>
+
+<style scoped>
+.gen-page {
+  display: flex;
+  gap: 24px;
+  min-height: 500px;
+}
+.gen-input {
+  flex: 1;
+  max-width: 480px;
+  padding: 20px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-card);
+}
+.gen-preview {
+  flex: 1;
+  padding: 20px;
+  background: var(--bg-subtle);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-card);
+  display: flex;
+  flex-direction: column;
+}
+.gen-title {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-muted);
+  margin: 0 0 16px 0;
+}
+</style>

@@ -272,7 +272,7 @@ async function handleExpand() {
   try {
     const result = await expandIdea(newTitle.value, newContent.value, newTags.value)
     newContent.value = result
-    ElMessage.success('AI 已完善点子内容')
+    ElMessage.success('AI 已完善灵感内容')
   } catch (e: any) {
     ElMessage.error(e.message || 'AI 完善失败')
   } finally {
@@ -298,13 +298,13 @@ function addIdea() {
   ideas.value.unshift(idea)
   saveIdeas()
   resetForm()
-  ElMessage.success('点子已添加')
+  ElMessage.success('灵感已添加')
 }
 
 function deleteIdea(id: number) {
   ideas.value = ideas.value.filter(i => i.id !== id)
   saveIdeas()
-  ElMessage.success('点子已删除')
+  ElMessage.success('灵感已删除')
 }
 
 function copyIdea(idea: Idea) {
@@ -359,7 +359,7 @@ loadIdeas()
   <div>
     <div style="margin-bottom: 16px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap">
       <el-button type="primary" @click="showDialog = true">
-        添加点子
+        添加灵感
       </el-button>
       <el-input
         v-model="searchText"
@@ -375,11 +375,11 @@ loadIdeas()
     </div>
 
     <div v-if="ideas.length === 0" style="text-align: center; padding: 40px; color: #909399">
-      <p>还没有点子，点击上方按钮添加第一个点子吧！</p>
+      <p>还没有灵感，点击上方按钮添加第一个灵感吧！</p>
     </div>
 
     <div v-else-if="filteredIdeas.length === 0" style="text-align: center; padding: 40px; color: #909399">
-      <p>没有匹配的点子</p>
+      <p>没有匹配的灵感</p>
     </div>
 
     <div v-else class="ideas-grid">
@@ -427,10 +427,10 @@ loadIdeas()
       </el-card>
     </div>
 
-    <!-- 添加点子对话框 -->
+    <!-- 添加灵感对话框 -->
     <el-dialog
       v-model="showDialog"
-      title="添加点子"
+      title="添加灵感"
       width="600px"
       @close="resetForm"
     >
@@ -463,7 +463,7 @@ loadIdeas()
         <el-form-item label="标题">
           <el-input
             v-model="newTitle"
-            placeholder="点子标题"
+            placeholder="灵感标题"
           />
         </el-form-item>
         <el-form-item label="内容">
@@ -472,7 +472,7 @@ loadIdeas()
               v-model="newContent"
               type="textarea"
               :rows="8"
-              placeholder="详细描述你的点子..."
+              placeholder="详细描述你的灵感..."
               style="flex: 1"
             />
             <el-button

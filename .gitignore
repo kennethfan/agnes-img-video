@@ -30,6 +30,7 @@ history.db-wal
 
 # OpenCode
 .omo/
+.superpowers
 
 # Build artifacts
 backend/bin/

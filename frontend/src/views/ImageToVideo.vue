@@ -91,86 +91,101 @@ async function handleGenerate() {
 </script>
 
 <template>
-  <div>
-    <el-form label-width="100px">
-      <el-form-item label="输入方式">
-        <el-radio-group v-model="inputMode">
-          <el-radio-button value="upload">
-            <el-icon style="vertical-align: middle"><upload-filled /></el-icon>
-            <span style="vertical-align: middle">上传图片</span>
-          </el-radio-button>
-          <el-radio-button value="url">
-            <el-icon style="vertical-align: middle"><Link /></el-icon>
-            <span style="vertical-align: middle">图片 URL</span>
-          </el-radio-button>
-        </el-radio-group>
-      </el-form-item>
+  <div class="gen-page">
+    <div class="gen-input">
+      <h3 class="gen-title">图生视频</h3>
+      <el-form label-width="100px">
+        <el-form-item label="输入方式">
+          <el-radio-group v-model="inputMode">
+            <el-radio-button value="upload">
+              <el-icon style="vertical-align: middle"><upload-filled /></el-icon>
+              <span style="vertical-align: middle">上传图片</span>
+            </el-radio-button>
+            <el-radio-button value="url">
+              <el-icon style="vertical-align: middle"><Link /></el-icon>
+              <span style="vertical-align: middle">图片 URL</span>
+            </el-radio-button>
+          </el-radio-group>
+        </el-form-item>
 
-      <el-form-item v-if="inputMode === 'upload'" label="上传图片">
-        <el-upload
-          drag
-          accept="image/*"
-          :auto-upload="false"
-          :limit="1"
-          :on-change="handleFileChange"
-        >
-          <el-icon class="el-icon--upload" style="font-size: 48px">
-            <upload-filled />
-          </el-icon>
-          <div class="el-upload__text">拖拽图片到此处或 <em>点击上传</em></div>
-        </el-upload>
-      </el-form-item>
+        <el-form-item v-if="inputMode === 'upload'" label="上传图片">
+          <el-upload
+            drag
+            accept="image/*"
+            :auto-upload="false"
+            :limit="1"
+            :on-change="handleFileChange"
+          >
+            <el-icon class="el-icon--upload" style="font-size: 48px">
+              <upload-filled />
+            </el-icon>
+            <div class="el-upload__text">拖拽图片到此处或 <em>点击上传</em></div>
+          </el-upload>
+        </el-form-item>
 
-      <el-form-item v-if="inputMode === 'url'" label="图片 URL">
-        <el-input
-          v-model="imageUrl"
-          placeholder="请输入图片公网 URL，如 https://example.com/image.png"
-          clearable
-        />
-      </el-form-item>
+        <el-form-item v-if="inputMode === 'url'" label="图片 URL">
+          <el-input
+            v-model="imageUrl"
+            placeholder="请输入图片公网 URL，如 https://example.com/image.png"
+            clearable
+          />
+        </el-form-item>
 
-      <el-form-item v-if="previewUrl" label="预览">
-        <el-image
-          :src="previewUrl"
-          fit="contain"
-          style="max-width: 300px; max-height: 200px; border-radius: 8px; border: 1px solid #e5e6eb"
-          :preview-src-list="[previewUrl]"
-        />
-      </el-form-item>
-      <el-form-item label="提示词">
-        <el-input
-          v-model="prompt"
-          type="textarea"
-          :rows="3"
-          placeholder="描述视频内容..."
-        />
-      </el-form-item>
-      <el-form-item label="时长">
-        <el-select v-model="duration" style="width: 120px">
-          <el-option v-for="d in durationOptions" :key="d" :label="`${d}秒`" :value="d" />
-        </el-select>
-      </el-form-item>
-      <el-form-item label="宽高比">
-        <el-select v-model="aspectRatio" style="width: 120px">
-          <el-option v-for="r in ratioOptions" :key="r" :label="r" :value="r" />
-        </el-select>
-      </el-form-item>
-      <el-form-item label="帧率">
-        <el-select v-model="frameRate" style="width: 120px">
-          <el-option v-for="f in fpsOptions" :key="f" :label="`${f}fps`" :value="f" />
-        </el-select>
-      </el-form-item>
-      <el-form-item>
-        <el-button type="primary" :loading="loading" size="large" @click="handleGenerate">
-          生成视频
-        </el-button>
-      </el-form-item>
-    </el-form>
+        <el-form-item v-if="previewUrl" label="预览">
+          <el-image
+            :src="previewUrl"
+            fit="contain"
+            style="max-width: 100%; max-height: 200px; border-radius: var(--radius-sm); border: 1px solid var(--border-default)"
+            :preview-src-list="[previewUrl]"
+          />
+        </el-form-item>
+        <el-form-item label="提示词">
+          <el-input
+            v-model="prompt"
+            type="textarea"
+            :rows="3"
+            placeholder="描述视频内容..."
+          />
+        </el-form-item>
+        <el-form-item label="时长">
+          <el-select v-model="duration" style="width: 120px">
+            <el-option v-for="d in durationOptions" :key="d" :label="`${d}秒`" :value="d" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="宽高比">
+          <el-select v-model="aspectRatio" style="width: 120px">
+            <el-option v-for="r in ratioOptions" :key="r" :label="r" :value="r" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="帧率">
+          <el-select v-model="frameRate" style="width: 120px">
+            <el-option v-for="f in fpsOptions" :key="f" :label="`${f}fps`" :value="f" />
+          </el-select>
+        </el-form-item>
+        <el-form-item>
+          <el-button type="primary" :loading="loading" size="large" @click="handleGenerate" style="width: 100%">
+            生成视频
+          </el-button>
+        </el-form-item>
+      </el-form>
+    </div>
 
-    <div v-if="taskId" style="margin-top: 16px">
-      <el-alert title="任务已提交" type="success" show-icon>
-        <p>任务 ID: {{ taskId }}</p>
-      </el-alert>
+    <div class="gen-preview">
+      <div v-if="taskId" style="padding: 20px">
+        <el-alert title="任务已提交" type="success" show-icon>
+          <p>任务 ID: {{ taskId }}</p>
+        </el-alert>
+      </div>
+      <div v-else style="padding: 20px; text-align: center; color: var(--text-muted); font-size: 14px">
+        上传图片并填写提示词，视频结果将出现在这里
+      </div>
     </div>
   </div>
 </template>
+
+<style scoped>
+.gen-page { display: flex; gap: 24px; min-height: 500px; }
+.gen-input { flex: 1; max-width: 480px; padding: 20px; background: var(--bg-card); border: 1px solid var(--border-default); border-radius: var(--radius-card); }
+.gen-preview { flex: 1; padding: 20px; background: var(--bg-subtle); border: 1px solid var(--border-default); border-radius: var(--radius-card); display: flex; flex-direction: column; }
+.gen-title { font-size: 14px; font-weight: 500; color: var(--text-muted); margin: 0 0 16px 0; }
+</style>
