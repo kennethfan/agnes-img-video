@@ -115,3 +115,47 @@ export interface AssetDeleteRequest {
   ids: number[]
   delete_files?: boolean
 }
+
+export interface StoryboardProject {
+  id: number
+  title: string
+  script: string
+  created_at: string
+  updated_at: string
+  shot_count: number
+}
+
+export interface StoryboardShot {
+  id: number
+  project_id: number
+  sequence: number
+  prompt: string
+  type: string
+  reference_image: string
+  status: 'pending' | 'generating' | 'completed'
+  result_video: string
+  task_id: string
+  created_at: string
+}
+
+export interface CreateProjectRequest {
+  title: string
+  script?: string
+}
+
+export interface UpdateProjectRequest {
+  title?: string
+  script?: string
+}
+
+export interface CreateShotRequest {
+  prompt: string
+  type: string
+  reference_image?: string
+}
+
+export interface UpdateShotRequest {
+  prompt?: string
+  type?: string
+  reference_image?: string
+}

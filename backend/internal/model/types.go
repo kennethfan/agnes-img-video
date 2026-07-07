@@ -204,3 +204,53 @@ type AssetDeleteRequest struct {
 	IDs         []int64 `json:"ids" binding:"required"`
 	DeleteFiles bool    `json:"delete_files"`
 }
+
+// ==================== 故事板 ====================
+
+type StoryboardProject struct {
+	ID        int64  `json:"id"`
+	Title     string `json:"title"`
+	Script    string `json:"script"`
+	CreatedAt string `json:"created_at"`
+	UpdatedAt string `json:"updated_at"`
+	ShotCount int    `json:"shot_count"`
+}
+
+type StoryboardShot struct {
+	ID            int64  `json:"id"`
+	ProjectID     int64  `json:"project_id"`
+	Sequence      int    `json:"sequence"`
+	Prompt        string `json:"prompt"`
+	Type          string `json:"type"`
+	ReferenceImage string `json:"reference_image"`
+	Status        string `json:"status"`
+	ResultVideo   string `json:"result_video"`
+	TaskID        string `json:"task_id"`
+	CreatedAt     string `json:"created_at"`
+}
+
+type CreateProjectRequest struct {
+	Title  string `json:"title" binding:"required"`
+	Script string `json:"script"`
+}
+
+type UpdateProjectRequest struct {
+	Title  string `json:"title"`
+	Script string `json:"script"`
+}
+
+type CreateShotRequest struct {
+	Prompt         string `json:"prompt" binding:"required"`
+	Type           string `json:"type"`
+	ReferenceImage string `json:"reference_image"`
+}
+
+type UpdateShotRequest struct {
+	Prompt         string `json:"prompt"`
+	Type           string `json:"type"`
+	ReferenceImage string `json:"reference_image"`
+}
+
+type ReorderShotsRequest struct {
+	IDs []int64 `json:"ids" binding:"required"`
+}

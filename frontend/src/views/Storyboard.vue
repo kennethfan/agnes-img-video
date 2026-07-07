@@ -1,0 +1,329 @@
+<script setup lang="ts">
+import { ref, onMounted } from 'vue'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import { Plus, Edit, Delete, CopyDocument, VideoPlay } from '@element-plus/icons-vue'
+import { listProjects, getProject, createProject, updateProject, deleteProject, duplicateProject, createShot, updateShot, deleteShot, generateShots } from '../api/storyboard'
+import type { StoryboardProject, StoryboardShot } from '../types'
+import ShotCard from '../components/ShotCard.vue'
+
+const view = ref<'list' | 'detail'>('list')
+
+const projects = ref<StoryboardProject[]>([])
+const loading = ref(false)
+
+const currentProject = ref<StoryboardProject | null>(null)
+const shots = ref<StoryboardShot[]>([])
+
+const showProjectDialog = ref(false)
+const isEditingProject = ref(false)
+const projectForm = ref({ title: '', script: '' })
+
+const showShotDialog = ref(false)
+const editingShot = ref<number | null>(null)
+const shotForm = ref({ prompt: '', type: 'text2video' as string, reference_image: '' })
+
+async function loadProjects() {
+  loading.value = true
+  try {
+    projects.value = await listProjects()
+  } catch (e: any) {
+    ElMessage.error('加载失败: ' + (e.message || ''))
+  } finally {
+    loading.value = false
+  }
+}
+
+onMounted(loadProjects)
+
+function openNewProject() {
+  isEditingProject.value = false
+  projectForm.value = { title: '', script: '' }
+  showProjectDialog.value = true
+}
+
+async function saveProject() {
+  try {
+    if (isEditingProject.value && currentProject.value) {
+      await updateProject(currentProject.value.id, projectForm.value)
+      ElMessage.success('保存成功')
+    } else {
+      const id = await createProject(projectForm.value)
+      currentProject.value = { id, title: projectForm.value.title, script: projectForm.value.script, created_at: '', updated_at: '', shot_count: 0 }
+      view.value = 'detail'
+      ElMessage.success('创建成功')
+    }
+    showProjectDialog.value = false
+    await loadProjects()
+  } catch (e: any) {
+    ElMessage.error('操作失败')
+  }
+}
+
+async function openProject(project: StoryboardProject) {
+  loading.value = true
+  try {
+    const data = await getProject(project.id)
+    currentProject.value = data.project
+    shots.value = data.shots
+    view.value = 'detail'
+  } catch (e: any) {
+    ElMessage.error('加载失败')
+  } finally {
+    loading.value = false
+  }
+}
+
+function backToList() {
+  view.value = 'list'
+  currentProject.value = null
+  shots.value = []
+}
+
+function editProject() {
+  if (!currentProject.value) return
+  isEditingProject.value = true
+  projectForm.value = { title: currentProject.value.title, script: currentProject.value.script }
+  showProjectDialog.value = true
+}
+
+async function deleteCurrentProject() {
+  if (!currentProject.value) return
+  try {
+    await ElMessageBox.confirm('确定删除此分镜项目？所有镜头将一同删除。', '确认删除', { type: 'warning' })
+    await deleteProject(currentProject.value.id)
+    ElMessage.success('删除成功')
+    backToList()
+    await loadProjects()
+  } catch (e: any) {
+    if (e !== 'cancel') ElMessage.error('删除失败')
+  }
+}
+
+async function duplicateCurrentProject() {
+  if (!currentProject.value) return
+  try {
+    await duplicateProject(currentProject.value.id)
+    ElMessage.success('复制成功')
+    await loadProjects()
+  } catch (e: any) {
+    ElMessage.error('复制失败')
+  }
+}
+
+function openNewShot() {
+  editingShot.value = null
+  shotForm.value = { prompt: '', type: 'text2video', reference_image: '' }
+  showShotDialog.value = true
+}
+
+function editShot(shot: StoryboardShot) {
+  editingShot.value = shot.id
+  shotForm.value = { prompt: shot.prompt, type: shot.type, reference_image: shot.reference_image || '' }
+  showShotDialog.value = true
+}
+
+async function saveShotEdit() {
+  if (!editingShot.value) { await addShot(); return }
+  try {
+    await updateShot(editingShot.value, shotForm.value)
+    ElMessage.success('更新成功')
+    showShotDialog.value = false
+    editingShot.value = null
+    if (currentProject.value) {
+      const data = await getProject(currentProject.value.id)
+      shots.value = data.shots
+    }
+  } catch (e: any) {
+    ElMessage.error('更新失败')
+  }
+}
+
+function generateSingleShot() {
+  if (!currentProject.value) return
+  ElMessage.info('请使用"批量生成"按钮触发所有待生成镜头')
+}
+
+async function addShot() {
+  if (!currentProject.value) return
+  if (!shotForm.value.prompt) {
+    ElMessage.warning('请输入提示词')
+    return
+  }
+  try {
+    await createShot(currentProject.value.id, shotForm.value)
+    ElMessage.success('添加成功')
+    showShotDialog.value = false
+    const data = await getProject(currentProject.value.id)
+    currentProject.value = data.project
+    shots.value = data.shots
+  } catch (e: any) {
+    ElMessage.error('添加失败')
+  }
+}
+
+async function deleteShotById(id: number) {
+  try {
+    await deleteShot(id)
+    shots.value = shots.value.filter(s => s.id !== id)
+    ElMessage.success('删除成功')
+  } catch (e: any) {
+    ElMessage.error('删除失败')
+  }
+}
+
+async function handleGenerateShots() {
+  if (!currentProject.value) return
+  try {
+    await generateShots(currentProject.value.id)
+    ElMessage.success('批量生成已触发')
+    const data = await getProject(currentProject.value.id)
+    shots.value = data.shots
+  } catch (e: any) {
+    ElMessage.error('批量生成失败')
+  }
+}
+
+const previewUrl = ref('')
+const showPreview = ref(false)
+
+function previewVideo(url: string) {
+  previewUrl.value = url
+  showPreview.value = true
+}
+</script>
+
+<template>
+  <div>
+    <template v-if="view === 'list'">
+      <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px">
+        <h3 style="margin: 0">分镜项目</h3>
+        <el-button type="primary" size="small" :icon="Plus" @click="openNewProject">新建项目</el-button>
+      </div>
+
+      <div v-loading="loading">
+        <div v-if="projects.length === 0 && !loading" style="text-align: center; padding: 60px; color: #c0c4cc">
+          <el-icon :size="48"><VideoPlay /></el-icon>
+          <p style="margin-top: 12px">暂无分镜项目</p>
+          <el-button type="primary" size="small" @click="openNewProject">创建第一个项目</el-button>
+        </div>
+
+        <div v-else style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px">
+          <div v-for="project in projects" :key="project.id" class="project-card" @click="openProject(project)">
+            <div style="font-weight: 600; font-size: 15px; color: #303133; margin-bottom: 8px">
+              {{ project.title || '未命名项目' }}
+            </div>
+            <div style="font-size: 12px; color: #909399">
+              {{ project.shot_count }} 个镜头 · {{ project.updated_at?.slice(0, 10) }}
+            </div>
+          </div>
+        </div>
+      </div>
+    </template>
+
+    <template v-else-if="view === 'detail' && currentProject">
+      <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px; flex-wrap: wrap">
+        <el-button text @click="backToList">&lt; 返回</el-button>
+        <h3 style="margin: 0; flex: 1">{{ currentProject.title || '未命名项目' }}</h3>
+        <el-button size="small" :icon="Edit" @click="editProject">编辑</el-button>
+        <el-button size="small" :icon="CopyDocument" @click="duplicateCurrentProject">复制</el-button>
+        <el-button size="small" type="danger" :icon="Delete" @click="deleteCurrentProject">删除</el-button>
+        <el-button v-if="shots.some(s => s.status === 'pending')" type="primary" size="small" @click="handleGenerateShots">
+          批量生成 ({{ shots.filter(s => s.status === 'pending').length }})
+        </el-button>
+      </div>
+
+      <div v-loading="loading">
+        <div v-if="shots.length === 0 && !loading" style="text-align: center; padding: 40px; color: #c0c4cc">
+          <p>暂无镜头，添加第一个镜头开始策划</p>
+        </div>
+
+        <ShotCard
+          v-for="shot in shots"
+          :key="shot.id"
+          :shot="shot"
+          @edit="editShot(shot)"
+          @delete="deleteShotById(shot.id)"
+          @generate="generateSingleShot"
+          @preview="shot.result_video ? previewVideo(shot.result_video) : undefined"
+        />
+
+        <div style="text-align: center; margin-top: 16px">
+          <el-button type="primary" plain :icon="Plus" @click="openNewShot">添加镜头</el-button>
+        </div>
+      </div>
+    </template>
+
+    <el-dialog
+      v-model="showProjectDialog"
+      :title="isEditingProject ? '编辑项目' : '新建项目'"
+      width="500px"
+    >
+      <el-form :model="projectForm" label-width="60px">
+        <el-form-item label="标题">
+          <el-input v-model="projectForm.title" placeholder="分镜项目名称" />
+        </el-form-item>
+        <el-form-item label="脚本">
+          <el-input
+            v-model="projectForm.script"
+            type="textarea"
+            :rows="6"
+            placeholder="可选：粘贴完整的脚本内容，后续可拆分为镜头"
+          />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="showProjectDialog = false">取消</el-button>
+        <el-button type="primary" @click="saveProject">保存</el-button>
+      </template>
+    </el-dialog>
+
+    <el-dialog
+      v-model="showShotDialog"
+      :title="editingShot ? '编辑镜头' : '添加镜头'"
+      width="500px"
+    >
+      <el-form :model="shotForm" label-width="80px">
+        <el-form-item label="提示词">
+          <el-input
+            v-model="shotForm.prompt"
+            type="textarea"
+            :rows="4"
+            placeholder="描述这个镜头的画面内容"
+          />
+        </el-form-item>
+        <el-form-item label="类型">
+          <el-select v-model="shotForm.type">
+            <el-option label="文生视频" value="text2video" />
+            <el-option label="图生视频" value="image2video" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="参考图">
+          <el-input v-model="shotForm.reference_image" placeholder="图片 URL（可选）" />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="showShotDialog = false">取消</el-button>
+        <el-button type="primary" @click="saveShotEdit">{{ editingShot ? '保存' : '添加' }}</el-button>
+      </template>
+    </el-dialog>
+
+    <el-dialog v-model="showPreview" title="视频预览" width="600px">
+      <video v-if="previewUrl" :src="previewUrl" controls style="width: 100%; max-height: 400px" />
+    </el-dialog>
+  </div>
+</template>
+
+<style scoped>
+.project-card {
+  border: 1px solid #ebeef5;
+  border-radius: 8px;
+  padding: 16px;
+  cursor: pointer;
+  transition: box-shadow 0.2s, border-color 0.2s;
+  background: #fff;
+}
+.project-card:hover {
+  box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+  border-color: #409eff;
+}
+</style>

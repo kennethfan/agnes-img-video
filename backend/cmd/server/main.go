@@ -84,6 +84,14 @@ func main() {
 	ideasHandler := handler.NewIdeasHandler(svc)
 	assetHandler := handler.NewAssetHandler(histRepo)
 
+	// 故事板
+	storyboardRepo, err := repository.NewStoryboardRepo(dbPath)
+	if err != nil {
+		log.Fatalf("初始化故事板数据库失败: %v", err)
+	}
+	defer storyboardRepo.Close()
+	storyboardHandler := handler.NewStoryboardHandler(storyboardRepo)
+
 	// 设置视频完成回调（自动保存历史记录）
 	handler.SetupVideoHistoryCallback(taskMgr, svc)
 
@@ -127,6 +135,22 @@ func main() {
 		api.POST("/assets/favorite", assetHandler.ToggleFavorite)
 		api.POST("/assets/batch-download", assetHandler.BatchDownload)
 		api.DELETE("/assets", assetHandler.DeleteAssets)
+
+		// 故事板
+		storyboard := api.Group("/storyboard")
+		{
+			storyboard.GET("/projects", storyboardHandler.ListProjects)
+			storyboard.POST("/projects", storyboardHandler.CreateProject)
+			storyboard.GET("/projects/:id", storyboardHandler.GetProject)
+			storyboard.PUT("/projects/:id", storyboardHandler.UpdateProject)
+			storyboard.DELETE("/projects/:id", storyboardHandler.DeleteProject)
+			storyboard.POST("/projects/:id/duplicate", storyboardHandler.DuplicateProject)
+			storyboard.POST("/projects/:id/shots", storyboardHandler.CreateShot)
+			storyboard.PUT("/projects/:id/shots/reorder", storyboardHandler.ReorderShots)
+			storyboard.PUT("/shots/:id", storyboardHandler.UpdateShot)
+			storyboard.DELETE("/shots/:id", storyboardHandler.DeleteShot)
+			storyboard.POST("/projects/:id/generate", storyboardHandler.GenerateShots)
+		}
 	}
 
 	// 静态文件服务 - outputs/ 目录
