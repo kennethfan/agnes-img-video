@@ -82,6 +82,7 @@ func main() {
 	historyHandler := handler.NewHistoryHandler(histRepo)
 	configHandler := handler.NewConfigHandler(configPath)
 	ideasHandler := handler.NewIdeasHandler(svc)
+	assetHandler := handler.NewAssetHandler(histRepo)
 
 	// 设置视频完成回调（自动保存历史记录）
 	handler.SetupVideoHistoryCallback(taskMgr, svc)
@@ -120,6 +121,12 @@ func main() {
 
 		// 点子库
 		api.POST("/ideas/expand", ideasHandler.ExpandIdea)
+
+		// 资产管理
+		api.GET("/assets", assetHandler.ListAssets)
+		api.POST("/assets/favorite", assetHandler.ToggleFavorite)
+		api.POST("/assets/batch-download", assetHandler.BatchDownload)
+		api.DELETE("/assets", assetHandler.DeleteAssets)
 	}
 
 	// 静态文件服务 - outputs/ 目录
