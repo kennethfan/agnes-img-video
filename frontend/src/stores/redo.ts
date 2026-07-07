@@ -34,10 +34,10 @@ export const modeToTab: Record<string, string> = {
   text2image: 'text2img',
   image2image: 'img2img',
   batch: 'batch',
-  script_gen: 'script',
+  script_gen: 'script_gen',
   text2video: 'text2vid',
   image2video: 'img2vid',
-  multi_image_video: 'multi-vid',
+  multi_image_video: 'multi_vid',
 }
 
 export const useRedoStore = defineStore('redo', () => {

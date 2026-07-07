@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue'
+import NavSidebar from './components/NavSidebar.vue'
 import TextToImage from './views/TextToImage.vue'
 import ImageToImage from './views/ImageToImage.vue'
 import BatchGen from './views/BatchGen.vue'
@@ -13,14 +14,13 @@ import Assets from './views/Assets.vue'
 import Storyboard from './views/Storyboard.vue'
 import { useRedoStore } from './stores/redo'
 
-const activeTab = ref('text2img')
+const activePage = ref('text2img')
 const redoStore = useRedoStore()
 
-// 监听重做事件 — 只负责切换tab
 function handleRedoTrigger() {
   const tab = redoStore.targetTab
   if (tab) {
-    activeTab.value = tab
+    activePage.value = tab
   }
 }
 
@@ -34,47 +34,76 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <el-container style="min-height: 100vh; background: #f5f7fa">
-    <el-main style="max-width: 1200px; margin: 0 auto; width: 100%">
-      <h1 style="margin-bottom: 8px; font-size: 24px; color: #303133">
-        Agnes Creator Studio
-      </h1>
+  <div class="app-layout">
+    <header class="top-bar">
+      <span class="app-title">Agnes Creator Studio</span>
+      <span class="app-subtitle">AI Image &amp; Video Studio</span>
+    </header>
 
-      <el-tabs v-model="activeTab" type="border-card" style="margin-top: 16px">
-        <el-tab-pane label="文生图" name="text2img">
-          <TextToImage />
-        </el-tab-pane>
-        <el-tab-pane label="图生图" name="img2img">
-          <ImageToImage />
-        </el-tab-pane>
-        <el-tab-pane label="批量生成" name="batch">
-          <BatchGen />
-        </el-tab-pane>
-        <el-tab-pane label="脚本生成" name="script">
-          <ScriptGen />
-        </el-tab-pane>
-        <el-tab-pane label="文生视频" name="text2vid">
-          <TextToVideo />
-        </el-tab-pane>
-        <el-tab-pane label="图生视频" name="img2vid">
-          <ImageToVideo />
-        </el-tab-pane>
-        <el-tab-pane label="多图视频" name="multi-vid">
-          <MultiImageVideo />
-        </el-tab-pane>
-        <el-tab-pane label="点子库" name="ideas">
-          <Ideas />
-        </el-tab-pane>
-        <el-tab-pane label="分镜" name="storyboard">
-          <Storyboard />
-        </el-tab-pane>
-        <el-tab-pane label="作品" name="assets">
-          <Assets />
-        </el-tab-pane>
-        <el-tab-pane label="历史记录" name="history">
-          <History />
-        </el-tab-pane>
-      </el-tabs>
-    </el-main>
-  </el-container>
+    <div class="app-body">
+      <NavSidebar v-model:active-page="activePage" />
+
+      <main class="main-content">
+        <TextToImage v-if="activePage === 'text2img'" />
+        <ImageToImage v-else-if="activePage === 'img2img'" />
+        <BatchGen v-else-if="activePage === 'batch'" />
+        <ScriptGen v-else-if="activePage === 'script_gen'" />
+        <TextToVideo v-else-if="activePage === 'text2vid'" />
+        <ImageToVideo v-else-if="activePage === 'img2vid'" />
+        <MultiImageVideo v-else-if="activePage === 'multi_vid'" />
+        <Ideas v-else-if="activePage === 'ideas'" />
+        <Storyboard v-else-if="activePage === 'storyboard'" />
+        <Assets v-else-if="activePage === 'assets'" />
+        <History v-else-if="activePage === 'history'" />
+      </main>
+    </div>
+  </div>
 </template>
+
+<style>
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC',
+    'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+  background: #ffffff;
+  color: #000;
+}
+</style>
+
+<style scoped>
+.app-layout {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+.top-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 20px;
+  border-bottom: 1px solid #f0f0f0;
+  background: #ffffff;
+}
+.app-title {
+  font-weight: 600;
+  font-size: 15px;
+  color: #000;
+}
+.app-subtitle {
+  font-size: 12px;
+  color: #909399;
+}
+.app-body {
+  display: flex;
+  flex: 1;
+}
+.main-content {
+  flex: 1;
+  padding: 24px;
+  max-width: 1200px;
+  overflow-y: auto;
+}
+</style>
