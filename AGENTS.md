@@ -166,6 +166,21 @@ The `modeToTab` mapping in `src/stores/redo.ts` translates `text2image|image2ima
 - **Frontend TypeScript 6**: `erasableSyntaxOnly` enabled in tsconfig — no enums or namespaces; use `as const` or union types.
 - **Axios error interceptor**: errors are caught and converted to a plain `Error` with the server message. Always use `.catch()` or try/catch; raw Axios errors are never exposed to views.
 
+## 🚨 数据安全规则（禁止删除运行时数据）
+
+**严禁删除以下运行时数据文件：**
+
+| 文件/目录 | 用途 | 后果 |
+|---|---|---|
+| `backend/history.db` | 所有历史记录、作品库、收藏数据 | 删除后作品库和历史记录都变为空 |
+| `backend/outputs/` | 生成的图片和视频文件 | 删除后媒体无法查看 |
+
+**规则：**
+1. **任何情况下不得删除 `history.db`** — 包括测试、调试、清空操作。该文件包含所有历史记录索引 + 原始提示词。
+2. **`outputs/` 中的文件可以删除个别**（通过界面操作），但不得 `rm -rf outputs/` 或 `rm -f *.db`。
+3. **测试时必须备份数据** — 如果测试需要干净数据库，先 `cp history.db history.db.bak`，测试结束后恢复。
+4. **如意外丢失数据** — 运行 `go run ./scripts/recover_history.go` 从 `outputs/` 目录文件名重建记录（提示词无法恢复，标记为 `[已恢复]`）。
+
 ## Image Input Dual Mode
 
 Image-to-image and image-to-video views support both file upload and URL input via `inputMode` ref:
