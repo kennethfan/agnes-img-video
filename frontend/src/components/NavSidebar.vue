@@ -31,7 +31,7 @@ const groups = [
     label: '工具',
     items: [
       { id: 'script_gen', label: '脚本生成' },
-      { id: 'ideas', label: '点子库' },
+      { id: 'ideas', label: '灵感' },
       { id: 'storyboard', label: '分镜' },
     ],
   },
