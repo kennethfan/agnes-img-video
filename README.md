@@ -170,6 +170,10 @@ pnpm dev      # 开发服务器，代理 /api → :8080
 - **视频状态查询**: 状态接口会去掉 baseURL 中的 `/v1`，查询 `{baseDomain}/agnesapi?video_id={id}`
 - **无鉴权**: API 仅用于本地开发，无认证中间件
 
+## 致谢
+
+本项目受 [agnes-image-tool](https://github.com/you-want/agnes-image-tool.git) 的启发，并借鉴了其中的大量设计和代码实现。特此致谢！
+
 ## 相关文档
 
 - [B/S 架构设计](docs/design-bs-architecture.md)
