@@ -38,6 +38,18 @@ func NewHistoryRepo(dbPath string) (*HistoryRepo, error) {
 		return nil, fmt.Errorf("创建历史记录表失败: %w", err)
 	}
 
+	_, err = db.Exec(`
+		CREATE TABLE IF NOT EXISTS favorites (
+			history_id INTEGER PRIMARY KEY,
+			created_at TEXT DEFAULT (datetime('now')),
+			FOREIGN KEY (history_id) REFERENCES history(id) ON DELETE CASCADE
+		)
+	`)
+	if err != nil {
+		db.Close()
+		return nil, fmt.Errorf("创建收藏表失败: %w", err)
+	}
+
 	return &HistoryRepo{db: db}, nil
 }
 
@@ -135,26 +147,14 @@ func (r *HistoryRepo) ImportFromJSON(jsonPath string) (int, error) {
 	return imported, nil
 }
 
-func (r *HistoryRepo) GetRecords(limit int) ([]model.HistoryRecord, error) {
-	if limit <= 0 {
-		limit = 100
-	}
-	rows, err := r.db.Query(
-		"SELECT id, time, mode, prompt, images, extra FROM history ORDER BY id DESC LIMIT ?",
-		limit,
-	)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
+func scanRecords(rows *sql.Rows) ([]model.HistoryRecord, error) {
 	var records []model.HistoryRecord
 	for rows.Next() {
 		var (
-			id                int64
-			time, mode, prompt string
-			imagesJSON         string
-			extraJSON          *string
+			id                     int64
+			time, mode, prompt     string
+			imagesJSON             string
+			extraJSON              *string
 		)
 		if err := rows.Scan(&id, &time, &mode, &prompt, &imagesJSON, &extraJSON); err != nil {
 			return nil, err
@@ -182,6 +182,96 @@ func (r *HistoryRepo) GetRecords(limit int) ([]model.HistoryRecord, error) {
 		records = append(records, rec)
 	}
 	return records, rows.Err()
+}
+
+func (r *HistoryRepo) GetRecords(limit int) ([]model.HistoryRecord, error) {
+	if limit <= 0 {
+		limit = 100
+	}
+	rows, err := r.db.Query(
+		"SELECT id, time, mode, prompt, images, extra FROM history ORDER BY id DESC LIMIT ?",
+		limit,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	return scanRecords(rows)
+}
+
+func (r *HistoryRepo) GetRecordsPaginated(page, perPage int, assetType, search string, favIDs map[int64]bool) ([]model.HistoryRecord, int, error) {
+	var conditions []string
+	var args []any
+
+	if assetType != "" {
+		switch assetType {
+		case "image":
+			conditions = append(conditions, "mode IN ('text2image','image2image','batch')")
+		case "video":
+			conditions = append(conditions, "mode IN ('text2video','image2video','multi_image_video')")
+		}
+	}
+
+	if search != "" {
+		conditions = append(conditions, "prompt LIKE ?")
+		args = append(args, "%"+search+"%")
+	}
+
+	whereClause := ""
+	if len(conditions) > 0 {
+		whereClause = " WHERE " + strings.Join(conditions, " AND ")
+	}
+
+	var total int
+	countQuery := "SELECT COUNT(*) FROM history" + whereClause
+	if err := r.db.QueryRow(countQuery, args...).Scan(&total); err != nil {
+		return nil, 0, err
+	}
+
+	if total == 0 {
+		return []model.HistoryRecord{}, 0, nil
+	}
+
+	if page < 1 {
+		page = 1
+	}
+	if perPage < 1 {
+		perPage = 20
+	}
+	offset := (page - 1) * perPage
+
+	dataQuery := "SELECT id, time, mode, prompt, images, extra FROM history" + whereClause + " ORDER BY id DESC LIMIT ? OFFSET ?"
+	args = append(args, perPage, offset)
+	rows, err := r.db.Query(dataQuery, args...)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer rows.Close()
+
+	records, err := scanRecords(rows)
+	if err != nil {
+		return nil, 0, err
+	}
+	return records, total, nil
+}
+
+func (r *HistoryRepo) GetRecordsByIDs(ids []int64) ([]model.HistoryRecord, error) {
+	if len(ids) == 0 {
+		return nil, nil
+	}
+	placeholders := make([]string, len(ids))
+	args := make([]any, len(ids))
+	for i, id := range ids {
+		placeholders[i] = "?"
+		args[i] = id
+	}
+	q := fmt.Sprintf("SELECT id, time, mode, prompt, images, extra FROM history WHERE id IN (%s) ORDER BY id DESC", strings.Join(placeholders, ","))
+	rows, err := r.db.Query(q, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	return scanRecords(rows)
 }
 
 func (r *HistoryRepo) DeleteRecord(id int64) error {
@@ -287,4 +377,31 @@ func (r *HistoryRepo) TrimRecords(max int) error {
 		"DELETE FROM history WHERE id NOT IN (SELECT id FROM history ORDER BY id DESC LIMIT %d)", max,
 	))
 	return err
+}
+
+func (r *HistoryRepo) ToggleFavorite(historyID int64, favorite bool) error {
+	if favorite {
+		_, err := r.db.Exec("INSERT OR IGNORE INTO favorites (history_id) VALUES (?)", historyID)
+		return err
+	}
+	_, err := r.db.Exec("DELETE FROM favorites WHERE history_id = ?", historyID)
+	return err
+}
+
+func (r *HistoryRepo) GetFavoriteIDs() (map[int64]bool, error) {
+	rows, err := r.db.Query("SELECT history_id FROM favorites")
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	result := make(map[int64]bool)
+	for rows.Next() {
+		var id int64
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		result[id] = true
+	}
+	return result, rows.Err()
 }

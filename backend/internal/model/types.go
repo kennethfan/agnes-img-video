@@ -175,3 +175,32 @@ type ChatCompletionResponse struct {
 type ChatChoice struct {
 	Message ChatMessage `json:"message"`
 }
+
+// ==================== 资产管理 ====================
+
+type AssetItem struct {
+	ID        int64    `json:"id"`
+	Mode      string   `json:"mode"`
+	Prompt    string   `json:"prompt"`
+	Files     []string `json:"files"`
+	Thumbnail string   `json:"thumbnail"`
+	Type      string   `json:"type"`
+	Time      string   `json:"time"`
+	Favorite  bool     `json:"favorite"`
+}
+
+type AssetListResponse struct {
+	Items []AssetItem `json:"items"`
+	Total int         `json:"total"`
+	Page  int         `json:"page"`
+}
+
+type AssetFavoriteRequest struct {
+	HistoryID int64 `json:"history_id" binding:"required"`
+	Favorite  bool  `json:"favorite"`
+}
+
+type AssetDeleteRequest struct {
+	IDs         []int64 `json:"ids" binding:"required"`
+	DeleteFiles bool    `json:"delete_files"`
+}
