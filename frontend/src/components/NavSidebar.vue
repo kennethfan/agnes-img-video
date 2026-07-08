@@ -118,23 +118,23 @@ const currentGroup = computed(() => groups.find(g => g.id === activeGroup.value)
   align-items: flex-start;
 }
 .icon-bar {
-  width: 64px;
+  width: 76px;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 6px;
-  padding: 16px 0;
+  gap: 8px;
+  padding: 20px 0;
   background: #ffffff;
   border-right: 1px solid #f0f0f0;
 }
 .icon-btn {
-  width: 44px;
-  height: 44px;
+  width: 52px;
+  height: 52px;
   border: none;
-  border-radius: 10px;
+  border-radius: 12px;
   background: #f5f5f5;
   cursor: pointer;
-  font-size: 20px;
+  font-size: 24px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -145,33 +145,33 @@ const currentGroup = computed(() => groups.find(g => g.id === activeGroup.value)
 }
 .flyout {
   position: absolute;
-  left: 68px;
+  left: 80px;
   top: 0;
-  width: 200px;
+  width: 220px;
   background: #ffffff;
   border: 1px solid #eaeaea;
-  border-radius: 12px;
-  padding: 10px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
+  border-radius: 14px;
+  padding: 12px;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.08);
   z-index: 100;
 }
 .flyout-header {
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 600;
   color: #909399;
   text-transform: uppercase;
   letter-spacing: 0.5px;
-  padding: 8px 12px 10px;
+  padding: 8px 12px 12px;
 }
 .flyout-item {
   display: block;
   width: 100%;
-  padding: 10px 12px;
+  padding: 12px 14px;
   border: none;
   border-radius: 8px;
   background: transparent;
   cursor: pointer;
-  font-size: 14px;
+  font-size: 15px;
   color: #000;
   text-align: left;
   transition: background 0.15s;
