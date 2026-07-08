@@ -1,7 +1,6 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref } from 'vue'
 
-const activeGroup = ref('image')
 const activePage = defineModel<string>('activePage', { required: true })
 
 const groups = [
@@ -56,157 +55,118 @@ const groups = [
   },
 ]
 
-const isOpen = ref(false)
+const openGroup = ref<string | null>(null)
 
 function toggleGroup(groupId: string) {
-  if (activeGroup.value === groupId && isOpen.value) {
-    isOpen.value = false
-  } else {
-    activeGroup.value = groupId
-    isOpen.value = true
-  }
+  openGroup.value = openGroup.value === groupId ? null : groupId
 }
 
 function selectPage(pageId: string) {
   activePage.value = pageId
-  isOpen.value = false
 }
-
-function closeFlyout() {
-  isOpen.value = false
-}
-
-const currentGroup = computed(() => groups.find(g => g.id === activeGroup.value))
 </script>
 
 <template>
-  <div class="nav-sidebar" @mouseleave="closeFlyout">
-    <div class="icon-bar">
-      <button
-        v-for="g in groups"
-        :key="g.id"
-        class="icon-btn"
-        :class="{ active: activeGroup === g.id && isOpen }"
-        @click="toggleGroup(g.id)"
-        :title="g.label"
-      >
-        <span class="icon-btn__icon">{{ g.icon }}</span>
-        <span class="icon-btn__label">{{ g.label }}</span>
-      </button>
-    </div>
-
-    <Transition name="flyout">
-      <div v-if="isOpen && currentGroup" class="flyout">
-        <div class="flyout-header">{{ currentGroup.label }}</div>
-        <button
-          v-for="item in currentGroup.items"
-          :key="item.id"
-          class="flyout-item"
-          :class="{ active: activePage === item.id }"
-          @click="selectPage(item.id)"
-        >
-          {{ item.label }}
+  <div class="nav-sidebar">
+    <div class="sidebar-groups">
+      <div v-for="g in groups" :key="g.id" class="group">
+        <button class="group-header" @click="toggleGroup(g.id)">
+          <span class="group-header__icon">{{ g.icon }}</span>
+          <span class="group-header__label">{{ g.label }}</span>
+          <span class="group-header__arrow" :class="{ expanded: openGroup === g.id }">▶</span>
         </button>
+        <div v-if="openGroup === g.id" class="group-items">
+          <button
+            v-for="item in g.items"
+            :key="item.id"
+            class="group-item"
+            :class="{ active: activePage === item.id }"
+            @click="selectPage(item.id)"
+          >
+            {{ item.label }}
+          </button>
+        </div>
       </div>
-    </Transition>
+    </div>
   </div>
 </template>
 
 <style scoped>
 .nav-sidebar {
-  position: relative;
-  display: flex;
-  align-items: flex-start;
-}
-.icon-bar {
-  width: 76px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
-  padding: 20px 0;
+  width: 200px;
+  min-width: 200px;
   background: #ffffff;
   border-right: 1px solid #f0f0f0;
+  overflow-y: auto;
+  padding: 8px 0;
+  height: 100%;
 }
-.icon-btn {
-  width: 60px;
-  min-height: 56px;
-  border: none;
-  border-radius: 12px;
-  background: #f5f5f5;
-  cursor: pointer;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 2px;
-  padding: 6px 0;
-  transition: background 0.15s;
+
+.group + .group {
+  border-top: 1px solid #f5f5f5;
 }
-.icon-btn__icon {
-  font-size: 22px;
-  line-height: 1;
-}
-.icon-btn__label {
-  font-size: 10px;
-  color: #666;
-  line-height: 1;
-  white-space: nowrap;
-}
-.icon-btn.active .icon-btn__label {
-  color: #fff;
-}
-.icon-btn.active {
-  background: #000;
-  color: #fff;
-}
-.flyout {
-  position: absolute;
-  left: 80px;
-  top: 20px;
-  width: 220px;
-  background: #ffffff;
-  border: 1px solid #eaeaea;
-  border-radius: 14px;
-  padding: 12px;
-  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.08);
-  z-index: 100;
-}
-.flyout-header {
-  font-size: 14px;
-  font-weight: 600;
-  color: #909399;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  padding: 8px 12px 12px;
-}
-.flyout-item {
-  display: block;
+
+.group-header {
   width: 100%;
-  padding: 12px 14px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 16px;
   border: none;
-  border-radius: 8px;
   background: transparent;
   cursor: pointer;
-  font-size: 15px;
+  font-size: 14px;
   color: #000;
   text-align: left;
   transition: background 0.15s;
 }
-.flyout-item:hover {
-  background: #f5f5f5;
+.group-header:hover {
+  background: #f8f8f8;
 }
-.flyout-item.active {
-  background: #f5f5f5;
+.group-header__icon {
+  font-size: 18px;
+  width: 24px;
+  text-align: center;
+  flex-shrink: 0;
+}
+.group-header__label {
+  flex: 1;
   font-weight: 500;
 }
-.flyout-enter-active,
-.flyout-leave-active {
-  transition: opacity 0.15s, transform 0.15s;
+.group-header__arrow {
+  font-size: 11px;
+  color: #bbb;
+  transition: transform 0.2s;
+  flex-shrink: 0;
 }
-.flyout-enter-from,
-.flyout-leave-to {
-  opacity: 0;
-  transform: translateX(-6px);
+.group-header__arrow.expanded {
+  transform: rotate(90deg);
+}
+
+.group-items {
+  padding-bottom: 4px;
+}
+
+.group-item {
+  display: block;
+  width: 100%;
+  padding: 10px 16px 10px 50px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-size: 14px;
+  color: #555;
+  text-align: left;
+  transition: background 0.12s, color 0.12s;
+  border-radius: 0 6px 6px 0;
+}
+.group-item:hover {
+  background: #f5f5f5;
+  color: #000;
+}
+.group-item.active {
+  background: #f0f0f0;
+  font-weight: 500;
+  color: #000;
 }
 </style>
