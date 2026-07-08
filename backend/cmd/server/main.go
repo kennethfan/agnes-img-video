@@ -232,6 +232,12 @@ func main() {
 		// 数据库导出与恢复
 		api.GET("/db/export", dbHandler.ExportDB)
 		api.POST("/db/restore", dbHandler.RestoreDB)
+
+		// 手动上传到 GitHub
+		api.POST("/upload-to-github", handler.UploadToGitHub)
+
+		// 代理下载（解决跨域下载问题）
+		api.GET("/download", handler.ProxyDownload)
 	}
 
 	// 静态文件服务 - outputs/ 目录

@@ -38,22 +38,10 @@ func (h *ImageHandler) TextToImage(c *gin.Context) {
 		return
 	}
 
-	// 下载所有图片到本地
-	localPaths := make([]string, 0, len(urls))
-	for i, url := range urls {
-		prefix := fmt.Sprintf("text2img_%d", i)
-		localPath, err := h.svc.DownloadAndSave(url, prefix)
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("下载图片 %d 失败: %v", i, err)})
-			return
-		}
-		localPaths = append(localPaths, toRelPath(localPath))
-	}
+	// 直接使用 API 返回的 URL，不自动下载到本地
+	saveHistoryRecord(req.Prompt, urls, "text2image", nil)
 
-	// 保存历史
-	saveHistoryRecord(req.Prompt, localPaths, "text2image", nil)
-
-	c.JSON(http.StatusOK, model.ImageResponse{Images: localPaths})
+	c.JSON(http.StatusOK, model.ImageResponse{Images: urls})
 }
 
 // ImageToImage 图生图
@@ -144,23 +132,12 @@ func (h *ImageHandler) ImageToImage(c *gin.Context) {
 		return
 	}
 
-	localPaths := make([]string, 0, len(urls))
-	for i, url := range urls {
-		prefix := fmt.Sprintf("img2img_%d", i)
-		localPath, err := h.svc.DownloadAndSave(url, prefix)
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("下载图片 %d 失败: %v", i, err)})
-			return
-		}
-		localPaths = append(localPaths, toRelPath(localPath))
-	}
-
-	saveHistoryRecord(prompt, localPaths, "image2image", map[string]any{
+	saveHistoryRecord(prompt, urls, "image2image", map[string]any{
 		"size":     size,
 		"strength": strength,
 	})
 
-	c.JSON(http.StatusOK, model.ImageResponse{Images: localPaths})
+	c.JSON(http.StatusOK, model.ImageResponse{Images: urls})
 }
 
 // BatchGenerate 批量文生图
@@ -177,21 +154,15 @@ func (h *ImageHandler) BatchGenerate(c *gin.Context) {
 		return
 	}
 
-	allImages := make([]string, 0)
-	for i, prompt := range req.Prompts {
-		urls, err := h.svc.TextToImage(prompt, req.Size, 1, "")
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("第 %d 个提示词失败: %v", i+1, err)})
-			return
-		}
-		for _, url := range urls {
-			localPath, err := h.svc.DownloadAndSave(url, fmt.Sprintf("batch_%d", i))
+		allImages := make([]string, 0)
+		for i, prompt := range req.Prompts {
+			urls, err := h.svc.TextToImage(prompt, req.Size, 1, "")
 			if err != nil {
-				continue
+				c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("第 %d 个提示词失败: %v", i+1, err)})
+				return
 			}
-			allImages = append(allImages, toRelPath(localPath))
+			allImages = append(allImages, urls...)
 		}
-	}
 
 	saveHistoryRecord(strings.Join(req.Prompts, "; "), allImages, "batch", map[string]any{
 		"size": req.Size,

@@ -294,14 +294,8 @@ func SetupVideoHistoryCallback(tm *service.TaskManager, svc *service.AgnesClient
 		if resultURL == "" {
 			return
 		}
-		// 尝试下载视频到本地
-		paths := []string{resultURL}
-		localPath, err := svc.DownloadVideo(resultURL, "video_"+opts.RecordType)
-		if err != nil {
-			log.Printf("[History] 下载视频失败 %s: %v，将使用原始 URL", taskID, err)
-		} else {
-			paths = []string{localPath}
-		}
+			// 直接使用 API 返回的 URL，不自动下载到本地
+			paths := []string{resultURL}
 		// 更新已有的待完成记录（通过 extra.taskId 匹配）
 		if historyRepo != nil {
 			if id, err := historyRepo.FindByTaskId(taskID); err == nil && id > 0 {

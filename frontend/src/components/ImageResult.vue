@@ -1,25 +1,30 @@
 <script setup lang="ts">
-defineProps<{
+import { ref } from 'vue'
+import { ElMessage } from 'element-plus'
+import { uploadToGitHub } from '../api/github'
+
+const props = defineProps<{
   images: string[]
   loading: boolean
 }>()
 
-async function downloadImage(url: string) {
+const uploadingUrls = ref<Set<string>>(new Set())
+
+function downloadImage(url: string) {
+  window.open('/api/v1/download?url=' + encodeURIComponent(url), '_blank')
+}
+
+async function handleUploadToGitHub(url: string) {
+  uploadingUrls.value = new Set([...uploadingUrls.value, url])
   try {
-    const resp = await fetch(url)
-    const blob = await resp.blob()
-    const blobUrl = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = blobUrl
-    a.download = url.split('/').pop() || 'image.png'
-    a.click()
-    URL.revokeObjectURL(blobUrl)
-  } catch (e) {
-    // fallback: 直接打开（同源场景）
-    const a = document.createElement('a')
-    a.href = url
-    a.download = url.split('/').pop() || 'image.png'
-    a.click()
+    const githubUrl = await uploadToGitHub(url)
+    ElMessage.success(`已上传到 GitHub: ${githubUrl}`)
+  } catch (e: any) {
+    ElMessage.error(e.message || '上传到 GitHub 失败')
+  } finally {
+    const next = new Set(uploadingUrls.value)
+    next.delete(url)
+    uploadingUrls.value = next
   }
 }
 </script>
@@ -38,9 +43,17 @@ async function downloadImage(url: string) {
         fit="contain"
         style="width: 100%; height: 300px"
       />
-      <div style="text-align: center; margin-top: 8px">
+      <div class="image-actions">
         <el-button type="primary" size="small" @click="downloadImage(img)">
           下载
+        </el-button>
+        <el-button
+          size="small"
+          :loading="uploadingUrls.has(img)"
+          :disabled="uploadingUrls.has(img)"
+          @click="handleUploadToGitHub(img)"
+        >
+          转存
         </el-button>
       </div>
     </div>
@@ -59,5 +72,11 @@ async function downloadImage(url: string) {
   border: 1px solid var(--border-default);
   border-radius: var(--radius-card);
   padding: 12px;
+}
+.image-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  margin-top: 8px;
 }
 </style>

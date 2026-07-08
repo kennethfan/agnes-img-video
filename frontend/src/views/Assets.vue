@@ -3,6 +3,7 @@ import { ref, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Search, Star, StarFilled, Download, Delete, PictureFilled } from '@element-plus/icons-vue'
 import { getAssets, toggleFavorite, batchDownload, deleteAssets } from '../api/assets'
+import { uploadToGitHub } from '../api/github'
 import type { AssetItem } from '../types'
 import AssetCard from '../components/AssetCard.vue'
 
@@ -19,6 +20,7 @@ const selectedIds = ref<Set<number>>(new Set())
 const deleteFiles = ref(false)
 const drawerVisible = ref(false)
 const detailAsset = ref<AssetItem | null>(null)
+const uploadingUrl = ref('')
 
 async function loadAssets() {
   loading.value = true
@@ -79,6 +81,18 @@ function handleToggleSelect(item: AssetItem) {
 function handleCardClick(item: AssetItem) {
   detailAsset.value = item
   drawerVisible.value = true
+}
+
+async function handleUploadToGitHub(url: string) {
+  uploadingUrl.value = url
+  try {
+    const githubUrl = await uploadToGitHub(url)
+    ElMessage.success(`已上传到 GitHub: ${githubUrl}`)
+  } catch (e: any) {
+    ElMessage.error(e.message || '上传到 GitHub 失败')
+  } finally {
+    uploadingUrl.value = ''
+  }
 }
 
 async function handleBatchDownload() {
@@ -228,6 +242,12 @@ onMounted(loadAssets)
             @click="handleToggleFavorite(detailAsset)"
           >
             {{ detailAsset.favorite ? '已收藏' : '收藏' }}
+          </el-button>
+          <el-button
+            :loading="uploadingUrl === (detailAsset.files[0] || '')"
+            @click="handleUploadToGitHub(detailAsset.files[0])"
+          >
+            转存
           </el-button>
           <el-button @click="drawerVisible = false">关闭</el-button>
         </div>
