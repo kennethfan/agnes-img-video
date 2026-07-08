@@ -36,6 +36,16 @@ const groups = [
     ],
   },
   {
+    id: 'workflow',
+    icon: '⚡',
+    label: '创作',
+    items: [
+      { id: 'image_refine', label: '图片精修' },
+      { id: 'comic', label: '漫画生成' },
+      { id: 'novel', label: '小说生成' },
+    ],
+  },
+  {
     id: 'works',
     icon: '🖥',
     label: '作品',

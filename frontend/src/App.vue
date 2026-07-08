@@ -12,6 +12,7 @@ import History from './views/History.vue'
 import Ideas from './views/Ideas.vue'
 import Assets from './views/Assets.vue'
 import Storyboard from './views/Storyboard.vue'
+import WorkflowWizard from './views/WorkflowWizard.vue'
 import { useRedoStore } from './stores/redo'
 
 const activePage = ref('text2img')
@@ -55,6 +56,9 @@ onUnmounted(() => {
         <Storyboard v-else-if="activePage === 'storyboard'" />
         <Assets v-else-if="activePage === 'assets'" />
         <History v-else-if="activePage === 'history'" />
+        <WorkflowWizard v-else-if="activePage === 'image_refine'" workflowType="image_refine" />
+        <WorkflowWizard v-else-if="activePage === 'comic'" workflowType="comic" />
+        <WorkflowWizard v-else-if="activePage === 'novel'" workflowType="novel" />
       </main>
     </div>
   </div>

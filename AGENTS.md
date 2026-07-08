@@ -37,6 +37,7 @@ No legacy Python/Gradio code — everything goes through the B/S architecture.
 | `internal/handler/image.go` | 3 handlers: text-to-image, image-to-image (multipart), batch |
 | `internal/handler/video.go` | 6 handlers: text-to-video, image-to-video, multi-image, script-gen, status, SSE stream |
 | `internal/handler/ideas.go` | `ExpandIdea` — AI enhancement for creative ideas via chat completions |
+| `internal/handler/comic.go` | `GeneratePrompts` — AI generation of comic panel prompts via chat completions |
 | `internal/handler/history.go` | History API (SQLite via repository) + file deletion |
 | `internal/handler/config_handler.go` | GET/PUT config |
 | `internal/handler/asset.go` | Asset gallery: list/favorite/batch-download/delete (uses HistoryRepo) |
@@ -51,7 +52,7 @@ No legacy Python/Gradio code — everything goes through the B/S architecture.
 ```
 POST /images/text-to-image     POST /images/image-to-image     POST /images/batch
 POST /videos/text-to-video     POST /videos/image-to-video     POST /videos/multi-image
-POST /videos/generate-script   POST /ideas/expand
+POST /videos/generate-script   POST /ideas/expand   POST /comic/generate-prompts
 GET  /videos/:taskId           GET  /videos/stream/:taskId
 GET  /config                   PUT  /config
 GET  /history                  DELETE /history
