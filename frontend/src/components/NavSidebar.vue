@@ -90,7 +90,8 @@ const currentGroup = computed(() => groups.find(g => g.id === activeGroup.value)
         @click="toggleGroup(g.id)"
         :title="g.label"
       >
-        {{ g.icon }}
+        <span class="icon-btn__icon">{{ g.icon }}</span>
+        <span class="icon-btn__label">{{ g.label }}</span>
       </button>
     </div>
 
@@ -128,25 +129,41 @@ const currentGroup = computed(() => groups.find(g => g.id === activeGroup.value)
   border-right: 1px solid #f0f0f0;
 }
 .icon-btn {
-  width: 52px;
-  height: 52px;
+  width: 60px;
+  min-height: 56px;
   border: none;
   border-radius: 12px;
   background: #f5f5f5;
   cursor: pointer;
-  font-size: 24px;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
+  gap: 2px;
+  padding: 6px 0;
   transition: background 0.15s;
+}
+.icon-btn__icon {
+  font-size: 22px;
+  line-height: 1;
+}
+.icon-btn__label {
+  font-size: 10px;
+  color: #666;
+  line-height: 1;
+  white-space: nowrap;
+}
+.icon-btn.active .icon-btn__label {
+  color: #fff;
 }
 .icon-btn.active {
   background: #000;
+  color: #fff;
 }
 .flyout {
   position: absolute;
   left: 80px;
-  top: 0;
+  top: 20px;
   width: 220px;
   background: #ffffff;
   border: 1px solid #eaeaea;
