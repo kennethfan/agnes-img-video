@@ -26,6 +26,10 @@ func NewAssetHandler(repo *repository.HistoryRepo) *AssetHandler {
 	return &AssetHandler{repo: repo}
 }
 
+func (h *AssetHandler) SetRepo(repo *repository.HistoryRepo) {
+	h.repo = repo
+}
+
 func (h *AssetHandler) ListAssets(c *gin.Context) {
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	perPage, _ := strconv.Atoi(c.DefaultQuery("per_page", "20"))

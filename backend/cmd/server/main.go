@@ -1,6 +1,8 @@
 package main
 
 import (
+	"database/sql"
+	"fmt"
 	"log"
 	"os"
 
@@ -103,6 +105,61 @@ func main() {
 	defer storyboardRepo.Close()
 	storyboardHandler := handler.NewStoryboardHandler(storyboardRepo)
 
+	// 数据库导出与恢复
+	dbReplaceFunc := func(tmpPath string) error {
+		// 关闭旧连接
+		histRepo.Close()
+		storyboardRepo.Close()
+
+		// 备份当前数据库
+		bakPath := dbPath + ".bak"
+		if err := os.Rename(dbPath, bakPath); err != nil {
+			return fmt.Errorf("备份数据库失败: %w", err)
+		}
+
+		// 替换为新文件
+		if err := os.Rename(tmpPath, dbPath); err != nil {
+			os.Rename(bakPath, dbPath) // 恢复备份
+			log.Printf("[DB] 替换数据库文件失败，请重启服务器: %v", err)
+			return fmt.Errorf("替换数据库文件失败: %w", err)
+		}
+
+		// 重新打开数据库
+		newHistRepo, err := repository.NewHistoryRepo(dbPath)
+		if err != nil {
+			os.Rename(bakPath, dbPath) // 恢复备份
+			return fmt.Errorf("重新打开数据库失败: %w", err)
+		}
+
+		// 更新访问日志仓库的 db 引用
+		accessLogRepo.SetDB(newHistRepo.DB())
+
+		newStoryRepo, err := repository.NewStoryboardRepo(dbPath)
+		if err != nil {
+			newHistRepo.Close()
+			os.Rename(bakPath, dbPath) // 恢复备份
+			return fmt.Errorf("重新打开故事板数据库失败: %w", err)
+		}
+
+		// 更新所有引用
+		histRepo = newHistRepo
+		storyboardRepo = newStoryRepo
+		handler.SetHistoryRepo(newHistRepo)
+		historyHandler.SetRepo(newHistRepo)
+		assetHandler.SetRepo(newHistRepo)
+		middleware.SetAccessLogRepo(accessLogRepo)
+		storyboardHandler.SetRepo(newStoryRepo)
+
+		// 删除备份（恢复成功）
+		os.Remove(bakPath)
+		log.Printf("[DB] 数据库恢复完成，连接已刷新")
+		return nil
+	}
+
+
+
+	dbHandler := handler.NewDBHandler(dbPath, dbReplaceFunc, func() *sql.DB { return histRepo.DB() })
+
 	// 设置视频完成回调（自动保存历史记录）
 	handler.SetupVideoHistoryCallback(taskMgr, svc)
 
@@ -171,6 +228,10 @@ func main() {
 			storyboard.DELETE("/shots/:id", storyboardHandler.DeleteShot)
 			storyboard.POST("/projects/:id/generate", storyboardHandler.GenerateShots)
 		}
+
+		// 数据库导出与恢复
+		api.GET("/db/export", dbHandler.ExportDB)
+		api.POST("/db/restore", dbHandler.RestoreDB)
 	}
 
 	// 静态文件服务 - outputs/ 目录

@@ -193,6 +193,11 @@ func (r *AccessLogRepo) DeleteOlderThan(days int) (int64, error) {
 	return n, nil
 }
 
+// SetDB 替换内部数据库连接（用于数据库恢复后刷新引用）
+func (r *AccessLogRepo) SetDB(db *sql.DB) {
+	r.db = db
+}
+
 // StartDailyCleanup 启动每日自动清理 goroutine
 func (r *AccessLogRepo) StartDailyCleanup(retentionDays int) {
 	go func() {

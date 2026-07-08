@@ -20,6 +20,11 @@ func NewStoryboardHandler(repo *repository.StoryboardRepo) *StoryboardHandler {
 	return &StoryboardHandler{repo: repo}
 }
 
+// SetRepo 替换内部仓库引用（用于数据库恢复后刷新）
+func (h *StoryboardHandler) SetRepo(repo *repository.StoryboardRepo) {
+	h.repo = repo
+}
+
 func (h *StoryboardHandler) ListProjects(c *gin.Context) {
 	projects, err := h.repo.ListProjects()
 	if err != nil {

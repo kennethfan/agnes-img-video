@@ -59,6 +59,7 @@ const groups = [
     label: '系统',
     items: [
       { id: 'access_logs', label: '接口日志' },
+      { id: 'db_manage', label: '备份恢复' },
     ],
   },
 ]

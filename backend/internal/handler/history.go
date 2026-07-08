@@ -33,6 +33,10 @@ func NewHistoryHandler(repo *repository.HistoryRepo) *HistoryHandler {
 	return &HistoryHandler{repo: repo}
 }
 
+func (h *HistoryHandler) SetRepo(repo *repository.HistoryRepo) {
+	h.repo = repo
+}
+
 func (h *HistoryHandler) GetHistory(c *gin.Context) {
 	records, err := h.repo.GetRecords(100)
 	if err != nil {

@@ -61,7 +61,7 @@ func AccessLogger() gin.HandlerFunc {
 		durationMs := int(time.Since(start).Milliseconds())
 		respBody := captureResponseBody(c, bw)
 
-		if strings.Contains(c.Request.URL.Path, "/access-logs") {
+		if strings.Contains(c.Request.URL.Path, "/access-logs") || strings.Contains(c.Request.URL.Path, "/db/") {
 			return
 		}
 
