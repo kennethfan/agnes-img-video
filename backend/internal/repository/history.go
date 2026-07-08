@@ -57,6 +57,10 @@ func (r *HistoryRepo) Close() error {
 	return r.db.Close()
 }
 
+func (r *HistoryRepo) DB() *sql.DB {
+	return r.db
+}
+
 func (r *HistoryRepo) InsertRecord(prompt string, images []string, mode string, extra any) (int64, error) {
 	imagesJSON, err := json.Marshal(images)
 	if err != nil {

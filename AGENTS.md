@@ -1,5 +1,9 @@
 # AGENTS.md — Agnes Creator Studio
 
+**Generated:** 2026-07-08
+**Commit:** 1ce4b2c (dev)
+**Stack:** Go 1.25 · Gin · SQLite · Vue 3 · TypeScript 6 · Vite 8 · Element Plus · Pinia · Axios · SSE
+
 ## Quick Start
 
 ```bash
@@ -13,6 +17,54 @@ cd frontend
 pnpm install
 pnpm dev                   # → http://localhost:5173
 ```
+
+## WHERE TO LOOK
+
+| Task | Location | Notes |
+|------|----------|-------|
+| Image generation API | `backend/internal/handler/image.go` | 3 handlers (text-to-image, image-to-image, batch) |
+| Video generation API | `backend/internal/handler/video.go` | 6 handlers + SSE streaming |
+| Ideas/comic expansion | `backend/internal/handler/ideas.go`, `comic.go` | Chat-based AI features |
+| History CRUD | `backend/internal/handler/history.go` | SQLite-backed, file deletion |
+| Asset gallery | `backend/internal/handler/asset.go` | Uses HistoryRepo |
+| Config management | `backend/internal/handler/config_handler.go` | GET/PUT .config.json |
+| Storyboard | `backend/internal/handler/storyboard.go` | Projects + shots CRUD |
+| Core business logic | `backend/internal/service/` | AgnesClient, TaskManager, GithubStorage |
+| SQLite persistence | `backend/internal/repository/` | history.go, storyboard.go |
+| Shared types | `backend/internal/model/types.go` | All request/response/SSE types |
+| Frontend views | `frontend/src/views/` | 10 views + 3 wizard subdirs |
+| API client layer | `frontend/src/api/` | Axios wrappers per domain |
+| Pinia stores | `frontend/src/stores/` | redo.ts, wizard.ts |
+| Shared components | `frontend/src/components/` | ImageResult, ShotCard, wizard steps |
+| Types | `frontend/src/types/index.ts` | All TS interfaces |
+| SSE utility | `frontend/src/utils/sse.ts` | EventSource helper |
+| App entry | `frontend/src/App.vue` | el-tabs navigation, redo listener |
+
+## CODE MAP
+
+### Backend (Go) — key symbols
+
+| Symbol | Type | Location | Role |
+|--------|------|----------|------|
+| `AgnesClient` | struct | `internal/service/agnes.go` | Raw HTTP to Agnes AI API |
+| `TaskManager` | struct | `internal/service/video_manager.go` | Goroutine polling + SSE subscriber pattern |
+| `GithubStorage` | struct | `internal/service/github_storage.go` | GitHub Contents API upload/download |
+| `VideoTask` | struct | `internal/service/video_manager.go` | Task state + subscriber channels |
+| `VideoHandler` | struct | `internal/handler/video.go` | Video HTTP handlers |
+| `ImageHandler` | struct | `internal/handler/image.go` | Image HTTP handlers |
+| `HistoryRepo` | struct | `internal/repository/history.go` | SQLite CRUD for history |
+| `StoryboardRepo` | struct | `internal/repository/storyboard.go` | SQLite CRUD for storyboard |
+| `VideoStatus/Event` | struct | `internal/model/types.go` | SSE event types |
+
+### Frontend (Vue/TS) — key symbols
+
+| Symbol | Type | Location | Role |
+|--------|------|----------|------|
+| `useRedoStore` | Pinia store | `stores/redo.ts` | Cross-view data passing |
+| `useWizardStore` | Pinia store | `stores/wizard.ts` | Wizard step state (comic/novel/image) |
+| `connectSSE` | function | `utils/sse.ts` | EventSource helper for video progress |
+| `ImageResult` | component | `components/ImageResult.vue` | Reusable image gallery |
+| `ShotCard` | component | `components/ShotCard.vue` | Storyboard shot display |
 
 ## Project Structure
 
@@ -179,6 +231,35 @@ The `modeToTab` mapping in `src/stores/redo.ts` translates `text2image|image2ima
 - **Frontend navigation**: uses `el-tabs` (Element Plus) in `App.vue` with 10 tabs — not Vue Router, even though `vue-router` is a dependency.
 - **Frontend TypeScript 6**: `erasableSyntaxOnly` enabled in tsconfig — no enums or namespaces; use `as const` or union types.
 - **Axios error interceptor**: errors are caught and converted to a plain `Error` with the server message. Always use `.catch()` or try/catch; raw Axios errors are never exposed to views.
+
+## CONVENTIONS
+
+- **Go**: Project-layout standard (`cmd/`, `internal/`, `internal/handler/`, `internal/service/`, etc.)
+- **Vue**: Composition API + `<script setup>` only — no Options API
+- **TypeScript**: `erasableSyntaxOnly` — no enums, use `as const` or union types
+- **Error handling**: Always return `gin.H{"error": ...}` with Chinese error messages; frontend converts Axios errors via interceptor
+- **Chinese comments**: All code comments in Chinese (项目规范)
+- **No auth middleware**: API is local-only; API key sent to Agnes AI only
+- **Video frame count**: Must satisfy `8n + 1` formula
+
+## ANTI-PATTERNS (THIS PROJECT)
+
+- **Do NOT delete `history.db` or `outputs/`** — runtime data, irreversible loss
+- **Do NOT suppress TS errors** with `as any`, `@ts-ignore`, `@ts-expect-error`
+- **Do NOT use enums** (TypeScript 6 `erasableSyntaxOnly`)
+- **Do NOT use Vue Router for navigation** — `el-tabs` is the nav system (router is dependency only)
+- **Do NOT introduce auth middleware** — this is a local dev tool
+- **Do NOT refactor while fixing bugs** — minimal fixes only
+- **Do NOT modify `history.db` schema** without migration path
+
+## UNIQUE STYLES
+
+- Cross-view "redo" via Pinia store + custom DOM event `redo-trigger`
+- SSE for video progress — subscriber pattern with buffered channels (max 10)
+- Dual input mode (upload multipart OR JSON URL) for image/video generation endpoints
+- History start-up recovery: re-checks pending video tasks on boot
+- Video status API quirks: strips `/v1` from baseURL for status queries
+- Download path fallback: `outputs/` → `../outputs/`
 
 ## 🚨 数据安全规则（禁止删除运行时数据）
 

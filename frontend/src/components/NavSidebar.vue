@@ -53,6 +53,14 @@ const groups = [
       { id: 'history', label: '历史记录' },
     ],
   },
+  {
+    id: 'system',
+    icon: '⚙️',
+    label: '系统',
+    items: [
+      { id: 'access_logs', label: '接口日志' },
+    ],
+  },
 ]
 
 const openGroup = ref<string | null>(null)

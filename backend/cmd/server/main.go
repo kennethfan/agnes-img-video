@@ -62,6 +62,15 @@ func main() {
 	}
 	defer histRepo.Close()
 	handler.SetHistoryRepo(histRepo)
+
+	// 初始化访问日志仓库（复用 history.db）
+	accessLogRepo, err := repository.NewAccessLogRepo(histRepo.DB())
+	if err != nil {
+		log.Fatalf("初始化访问日志仓库失败: %v", err)
+	}
+	middleware.SetAccessLogRepo(accessLogRepo)
+	accessLogRepo.StartDailyCleanup(7) // 保留 7 天
+
 	if gs := svc.GetGithubStorage(); gs != nil {
 		handler.SetGithubStorage(gs)
 	}
@@ -83,6 +92,7 @@ func main() {
 	configHandler := handler.NewConfigHandler(configPath)
 	ideasHandler := handler.NewIdeasHandler(svc)
 	comicHandler := handler.NewComicHandler(svc)
+	accessLogHandler := handler.NewAccessLogHandler(accessLogRepo)
 	assetHandler := handler.NewAssetHandler(histRepo)
 
 	// 故事板
@@ -102,6 +112,7 @@ func main() {
 	// 设置路由
 	r := gin.Default()
 	r.Use(middleware.SetupCORS())
+	r.Use(middleware.AccessLogger())
 
 	api := r.Group("/api/v1")
 	{
@@ -133,6 +144,11 @@ func main() {
 
 		// 漫画
 		api.POST("/comic/generate-prompts", comicHandler.GeneratePrompts)
+
+		// 访问日志
+		api.GET("/access-logs", accessLogHandler.ListLogs)
+		api.DELETE("/access-logs", accessLogHandler.ClearLogs)
+		api.DELETE("/access-logs/:id", accessLogHandler.DeleteLog)
 
 		// 资产管理
 		api.GET("/assets", assetHandler.ListAssets)
