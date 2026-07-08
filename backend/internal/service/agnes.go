@@ -306,6 +306,54 @@ func (c *AgnesClient) ExpandIdea(title, content, tags string) (string, error) {
 	return resp.Choices[0].Message.Content, nil
 }
 
+// GenerateComicPrompts 调用聊天 API 生成漫画各格的画面提示词
+func (c *AgnesClient) GenerateComicPrompts(theme, layout string, panelCount int) ([]string, error) {
+	systemPrompt := `你是一个漫画分镜提示词生成专家。根据用户提供的漫画主题和分格数量，为每一格生成一个画面描述（图像提示词）。
+
+要求：
+1. 返回严格的 JSON 格式：一个字符串数组
+2. 每个提示词描述该格的画面内容、构图、角色动作、背景等，用中文
+3. 提示词适合作为 AI 图像生成 prompt，包含画面细节和风格
+4. 按漫画叙事顺序，每格之间要有叙事连贯性
+5. 只输出 JSON，不要任何其他内容
+6. 输出格式：{"prompts": ["第1格画面描述", "第2格画面描述", ...]}`
+
+	userPrompt := fmt.Sprintf("主题：%s\n布局：%s\n格数：%d", theme, layout, panelCount)
+
+	req := model.ChatCompletionRequest{
+		Model: c.chatModel,
+		Messages: []model.ChatMessage{
+			{Role: "system", Content: systemPrompt},
+			{Role: "user", Content: userPrompt},
+		},
+		Temperature: 0.8,
+		MaxTokens:   2048,
+	}
+
+	var resp model.ChatCompletionResponse
+	if err := c.doRequest("POST", "/chat/completions", req, &resp); err != nil {
+		return nil, fmt.Errorf("生成漫画提示词失败: %w", err)
+	}
+
+	if len(resp.Choices) == 0 {
+		return nil, fmt.Errorf("API 返回中未找到内容")
+	}
+
+	content := resp.Choices[0].Message.Content
+	var result struct {
+		Prompts []string `json:"prompts"`
+	}
+	if err := json.Unmarshal([]byte(content), &result); err != nil {
+		return nil, fmt.Errorf("解析 AI 返回结果失败: %w", err)
+	}
+
+	if len(result.Prompts) == 0 {
+		return nil, fmt.Errorf("AI 未生成任何提示词")
+	}
+
+	return result.Prompts, nil
+}
+
 // SubmitVideoTask 提交视频生成任务到 Agnes API
 func (c *AgnesClient) SubmitVideoTask(payload map[string]any) (string, error) {
 	url := c.baseURL + "/videos"

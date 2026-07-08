@@ -82,6 +82,7 @@ func main() {
 	historyHandler := handler.NewHistoryHandler(histRepo)
 	configHandler := handler.NewConfigHandler(configPath)
 	ideasHandler := handler.NewIdeasHandler(svc)
+	comicHandler := handler.NewComicHandler(svc)
 	assetHandler := handler.NewAssetHandler(histRepo)
 
 	// 故事板
@@ -129,6 +130,9 @@ func main() {
 
 		// 点子库
 		api.POST("/ideas/expand", ideasHandler.ExpandIdea)
+
+		// 漫画
+		api.POST("/comic/generate-prompts", comicHandler.GeneratePrompts)
 
 		// 资产管理
 		api.GET("/assets", assetHandler.ListAssets)
