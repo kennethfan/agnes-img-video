@@ -12,7 +12,7 @@ import (
 	"github.com/agnes-image-tool/backend/internal/config"
 	"github.com/agnes-image-tool/backend/internal/handler"
 	"github.com/agnes-image-tool/backend/internal/middleware"
-	"github.com/agnes-image-tool/backend/internal/repository"
+	gormrepo "github.com/agnes-image-tool/backend/internal/repository/gorm"
 	"github.com/agnes-image-tool/backend/internal/service"
 )
 
@@ -52,40 +52,33 @@ func main() {
 		log.Printf("[GitHub] 文件存储已启用: %s (branch: %s)", cfg.GithubRepo, cfg.GithubBranch)
 	}
 
-	// 初始化 SQLite 数据库
-	histRepo, err := repository.NewHistoryRepo(dbPath)
+	// 初始化 GORM 数据库（AutoMigrate 自动建表）
+	gormDB, err := gormrepo.OpenDB(gormrepo.DBConfig{Driver: "sqlite", DSN: dbPath})
 	if err != nil {
 		log.Fatalf("初始化数据库失败: %v", err)
 	}
-	defer histRepo.Close()
+	sqlDB, err := gormDB.DB()
+	if err != nil {
+		log.Fatalf("获取底层 sql.DB 失败: %v", err)
+	}
+	defer sqlDB.Close()
+
+	// 创建 GORM 仓库实例
+	histRepo := gormrepo.NewHistoryRepository(gormDB)
 	handler.SetHistoryRepo(histRepo)
 
-	// 初始化访问日志仓库（复用 history.db）
-	accessLogRepo, err := repository.NewAccessLogRepo(histRepo.DB())
-	if err != nil {
-		log.Fatalf("初始化访问日志仓库失败: %v", err)
-	}
+	accessLogRepo := gormrepo.NewAccessLogRepository(gormDB)
 	middleware.SetAccessLogRepo(accessLogRepo)
-	accessLogRepo.StartDailyCleanup(7) // 保留 7 天
+	accessLogRepo.StartDailyCleanup(7)
 
 	if gs := svc.GetGithubStorage(); gs != nil {
 		handler.SetGithubStorage(gs)
 	}
 
-	// 从 history.json 导入旧数据（如果存在）
-	if n, err := histRepo.ImportFromJSON("history.json"); err != nil {
-		log.Printf("[Migration] 导入 history.json 失败: %v", err)
-	} else if n > 0 {
-		log.Printf("[Migration] 成功从 history.json 导入 %d 条记录", n)
-	}
+	// 创建任务仓库
+	taskRepo := gormrepo.NewTaskRepository(gormDB)
 
-	// 创建任务仓库（复用 history.db）
-	taskRepo := repository.NewTaskRepository(histRepo.DB())
-	if err := taskRepo.InitTable(); err != nil {
-		log.Fatalf("初始化任务表失败: %v", err)
-	}
-
-	// 创建统一任务队列（替换视频任务管理器）
+	// 创建统一任务队列
 	taskQueue := service.NewTaskQueue(taskRepo, svc, 10)
 
 	// 创建 handler
@@ -98,26 +91,16 @@ func main() {
 	accessLogHandler := handler.NewAccessLogHandler(accessLogRepo)
 	assetHandler := handler.NewAssetHandler(histRepo)
 
-	// 故事板
-	storyboardRepo, err := repository.NewStoryboardRepo(dbPath)
-	if err != nil {
-		log.Fatalf("初始化故事板数据库失败: %v", err)
-	}
-	defer storyboardRepo.Close()
+	storyboardRepo := gormrepo.NewStoryboardRepository(gormDB)
 	storyboardHandler := handler.NewStoryboardHandler(storyboardRepo)
 
-	// 存储设置
-	settingsRepo := repository.NewSettingsRepo(histRepo.DB())
-	if err := settingsRepo.InitTable(); err != nil {
-		log.Fatalf("初始化设置表失败: %v", err)
-	}
+	settingsRepo := gormrepo.NewSettingsRepository(gormDB)
 	settingsHandler := handler.NewSettingsHandler(settingsRepo)
 
 	// 数据库导出与恢复
 	dbReplaceFunc := func(tmpPath string) error {
 		// 关闭旧连接
-		histRepo.Close()
-		storyboardRepo.Close()
+		sqlDB.Close()
 
 		// 备份当前数据库
 		bakPath := dbPath + ".bak"
@@ -127,48 +110,51 @@ func main() {
 
 		// 替换为新文件
 		if err := os.Rename(tmpPath, dbPath); err != nil {
-			os.Rename(bakPath, dbPath) // 恢复备份
+			os.Rename(bakPath, dbPath)
 			log.Printf("[DB] 替换数据库文件失败，请重启服务器: %v", err)
 			return fmt.Errorf("替换数据库文件失败: %w", err)
 		}
 
 		// 重新打开数据库
-		newHistRepo, err := repository.NewHistoryRepo(dbPath)
+		newGormDB, err := gormrepo.OpenDB(gormrepo.DBConfig{Driver: "sqlite", DSN: dbPath})
 		if err != nil {
-			os.Rename(bakPath, dbPath) // 恢复备份
+			os.Rename(bakPath, dbPath)
 			return fmt.Errorf("重新打开数据库失败: %w", err)
 		}
-
-		// 更新访问日志仓库的 db 引用
-		accessLogRepo.SetDB(newHistRepo.DB())
-
-		newStoryRepo, err := repository.NewStoryboardRepo(dbPath)
+		newSQLDB, err := newGormDB.DB()
 		if err != nil {
-			newHistRepo.Close()
-			os.Rename(bakPath, dbPath) // 恢复备份
-			return fmt.Errorf("重新打开故事板数据库失败: %w", err)
+			os.Rename(bakPath, dbPath)
+			return fmt.Errorf("获取底层 sql.DB 失败: %w", err)
 		}
 
+		// 创建新仓库
+		newHistRepo := gormrepo.NewHistoryRepository(newGormDB)
+		newStoryRepo := gormrepo.NewStoryboardRepository(newGormDB)
+		newAccessLogRepo := gormrepo.NewAccessLogRepository(newGormDB)
+		newSettingsRepo := gormrepo.NewSettingsRepository(newGormDB)
+
 		// 更新所有引用
+		gormDB = newGormDB
+		sqlDB = newSQLDB
 		histRepo = newHistRepo
 		storyboardRepo = newStoryRepo
+		accessLogRepo = newAccessLogRepo
+		settingsRepo = newSettingsRepo
 		handler.SetHistoryRepo(newHistRepo)
 		historyHandler.SetRepo(newHistRepo)
 		assetHandler.SetRepo(newHistRepo)
-		settingsRepo = repository.NewSettingsRepo(newHistRepo.DB())
-		settingsHandler = handler.NewSettingsHandler(settingsRepo)
-		middleware.SetAccessLogRepo(accessLogRepo)
+		settingsHandler = handler.NewSettingsHandler(newSettingsRepo)
+		middleware.SetAccessLogRepo(newAccessLogRepo)
 		storyboardHandler.SetRepo(newStoryRepo)
 
-		// 删除备份（恢复成功）
 		os.Remove(bakPath)
 		log.Printf("[DB] 数据库恢复完成，连接已刷新")
 		return nil
 	}
 
-	dbHandler := handler.NewDBHandler(dbPath, dbReplaceFunc, func() *sql.DB { return histRepo.DB() })
+	dbHandler := handler.NewDBHandler(dbPath, dbReplaceFunc, func() *sql.DB { return sqlDB })
 
-	// 设置任务完成回调（自动保存历史记录）
+	// 设置任务完成回调
 	handler.SetupVideoHistoryCallback(taskQueue, svc)
 
 	// 设置路由
@@ -178,12 +164,10 @@ func main() {
 
 	api := r.Group("/api/v1")
 	{
-		// 图片
 		api.POST("/images/text-to-image", imageHandler.TextToImage)
 		api.POST("/images/image-to-image", imageHandler.ImageToImage)
 		api.POST("/images/batch", imageHandler.BatchGenerate)
 
-		// 视频 & 脚本
 		api.POST("/videos/text-to-video", videoHandler.TextToVideo)
 		api.POST("/videos/image-to-video", videoHandler.ImageToVideo)
 		api.POST("/videos/multi-image", videoHandler.MultiImageVideo)
@@ -191,34 +175,26 @@ func main() {
 		api.GET("/videos/:taskId", videoHandler.GetTaskStatus)
 		api.GET("/videos/stream/:taskId", videoHandler.StreamSSE)
 
-		// 历史
 		api.GET("/history", historyHandler.GetHistory)
 		api.DELETE("/history", historyHandler.ClearHistory)
 		api.DELETE("/history/:id", historyHandler.DeleteRecord)
 		api.POST("/history/delete", historyHandler.DeleteHistory)
 
-		// 点子库
 		api.POST("/ideas/expand", ideasHandler.ExpandIdea)
-
-		// 漫画
 		api.POST("/comic/generate-prompts", comicHandler.GeneratePrompts)
 
-		// 访问日志
 		api.GET("/access-logs", accessLogHandler.ListLogs)
 		api.DELETE("/access-logs", accessLogHandler.ClearLogs)
 		api.DELETE("/access-logs/:id", accessLogHandler.DeleteLog)
 
-		// 存储设置
 		api.GET("/settings", settingsHandler.GetSettings)
 		api.PUT("/settings", settingsHandler.UpdateSettings)
 
-		// 资产管理
 		api.GET("/assets", assetHandler.ListAssets)
 		api.POST("/assets/favorite", assetHandler.ToggleFavorite)
 		api.POST("/assets/batch-download", assetHandler.BatchDownload)
 		api.DELETE("/assets", assetHandler.DeleteAssets)
 
-		// 故事板
 		storyboard := api.Group("/storyboard")
 		{
 			storyboard.GET("/projects", storyboardHandler.ListProjects)
@@ -234,17 +210,12 @@ func main() {
 			storyboard.POST("/projects/:id/generate", storyboardHandler.GenerateShots)
 		}
 
-		// 数据库导出与恢复
 		api.GET("/db/export", dbHandler.ExportDB)
 		api.POST("/db/restore", dbHandler.RestoreDB)
 
-		// 手动上传到 GitHub
 		api.POST("/upload-to-github", handler.UploadToGitHub)
-
-		// 代理下载（解决跨域下载问题）
 		api.GET("/download", handler.ProxyDownload)
 
-		// 统一任务查询与进度推送
 		api.GET("/tasks", taskHandler.ListTasks)
 		api.GET("/tasks/:id", taskHandler.GetTask)
 		api.GET("/tasks/:id/stream", taskHandler.StreamSSE)
@@ -252,10 +223,8 @@ func main() {
 		api.POST("/tasks/:id/retry", taskHandler.RetryTask)
 	}
 
-	// 静态文件服务 - outputs/ 目录
 	r.Static("/outputs", outputsPath)
 
-	// 启动服务器
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = "8080"

@@ -66,14 +66,14 @@ func (r *StoryboardRepository) DeleteProject(id int64) error {
 	return r.db.Delete(&StoryboardProject{}, id).Error
 }
 
-func (r *StoryboardRepository) DuplicateProject(id int64, newTitle string) (int64, error) {
+func (r *StoryboardRepository) DuplicateProject(id int64) (int64, error) {
 	tx := r.db.Begin()
 	var orig StoryboardProject
 	if err := tx.First(&orig, id).Error; err != nil {
 		tx.Rollback()
 		return 0, err
 	}
-	dup := StoryboardProject{Title: newTitle, Script: orig.Script}
+	dup := StoryboardProject{Title: orig.Title + " (副本)", Script: orig.Script}
 	if err := tx.Create(&dup).Error; err != nil {
 		tx.Rollback()
 		return 0, err
@@ -95,48 +95,7 @@ func (r *StoryboardRepository) DuplicateProject(id int64, newTitle string) (int6
 	return dup.ID, nil
 }
 
-func (r *StoryboardRepository) CreateShot(projectID int64, shot model.StoryboardShot) (int64, error) {
-	s := StoryboardShot{
-		ProjectID:      projectID,
-		Sequence:       shot.Sequence,
-		Prompt:         shot.Prompt,
-		Type:           shot.Type,
-		ReferenceImage: shot.ReferenceImage,
-		Status:         "pending",
-	}
-	if err := r.db.Create(&s).Error; err != nil {
-		return 0, err
-	}
-	return s.ID, nil
-}
-
-func (r *StoryboardRepository) UpdateShot(id int64, shot model.StoryboardShot) error {
-	return r.db.Model(&StoryboardShot{}).Where("id = ?", id).Updates(map[string]any{
-		"prompt":          shot.Prompt,
-		"type":            shot.Type,
-		"reference_image": shot.ReferenceImage,
-		"status":          shot.Status,
-		"result_video":    shot.ResultVideo,
-		"task_id":         shot.TaskID,
-	}).Error
-}
-
-func (r *StoryboardRepository) DeleteShot(id int64) error {
-	return r.db.Delete(&StoryboardShot{}, id).Error
-}
-
-func (r *StoryboardRepository) ReorderShots(projectID int64, shotIDs []int64) error {
-	return r.db.Transaction(func(tx *gorm.DB) error {
-		for i, sid := range shotIDs {
-			if err := tx.Model(&StoryboardShot{}).Where("id = ? AND project_id = ?", sid, projectID).Update("sequence", i).Error; err != nil {
-				return err
-			}
-		}
-		return nil
-	})
-}
-
-func (r *StoryboardRepository) GetShotsByProject(projectID int64) ([]model.StoryboardShot, error) {
+func (r *StoryboardRepository) ListShots(projectID int64) ([]model.StoryboardShot, error) {
 	var shots []StoryboardShot
 	if err := r.db.Where("project_id = ?", projectID).Order("sequence ASC").Find(&shots).Error; err != nil {
 		return nil, err
@@ -157,6 +116,44 @@ func (r *StoryboardRepository) GetShotsByProject(projectID int64) ([]model.Story
 		}
 	}
 	return result, nil
+}
+
+func (r *StoryboardRepository) CreateShot(projectID int64, seq int, prompt, shotType, refImage string) (int64, error) {
+	s := StoryboardShot{
+		ProjectID:      projectID,
+		Sequence:       seq,
+		Prompt:         prompt,
+		Type:           shotType,
+		ReferenceImage: refImage,
+		Status:         "pending",
+	}
+	if err := r.db.Create(&s).Error; err != nil {
+		return 0, err
+	}
+	return s.ID, nil
+}
+
+func (r *StoryboardRepository) UpdateShot(id int64, prompt, shotType, refImage string) error {
+	return r.db.Model(&StoryboardShot{}).Where("id = ?", id).Updates(map[string]any{
+		"prompt":          prompt,
+		"type":            shotType,
+		"reference_image": refImage,
+	}).Error
+}
+
+func (r *StoryboardRepository) DeleteShot(id int64) error {
+	return r.db.Delete(&StoryboardShot{}, id).Error
+}
+
+func (r *StoryboardRepository) ReorderShots(ids []int64) error {
+	return r.db.Transaction(func(tx *gorm.DB) error {
+		for i, sid := range ids {
+			if err := tx.Model(&StoryboardShot{}).Where("id = ?", sid).Update("sequence", i).Error; err != nil {
+				return err
+			}
+		}
+		return nil
+	})
 }
 
 func (r *StoryboardRepository) Close() error {

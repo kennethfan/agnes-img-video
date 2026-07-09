@@ -17,23 +17,20 @@ func NewAccessLogRepository(db *gorm.DB) *AccessLogRepository {
 	return &AccessLogRepository{db: db}
 }
 
-func (r *AccessLogRepository) InsertRecord(method, path string, status int, durationMs int, clientIP, userAgent, requestBody, responseBody, errMsg string) (int64, error) {
+func (r *AccessLogRepository) Insert(record *repository.AccessLogRecord) error {
 	al := AccessLog{
 		Timestamp:    time.Now().Format("2006-01-02 15:04:05"),
-		Method:       method,
-		Path:         path,
-		Status:       status,
-		DurationMs:   durationMs,
-		ClientIP:     clientIP,
-		UserAgent:    userAgent,
-		RequestBody:  requestBody,
-		ResponseBody: responseBody,
-		Error:        errMsg,
+		Method:       record.Method,
+		Path:         record.Path,
+		Status:       record.Status,
+		DurationMs:   record.DurationMs,
+		ClientIP:     record.ClientIP,
+		UserAgent:    record.UserAgent,
+		RequestBody:  record.RequestBody,
+		ResponseBody: record.ResponseBody,
+		Error:        record.Error,
 	}
-	if err := r.db.Create(&al).Error; err != nil {
-		return 0, err
-	}
-	return al.ID, nil
+	return r.db.Create(&al).Error
 }
 
 func (r *AccessLogRepository) Query(q repository.AccessLogQuery) (*repository.AccessLogQueryResult, error) {
@@ -95,11 +92,11 @@ func (r *AccessLogRepository) Query(q repository.AccessLogQuery) (*repository.Ac
 	return &repository.AccessLogQueryResult{Items: items, Total: int(total), Page: q.Page, Size: q.PageSize}, nil
 }
 
-func (r *AccessLogRepository) DeleteRecord(id int64) error {
+func (r *AccessLogRepository) Delete(id int64) error {
 	return r.db.Delete(&AccessLog{}, id).Error
 }
 
-func (r *AccessLogRepository) ClearRecords() error {
+func (r *AccessLogRepository) ClearAll() error {
 	return r.db.Session(&gorm.Session{AllowGlobalUpdate: true}).Delete(&AccessLog{}).Error
 }
 

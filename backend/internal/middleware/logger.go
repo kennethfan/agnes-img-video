@@ -14,9 +14,9 @@ import (
 	"github.com/agnes-image-tool/backend/internal/repository"
 )
 
-var accessLogRepo *repository.AccessLogRepo
+var accessLogRepo repository.AccessLogRepository
 
-func SetAccessLogRepo(repo *repository.AccessLogRepo) {
+func SetAccessLogRepo(repo repository.AccessLogRepository) {
 	accessLogRepo = repo
 }
 
