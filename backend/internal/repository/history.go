@@ -22,34 +22,6 @@ func NewHistoryRepo(dbPath string) (*HistoryRepo, error) {
 		return nil, fmt.Errorf("打开数据库失败: %w", err)
 	}
 
-	// 创建表
-	_, err = db.Exec(`
-		CREATE TABLE IF NOT EXISTS history (
-			id     INTEGER PRIMARY KEY AUTOINCREMENT,
-			time   TEXT NOT NULL,
-			mode   TEXT NOT NULL,
-			prompt TEXT NOT NULL,
-			images TEXT NOT NULL DEFAULT '[]',
-			extra  TEXT
-		)
-	`)
-	if err != nil {
-		db.Close()
-		return nil, fmt.Errorf("创建历史记录表失败: %w", err)
-	}
-
-	_, err = db.Exec(`
-		CREATE TABLE IF NOT EXISTS favorites (
-			history_id INTEGER PRIMARY KEY,
-			created_at TEXT DEFAULT (datetime('now')),
-			FOREIGN KEY (history_id) REFERENCES history(id) ON DELETE CASCADE
-		)
-	`)
-	if err != nil {
-		db.Close()
-		return nil, fmt.Errorf("创建收藏表失败: %w", err)
-	}
-
 	return &HistoryRepo{db: db}, nil
 }
 
@@ -155,10 +127,10 @@ func scanRecords(rows *sql.Rows) ([]model.HistoryRecord, error) {
 	var records []model.HistoryRecord
 	for rows.Next() {
 		var (
-			id                     int64
-			time, mode, prompt     string
-			imagesJSON             string
-			extraJSON              *string
+			id                 int64
+			time, mode, prompt string
+			imagesJSON         string
+			extraJSON          *string
 		)
 		if err := rows.Scan(&id, &time, &mode, &prompt, &imagesJSON, &extraJSON); err != nil {
 			return nil, err
@@ -305,10 +277,10 @@ func (r *HistoryRepo) ClearRecords() error {
 
 // PendingVideoInfo 待恢复的视频任务信息
 type PendingVideoInfo struct {
-	ID      int64
-	TaskID  string
-	Prompt  string
-	Mode    string
+	ID     int64
+	TaskID string
+	Prompt string
+	Mode   string
 }
 
 // FindByTaskId 通过 extra.taskId 查找历史记录 ID
