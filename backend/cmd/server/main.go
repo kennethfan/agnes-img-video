@@ -84,13 +84,20 @@ func main() {
 		log.Printf("[Migration] 成功从 history.json 导入 %d 条记录", n)
 	}
 
-	// 创建视频任务管理器
-	taskMgr := service.NewTaskManager(svc)
+	// 创建任务仓库（复用 history.db）
+	taskRepo := repository.NewTaskRepository(histRepo.DB())
+	if err := taskRepo.InitTable(); err != nil {
+		log.Fatalf("初始化任务表失败: %v", err)
+	}
+
+	// 创建统一任务队列（替换视频任务管理器）
+	taskQueue := service.NewTaskQueue(taskRepo, svc, 10)
 
 	// 创建 handler
-	imageHandler := handler.NewImageHandler(svc)
-	videoHandler := handler.NewVideoHandler(svc, taskMgr)
+	imageHandler := handler.NewImageHandler(svc, taskQueue)
+	videoHandler := handler.NewVideoHandler(svc, taskQueue)
 	historyHandler := handler.NewHistoryHandler(histRepo)
+	taskHandler := handler.NewTaskHandler(taskQueue)
 	configHandler := handler.NewConfigHandler(configPath)
 	ideasHandler := handler.NewIdeasHandler(svc)
 	comicHandler := handler.NewComicHandler(svc)
@@ -160,11 +167,8 @@ func main() {
 
 	dbHandler := handler.NewDBHandler(dbPath, dbReplaceFunc, func() *sql.DB { return histRepo.DB() })
 
-	// 设置视频完成回调（自动保存历史记录）
-	handler.SetupVideoHistoryCallback(taskMgr, svc)
-
-	// 启动时恢复未完成的视频任务
-	go recoverPendingVideoTasks(svc, histRepo)
+	// 设置任务完成回调（自动保存历史记录）
+	handler.SetupVideoHistoryCallback(taskQueue, svc)
 
 	// 设置路由
 	r := gin.Default()
@@ -238,6 +242,10 @@ func main() {
 
 		// 代理下载（解决跨域下载问题）
 		api.GET("/download", handler.ProxyDownload)
+
+		// 统一任务查询与进度推送
+		api.GET("/tasks/:id", taskHandler.GetTask)
+		api.GET("/tasks/:id/stream", taskHandler.StreamSSE)
 	}
 
 	// 静态文件服务 - outputs/ 目录
@@ -254,38 +262,4 @@ func main() {
 	}
 }
 
-// recoverPendingVideoTasks 启动时检查未完成的视频任务，更新历史记录
-func recoverPendingVideoTasks(svc *service.AgnesClient, repo *repository.HistoryRepo) {
-	pending, err := repo.FindPendingVideos()
-	if err != nil {
-		log.Printf("[Recovery] 查询待处理视频任务失败: %v", err)
-		return
-	}
-	if len(pending) == 0 {
-		return
-	}
-	log.Printf("[Recovery] 发现 %d 个待处理视频任务，开始检查状态...", len(pending))
-	for _, p := range pending {
-		status, err := svc.CheckVideoStatus(p.TaskID)
-		if err != nil {
-			log.Printf("[Recovery] 查询任务 %s 状态失败: %v", p.TaskID, err)
-			continue
-		}
-		switch status.Status {
-		case "completed":
-			log.Printf("[Recovery] 任务 %s 已完成，更新历史记录", p.TaskID)
-			paths := []string{status.URL}
-			localPath, err := svc.DownloadVideo(status.URL, "video_recover_"+p.Mode)
-			if err != nil {
-				log.Printf("[Recovery] 下载视频 %s 失败: %v", p.TaskID, err)
-			} else {
-				paths = []string{localPath}
-			}
-			repo.UpdateRecordImages(p.ID, paths)
-		case "failed":
-			log.Printf("[Recovery] 任务 %s 已失败，跳过", p.TaskID)
-		default:
-			log.Printf("[Recovery] 任务 %s 仍在处理中（%s），跳过", p.TaskID, status.Status)
-		}
-	}
-}
+
