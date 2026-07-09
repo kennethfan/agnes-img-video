@@ -206,10 +206,13 @@ func (r *TaskRepository) ListTasks(taskType, status string, limit, offset int) (
 	return results, rows.Err()
 }
 
-func (r *TaskRepository) CleanupOlderThan(hours int) error {
-	_, err := r.db.Exec(
+func (r *TaskRepository) CleanupOlderThan(hours int) (int64, error) {
+	res, err := r.db.Exec(
 		"DELETE FROM tasks WHERE completed_at IS NOT NULL AND completed_at < datetime('now', ?)",
 		fmt.Sprintf("-%d hours", hours),
 	)
-	return err
+	if err != nil {
+		return 0, err
+	}
+	return res.RowsAffected()
 }
