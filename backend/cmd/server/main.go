@@ -1,8 +1,6 @@
 package main
 
 import (
-	"database/sql"
-	"fmt"
 	"log"
 	"os"
 
@@ -105,64 +103,8 @@ func main() {
 	settingsRepo := gormrepo.NewSettingsRepository(gormDB)
 	settingsHandler := handler.NewSettingsHandler(settingsRepo)
 
-	// 数据库导出与恢复
-	var dbHandler *handler.DBHandler
-	dbReplaceFunc := func(tmpPath string) error {
-		// 关闭旧连接
-		sqlDB.Close()
-
-		// 备份当前数据库
-		bakPath := dbPath + ".bak"
-		if err := os.Rename(dbPath, bakPath); err != nil {
-			return fmt.Errorf("备份数据库失败: %w", err)
-		}
-
-		// 替换为新文件
-		if err := os.Rename(tmpPath, dbPath); err != nil {
-			os.Rename(bakPath, dbPath)
-			log.Printf("[DB] 替换数据库文件失败，请重启服务器: %v", err)
-			return fmt.Errorf("替换数据库文件失败: %w", err)
-		}
-
-		// 重新打开数据库
-		newGormDB, err := gormrepo.OpenDB(gormrepo.DBConfig{Driver: "sqlite", DSN: dbPath})
-		if err != nil {
-			os.Rename(bakPath, dbPath)
-			return fmt.Errorf("重新打开数据库失败: %w", err)
-		}
-		newSQLDB, err := newGormDB.DB()
-		if err != nil {
-			os.Rename(bakPath, dbPath)
-			return fmt.Errorf("获取底层 sql.DB 失败: %w", err)
-		}
-
-		// 创建新仓库
-		newHistRepo := gormrepo.NewHistoryRepository(newGormDB)
-		newStoryRepo := gormrepo.NewStoryboardRepository(newGormDB)
-		newAccessLogRepo := gormrepo.NewAccessLogRepository(newGormDB)
-		newSettingsRepo := gormrepo.NewSettingsRepository(newGormDB)
-
-		// 更新所有引用
-		gormDB = newGormDB
-		sqlDB = newSQLDB
-		histRepo = newHistRepo
-		storyboardRepo = newStoryRepo
-		accessLogRepo = newAccessLogRepo
-		settingsRepo = newSettingsRepo
-		handler.SetHistoryRepo(newHistRepo)
-		historyHandler.SetRepo(newHistRepo)
-		assetHandler.SetRepo(newHistRepo)
-		settingsHandler = handler.NewSettingsHandler(newSettingsRepo)
-		middleware.SetAccessLogRepo(newAccessLogRepo)
-		storyboardHandler.SetRepo(newStoryRepo)
-		dbHandler.SetGormDB(newGormDB)
-
-		os.Remove(bakPath)
-		log.Printf("[DB] 数据库恢复完成，连接已刷新")
-		return nil
-	}
-
-	dbHandler = handler.NewDBHandler(dbPath, dbReplaceFunc, func() *sql.DB { return sqlDB }, gormDB)
+	// 数据库导出与恢复（JSON 格式）
+	dbHandler := handler.NewDBHandler(gormDB)
 
 	// 设置任务完成回调
 	handler.SetupVideoHistoryCallback(taskQueue, svc)
