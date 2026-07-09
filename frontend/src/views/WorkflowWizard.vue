@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, watch } from 'vue'
+import { computed, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { useWizardStore } from '../stores/wizard'
 import type { WorkflowType } from '../stores/wizard'
@@ -31,18 +31,20 @@ import NovelStepIllustrate from './novel/StepIllustrate.vue'
 import NovelStepExport from './novel/StepExport.vue'
 
 const route = useRoute()
-const workflowType = computed<WorkflowType>(() => (route.name as WorkflowType) || 'image_refine')
-
 const store = useWizardStore()
 
-function syncWorkflow(type: WorkflowType) {
+const WIZARD_TYPES = ['image_refine', 'comic', 'novel'] as const
+
+function syncWorkflow(type: unknown) {
+  if (typeof type !== 'string') return
+  if (!WIZARD_TYPES.includes(type as any)) return
   if (store.workflow !== type) {
-    store.startWorkflow(type)
+    store.startWorkflow(type as WorkflowType)
   }
 }
 
-onMounted(() => syncWorkflow(workflowType.value))
-watch(workflowType, syncWorkflow)
+// 路由切换时 route.name 可能滞后于 activePage，等路由就绪后再同步
+watch(() => route.name, (name) => syncWorkflow(name), { immediate: true })
 
 const workType = computed(() => store.workflow)
 const step = computed(() => store.step)
