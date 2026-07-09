@@ -87,3 +87,25 @@ func (h *TaskHandler) StreamSSE(c *gin.Context) {
 		}
 	})
 }
+
+// CancelTask 取消 pending 任务
+// POST /api/v1/tasks/:id/cancel
+func (h *TaskHandler) CancelTask(c *gin.Context) {
+	id := c.Param("id")
+	if err := h.task.CancelTask(id); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "任务已取消"})
+}
+
+// RetryTask 手动重试失败的任务
+// POST /api/v1/tasks/:id/retry
+func (h *TaskHandler) RetryTask(c *gin.Context) {
+	id := c.Param("id")
+	if err := h.task.RetryTask(id); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "任务已重新提交"})
+}
