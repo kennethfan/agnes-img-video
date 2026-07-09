@@ -2,6 +2,7 @@ package handler
 
 import (
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
@@ -26,16 +27,53 @@ type DBHandler struct {
 
 func (h *DBHandler) SetGormDB(db *gorm.DB) { h.gormDB = db }
 
+// ExportPayload JSON 导出/恢复负载
+type ExportPayload struct {
+	Version int                       `json:"version"`
+	Driver  string                    `json:"driver"`
+	Tables  map[string][]map[string]any `json:"tables"`
+}
+
+// exportTableOrder 导出顺序（按外键依赖排序）
+var exportTableOrder = []string{
+	"settings",
+	"histories",
+	"favorites",
+	"storyboard_projects",
+	"storyboard_shots",
+	"access_logs",
+	"task_queue",
+}
+
 func NewDBHandler(dbPath string, replaceFunc ReplaceFunc, getDB func() *sql.DB, gormDB *gorm.DB) *DBHandler {
 	return &DBHandler{dbPath: dbPath, replaceFunc: replaceFunc, getDB: getDB, gormDB: gormDB}
 }
 
+func (h *DBHandler) exportJSON() ([]byte, error) {
+	payload := ExportPayload{
+		Version: 1,
+		Driver:  "gorm",
+		Tables:  make(map[string][]map[string]any),
+	}
+
+	for _, table := range exportTableOrder {
+		var rows []map[string]any
+		if err := h.gormDB.Table(table).Find(&rows).Error; err != nil {
+			return nil, fmt.Errorf("导出表 %s 失败: %w", table, err)
+		}
+		payload.Tables[table] = rows
+	}
+
+	return json.MarshalIndent(payload, "", "  ")
+}
+
 // ExportDB 导出数据库
-// GET /api/v1/db/export?format=db|sql
+// GET /api/v1/db/export?format=db|sql|json
 func (h *DBHandler) ExportDB(c *gin.Context) {
 	format := c.DefaultQuery("format", "db")
 
-	if format == "sql" {
+	switch format {
+	case "sql":
 		dump, err := h.dumpSQL()
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "导出SQL失败: " + err.Error()})
@@ -45,13 +83,55 @@ func (h *DBHandler) ExportDB(c *gin.Context) {
 		c.Header("Content-Transfer-Encoding", "binary")
 		c.Header("Content-Disposition", `attachment; filename="history.sql"`)
 		c.Data(http.StatusOK, "application/octet-stream", []byte(dump))
-		return
+	case "json":
+		data, err := h.exportJSON()
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "导出JSON失败: " + err.Error()})
+			return
+		}
+		c.Header("Content-Description", "File Transfer")
+		c.Header("Content-Transfer-Encoding", "binary")
+		c.Header("Content-Disposition", `attachment; filename="history.json"`)
+		c.Data(http.StatusOK, "application/json", data)
+	default:
+		c.FileAttachment(h.dbPath, "history.db")
 	}
-
-	c.FileAttachment(h.dbPath, "history.db")
 }
 
-// POST /api/v1/db/restore — 支持 .db/.sqlite 和 .sql 文件
+func (h *DBHandler) restoreJSON(data []byte) error {
+	var payload ExportPayload
+	if err := json.Unmarshal(data, &payload); err != nil {
+		return fmt.Errorf("JSON 解析失败: %w", err)
+	}
+	if payload.Version != 1 {
+		return fmt.Errorf("不支持的版本号: %d", payload.Version)
+	}
+
+	return h.gormDB.Transaction(func(tx *gorm.DB) error {
+		// 反序清空（先删依赖表，再删主表）
+		for i := len(exportTableOrder) - 1; i >= 0; i-- {
+			table := exportTableOrder[i]
+			if err := tx.Exec(fmt.Sprintf("DELETE FROM %s", table)).Error; err != nil {
+				return fmt.Errorf("清空表 %s 失败: %w", table, err)
+			}
+		}
+		// 正序插入
+		for _, table := range exportTableOrder {
+			rows, ok := payload.Tables[table]
+			if !ok || len(rows) == 0 {
+				continue
+			}
+			for _, row := range rows {
+				if err := tx.Table(table).Create(&row).Error; err != nil {
+					return fmt.Errorf("恢复表 %s 失败: %w", table, err)
+				}
+			}
+		}
+		return nil
+	})
+}
+
+// POST /api/v1/db/restore — 支持 .db/.sqlite/.sql 和 .json 文件
 func (h *DBHandler) RestoreDB(c *gin.Context) {
 	file, err := c.FormFile("file")
 	if err != nil {
@@ -65,6 +145,22 @@ func (h *DBHandler) RestoreDB(c *gin.Context) {
 		return
 	}
 	defer os.Remove(tmpPath)
+
+	if strings.HasSuffix(file.Filename, ".json") {
+		content, err := os.ReadFile(tmpPath)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "读取JSON文件失败: " + err.Error()})
+			return
+		}
+		if err := h.restoreJSON(content); err != nil {
+			log.Printf("[DB] JSON 恢复失败: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "JSON恢复失败: " + err.Error()})
+			return
+		}
+		log.Printf("[DB] JSON 恢复成功 (from: %s)", file.Filename)
+		c.JSON(http.StatusOK, gin.H{"ok": true, "message": "JSON 恢复成功"})
+		return
+	}
 
 	if strings.HasSuffix(file.Filename, ".sql") {
 		content, err := os.ReadFile(tmpPath)
