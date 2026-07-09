@@ -1,6 +1,6 @@
 import type { TaskSSEHandlers, SSEHandlers, VideoEvent } from '../types'
 
-export function connectTaskSSE(taskId: string, handlers: TaskSSEHandlers): () => void {
+export function connectTaskSSE(taskId: number | string, handlers: TaskSSEHandlers): () => void {
   const url = `/api/v1/tasks/${taskId}/stream`
   const source = new EventSource(url)
 
@@ -41,7 +41,7 @@ export function connectTaskSSE(taskId: string, handlers: TaskSSEHandlers): () =>
 }
 
 // 保留旧函数名兼容（视频视图）
-export function connectSSE(taskId: string, handlers: SSEHandlers): () => void {
+export function connectSSE(taskId: number | string, handlers: SSEHandlers): () => void {
   const url = `/api/v1/videos/stream/${taskId}`
   const source = new EventSource(url)
 

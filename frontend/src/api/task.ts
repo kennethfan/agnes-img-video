@@ -12,15 +12,15 @@ export async function listTasks(params?: {
   return res.data
 }
 
-export async function getTask(taskId: string): Promise<TaskRecord> {
+export async function getTask(taskId: number | string): Promise<TaskRecord> {
   const res = await client.get(`/api/v1/tasks/${taskId}`)
   return res.data
 }
 
-export async function retryTask(taskId: string): Promise<void> {
+export async function retryTask(taskId: number | string): Promise<void> {
   await client.post(`/api/v1/tasks/${taskId}/retry`)
 }
 
-export async function cancelTask(taskId: string): Promise<void> {
+export async function cancelTask(taskId: number | string): Promise<void> {
   await client.post(`/api/v1/tasks/${taskId}/cancel`)
 }

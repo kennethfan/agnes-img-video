@@ -1,9 +1,7 @@
 package repository
 
 import (
-	"crypto/rand"
 	"database/sql"
-	"encoding/hex"
 	"fmt"
 	"log"
 	"time"
@@ -22,7 +20,7 @@ func NewTaskRepository(db *sql.DB) *TaskRepository {
 func (r *TaskRepository) InitTable() error {
 	_, err := r.db.Exec(`
 		CREATE TABLE IF NOT EXISTS tasks (
-			id          TEXT PRIMARY KEY,
+			id          INTEGER PRIMARY KEY AUTOINCREMENT,
 			type        TEXT NOT NULL,
 			status      TEXT NOT NULL DEFAULT 'pending',
 			params      TEXT NOT NULL,
@@ -53,28 +51,21 @@ func (r *TaskRepository) InitTable() error {
 	return nil
 }
 
-// generateTaskID 生成唯一任务 ID: task_{hex12}
-func generateTaskID() string {
-	b := make([]byte, 6)
-	rand.Read(b)
-	return fmt.Sprintf("task_%s", hex.EncodeToString(b))
-}
-
-func (r *TaskRepository) CreateTask(taskType, params string) (string, error) {
-	id := generateTaskID()
+func (r *TaskRepository) CreateTask(taskType, params string) (int64, error) {
 	now := time.Now().Format("2006-01-02 15:04:05")
-	_, err := r.db.Exec(
-		"INSERT INTO tasks (id, type, status, params, progress, created_at, updated_at) VALUES (?, ?, 'pending', ?, 0, ?, ?)",
-		id, taskType, params, now, now,
+	res, err := r.db.Exec(
+		"INSERT INTO tasks (type, status, params, progress, created_at, updated_at) VALUES (?, 'pending', ?, 0, ?, ?)",
+		taskType, params, now, now,
 	)
 	if err != nil {
-		return "", fmt.Errorf("创建任务失败: %w", err)
+		return 0, fmt.Errorf("创建任务失败: %w", err)
 	}
-	log.Printf("[TaskRepo] 任务已创建: id=%s type=%s", id, taskType)
+	id, _ := res.LastInsertId()
+	log.Printf("[TaskRepo] 任务已创建: id=%d type=%s", id, taskType)
 	return id, nil
 }
 
-func (r *TaskRepository) GetTask(id string) (*model.TaskRecord, error) {
+func (r *TaskRepository) GetTask(id int64) (*model.TaskRecord, error) {
 	var rec model.TaskRecord
 	var result, errStr, completedAt sql.NullString
 	err := r.db.QueryRow(
@@ -99,7 +90,7 @@ func (r *TaskRepository) GetTask(id string) (*model.TaskRecord, error) {
 	return &rec, nil
 }
 
-func (r *TaskRepository) UpdateTaskStatus(id, status string, progress int, result, errMsg string) error {
+func (r *TaskRepository) UpdateTaskStatus(id int64, status string, progress int, result, errMsg string) error {
 	now := time.Now().Format("2006-01-02 15:04:05")
 	completedAt := sql.NullString{Valid: false}
 	if status == string(model.TaskStatusCompleted) || status == string(model.TaskStatusFailed) {
@@ -116,7 +107,7 @@ func (r *TaskRepository) UpdateTaskStatus(id, status string, progress int, resul
 	return nil
 }
 
-func (r *TaskRepository) UpdateTaskProgress(id string, progress int) error {
+func (r *TaskRepository) UpdateTaskProgress(id int64, progress int) error {
 	now := time.Now().Format("2006-01-02 15:04:05")
 	_, err := r.db.Exec(
 		"UPDATE tasks SET progress = ?, updated_at = ? WHERE id = ?",
@@ -125,12 +116,12 @@ func (r *TaskRepository) UpdateTaskProgress(id string, progress int) error {
 	return err
 }
 
-func (r *TaskRepository) UpdateRetryCount(id string, count int) error {
+func (r *TaskRepository) UpdateRetryCount(id int64, count int) error {
 	_, err := r.db.Exec("UPDATE tasks SET retry_count = ? WHERE id = ?", count, id)
 	return err
 }
 
-func (r *TaskRepository) CancelTaskAtomic(id string) (bool, error) {
+func (r *TaskRepository) CancelTaskAtomic(id int64) (bool, error) {
 	now := time.Now().Format("2006-01-02 15:04:05")
 	res, err := r.db.Exec(
 		"UPDATE tasks SET status = ?, updated_at = ?, completed_at = ? WHERE id = ? AND status = ?",
@@ -143,7 +134,7 @@ func (r *TaskRepository) CancelTaskAtomic(id string) (bool, error) {
 	if rows == 0 {
 		return false, nil
 	}
-	log.Printf("[TaskRepo] 任务已取消: id=%s", id)
+	log.Printf("[TaskRepo] 任务已取消: id=%d", id)
 	return true, nil
 }
 

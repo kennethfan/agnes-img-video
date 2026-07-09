@@ -23,7 +23,7 @@ const (
 )
 
 // TaskCompleteFunc 任务完成回调（保存历史记录等）
-type TaskCompleteFunc func(taskID, taskType, prompt, resultURL string)
+type TaskCompleteFunc func(taskID int64, taskType, prompt, resultURL string)
 
 // TaskQueue 统一异步任务队列
 type TaskQueue struct {
@@ -31,11 +31,11 @@ type TaskQueue struct {
 	repo        *repository.TaskRepository
 	client      *AgnesClient
 	workerSem   chan struct{}
-	subscribers map[string]map[string]chan model.TaskEvent
+	subscribers map[int64]map[string]chan model.TaskEvent
 	onComplete  TaskCompleteFunc
 	ctx         context.Context
 	cancel      context.CancelFunc
-	cancelChans map[string]chan struct{} // per-task 取消信号
+	cancelChans map[int64]chan struct{} // per-task 取消信号
 }
 
 // NewTaskQueue 创建任务队列
@@ -48,8 +48,8 @@ func NewTaskQueue(repo *repository.TaskRepository, client *AgnesClient, maxConcu
 		repo:        repo,
 		client:      client,
 		workerSem:   make(chan struct{}, maxConcurrent),
-		subscribers: make(map[string]map[string]chan model.TaskEvent),
-		cancelChans: make(map[string]chan struct{}),
+		subscribers: make(map[int64]map[string]chan model.TaskEvent),
+		cancelChans: make(map[int64]chan struct{}),
 		ctx:         ctx,
 		cancel:      cancel,
 	}
@@ -66,20 +66,20 @@ func (tq *TaskQueue) SetOnComplete(fn TaskCompleteFunc) {
 }
 
 // SubmitTask 提交任务：写入 SQLite → 返回 taskId → 启动 Worker
-func (tq *TaskQueue) SubmitTask(taskType string, paramsJSON string) (string, error) {
+func (tq *TaskQueue) SubmitTask(taskType string, paramsJSON string) (int64, error) {
 	id, err := tq.repo.CreateTask(taskType, paramsJSON)
 	if err != nil {
-		return "", err
+		return 0, err
 	}
 
 	if err := tq.submitExistingTask(id, taskType, paramsJSON); err != nil {
-		return "", err
+		return 0, err
 	}
 	return id, nil
 }
 
 // submitExistingTask 启动 worker goroutine（供 SubmitTask 和 RetryTask 共用）
-func (tq *TaskQueue) submitExistingTask(id, taskType, paramsJSON string) error {
+func (tq *TaskQueue) submitExistingTask(id int64, taskType, paramsJSON string) error {
 	cancelCh := make(chan struct{})
 	tq.mu.Lock()
 	tq.cancelChans[id] = cancelCh
@@ -92,7 +92,7 @@ func (tq *TaskQueue) submitExistingTask(id, taskType, paramsJSON string) error {
 		tq.mu.Unlock()
 		go tq.worker(id, taskType, paramsJSON)
 	default:
-		log.Printf("[TaskQueue] 达到最大并发数，任务 %s 排队等待", id)
+		log.Printf("[TaskQueue] 达到最大并发数，任务 %d 排队等待", id)
 		go func() {
 			select {
 			case tq.workerSem <- struct{}{}:
@@ -115,7 +115,7 @@ func (tq *TaskQueue) submitExistingTask(id, taskType, paramsJSON string) error {
 }
 
 // GetTask 查询任务状态
-func (tq *TaskQueue) GetTask(id string) (*model.TaskRecord, error) {
+func (tq *TaskQueue) GetTask(id int64) (*model.TaskRecord, error) {
 	return tq.repo.GetTask(id)
 }
 
@@ -125,7 +125,7 @@ func (tq *TaskQueue) ListTasks(taskType, status string, limit, offset int) ([]*m
 }
 
 // CancelTask 取消 pending 状态的任务
-func (tq *TaskQueue) CancelTask(id string) error {
+func (tq *TaskQueue) CancelTask(id int64) error {
 	rec, err := tq.repo.GetTask(id)
 	if err != nil {
 		return err
@@ -159,12 +159,12 @@ func (tq *TaskQueue) CancelTask(id string) error {
 		Status: string(model.TaskStatusCancelled),
 	})
 
-	log.Printf("[TaskQueue] 任务已取消: id=%s", id)
+	log.Printf("[TaskQueue] 任务已取消: id=%d", id)
 	return nil
 }
 
 // RetryTask 手动重试失败的任务
-func (tq *TaskQueue) RetryTask(id string) error {
+func (tq *TaskQueue) RetryTask(id int64) error {
 	rec, err := tq.repo.GetTask(id)
 	if err != nil {
 		return err
@@ -185,7 +185,7 @@ func (tq *TaskQueue) RetryTask(id string) error {
 }
 
 // Subscribe 注册 SSE 订阅者
-func (tq *TaskQueue) Subscribe(taskID, subID string) chan model.TaskEvent {
+func (tq *TaskQueue) Subscribe(taskID int64, subID string) chan model.TaskEvent {
 	tq.mu.Lock()
 	defer tq.mu.Unlock()
 
@@ -198,7 +198,7 @@ func (tq *TaskQueue) Subscribe(taskID, subID string) chan model.TaskEvent {
 }
 
 // Unsubscribe 移除 SSE 订阅者
-func (tq *TaskQueue) Unsubscribe(taskID, subID string) {
+func (tq *TaskQueue) Unsubscribe(taskID int64, subID string) {
 	tq.mu.Lock()
 	defer tq.mu.Unlock()
 
@@ -214,7 +214,7 @@ func (tq *TaskQueue) Unsubscribe(taskID, subID string) {
 }
 
 // notifySubscribers 通知所有订阅者
-func (tq *TaskQueue) notifySubscribers(taskID string, event model.TaskEvent) {
+func (tq *TaskQueue) notifySubscribers(taskID int64, event model.TaskEvent) {
 	tq.mu.RLock()
 	defer tq.mu.RUnlock()
 
@@ -229,7 +229,7 @@ func (tq *TaskQueue) notifySubscribers(taskID string, event model.TaskEvent) {
 }
 
 // worker 执行任务（goroutine 中运行）
-func (tq *TaskQueue) worker(taskID, taskType, paramsJSON string) {
+func (tq *TaskQueue) worker(taskID int64, taskType, paramsJSON string) {
 	defer func() {
 		<-tq.workerSem
 	}()
@@ -237,11 +237,11 @@ func (tq *TaskQueue) worker(taskID, taskType, paramsJSON string) {
 	// 检查是否已被取消
 	rec, _ := tq.repo.GetTask(taskID)
 	if rec != nil && rec.Status == string(model.TaskStatusCancelled) {
-		log.Printf("[TaskQueue] 任务 %s 已取消，跳过执行", taskID)
+		log.Printf("[TaskQueue] 任务 %d 已取消，跳过执行", taskID)
 		return
 	}
 
-	log.Printf("[TaskQueue] Worker 开始任务: id=%s type=%s", taskID, taskType)
+	log.Printf("[TaskQueue] Worker 开始任务: id=%d type=%s", taskID, taskType)
 	tq.repo.UpdateTaskStatus(taskID, string(model.TaskStatusProcessing), 0, "", "")
 	tq.notifySubscribers(taskID, model.TaskEvent{
 		Event:  "progress",
@@ -254,7 +254,7 @@ func (tq *TaskQueue) worker(taskID, taskType, paramsJSON string) {
 	for attempt := 0; attempt <= maxRetries; attempt++ {
 		if attempt > 0 {
 			backoff := retryBackoffBase * time.Duration(1<<uint(attempt-1))
-			log.Printf("[TaskQueue] 任务 %s 失败，第 %d/%d 次重试，等待 %v", taskID, attempt, maxRetries, backoff)
+			log.Printf("[TaskQueue] 任务 %d 失败，第 %d/%d 次重试，等待 %v", taskID, attempt, maxRetries, backoff)
 
 			tq.repo.UpdateRetryCount(taskID, attempt)
 			tq.notifySubscribers(taskID, model.TaskEvent{
@@ -292,7 +292,7 @@ func (tq *TaskQueue) worker(taskID, taskType, paramsJSON string) {
 
 	// 全部重试失败
 	errMsg := lastErr.Error()
-	log.Printf("[TaskQueue] 任务失败: id=%s err=%s", taskID, errMsg)
+	log.Printf("[TaskQueue] 任务失败: id=%d err=%s", taskID, errMsg)
 	tq.repo.UpdateTaskStatus(taskID, string(model.TaskStatusFailed), 0, "", errMsg)
 	tq.notifySubscribers(taskID, model.TaskEvent{
 		Event: "error",
@@ -311,7 +311,7 @@ type imageParams struct {
 	Strength       float64 `json:"strength,omitempty"`
 }
 
-func (tq *TaskQueue) execTextToImage(taskID, paramsJSON string) error {
+func (tq *TaskQueue) execTextToImage(taskID int64, paramsJSON string) error {
 	var p struct {
 		Prompt         string `json:"prompt"`
 		Size           string `json:"size"`
@@ -342,7 +342,7 @@ func (tq *TaskQueue) execTextToImage(taskID, paramsJSON string) error {
 	return nil
 }
 
-func (tq *TaskQueue) execImageToImage(taskID, paramsJSON string) error {
+func (tq *TaskQueue) execImageToImage(taskID int64, paramsJSON string) error {
 	var p struct {
 		Prompt         string  `json:"prompt"`
 		Size           string  `json:"size"`
@@ -373,7 +373,7 @@ func (tq *TaskQueue) execImageToImage(taskID, paramsJSON string) error {
 	return nil
 }
 
-func (tq *TaskQueue) execBatch(taskID, paramsJSON string) error {
+func (tq *TaskQueue) execBatch(taskID int64, paramsJSON string) error {
 	var p struct {
 		Prompts []string `json:"prompts"`
 		Size    string   `json:"size"`
@@ -430,7 +430,7 @@ type videoTaskExtra struct {
 	ImageURLs []string `json:"image_urls,omitempty"`
 }
 
-func (tq *TaskQueue) execTextToVideo(taskID, paramsJSON string) error {
+func (tq *TaskQueue) execTextToVideo(taskID int64, paramsJSON string) error {
 	var p struct {
 		Prompt            string `json:"prompt"`
 		Duration          int    `json:"duration"`
@@ -475,11 +475,11 @@ func (tq *TaskQueue) execTextToVideo(taskID, paramsJSON string) error {
 		return fmt.Errorf("提交视频任务失败: %w", err)
 	}
 
-	log.Printf("[TaskQueue] 视频任务已提交: task=%s videoID=%s", taskID, videoID)
+	log.Printf("[TaskQueue] 视频任务已提交: task=%d videoID=%s", taskID, videoID)
 	return tq.pollVideoTask(taskID, videoID, p.Prompt, opts)
 }
 
-func (tq *TaskQueue) execImageToVideo(taskID, paramsJSON string) error {
+func (tq *TaskQueue) execImageToVideo(taskID int64, paramsJSON string) error {
 	var p struct {
 		Prompt            string   `json:"prompt"`
 		Duration          int      `json:"duration"`
@@ -535,7 +535,7 @@ func (tq *TaskQueue) execImageToVideo(taskID, paramsJSON string) error {
 	return tq.pollVideoTask(taskID, videoID, p.Prompt, opts)
 }
 
-func (tq *TaskQueue) execMultiImageVideo(taskID, paramsJSON string) error {
+func (tq *TaskQueue) execMultiImageVideo(taskID int64, paramsJSON string) error {
 	var p struct {
 		Prompt            string   `json:"prompt"`
 		Duration          int      `json:"duration"`
@@ -600,7 +600,7 @@ func (tq *TaskQueue) execMultiImageVideo(taskID, paramsJSON string) error {
 }
 
 // pollVideoTask 轮询视频任务状态（复用现有逻辑）
-func (tq *TaskQueue) pollVideoTask(taskID, videoID, prompt string, opts VideoOptions) error {
+func (tq *TaskQueue) pollVideoTask(taskID int64, videoID, prompt string, opts VideoOptions) error {
 	startTime := time.Now()
 	retryCount := 0
 
@@ -641,7 +641,7 @@ func (tq *TaskQueue) pollVideoTask(taskID, videoID, prompt string, opts VideoOpt
 
 		switch status.Status {
 		case "completed":
-			log.Printf("[TaskQueue] 视频生成完成: task=%s url=%s", taskID, status.URL)
+			log.Printf("[TaskQueue] 视频生成完成: task=%d url=%s", taskID, status.URL)
 			resultJSON, _ := json.Marshal([]string{status.URL})
 			tq.repo.UpdateTaskStatus(taskID, string(model.TaskStatusCompleted), 100, string(resultJSON), "")
 			tq.notifySubscribers(taskID, model.TaskEvent{
@@ -686,7 +686,7 @@ func (tq *TaskQueue) recoverPending() {
 		select {
 		case tq.workerSem <- struct{}{}:
 			go func(t *model.TaskRecord) {
-				log.Printf("[TaskQueue] 恢复任务: id=%s type=%s", t.ID, t.Type)
+				log.Printf("[TaskQueue] 恢复任务: id=%d type=%s", t.ID, t.Type)
 				// 对于视频任务，检查 Agnes 端状态
 				if isVideoTask(t.Type) {
 					tq.recoverVideoTask(t)
@@ -698,7 +698,7 @@ func (tq *TaskQueue) recoverPending() {
 				<-tq.workerSem
 			}(task)
 		default:
-			log.Printf("[TaskQueue] 并发已满，任务 %s 延后恢复", task.ID)
+			log.Printf("[TaskQueue] 并发已满，任务 %d 延后恢复", task.ID)
 			go func(t *model.TaskRecord) {
 				tq.workerSem <- struct{}{}
 				if isVideoTask(t.Type) {
@@ -727,21 +727,21 @@ func (tq *TaskQueue) recoverVideoTask(task *model.TaskRecord) {
 	}
 	if err := json.Unmarshal([]byte(task.Params), &extra); err != nil || extra.TaskID == "" {
 		// 无法获取 videoID，重新提交
-		log.Printf("[TaskQueue] 任务 %s 无 videoID，重新执行", task.ID)
+		log.Printf("[TaskQueue] 任务 %d 无 videoID，重新执行", task.ID)
 		tq.worker(task.ID, task.Type, task.Params)
 		return
 	}
 
 	status, err := tq.client.CheckVideoStatus(extra.TaskID)
 	if err != nil {
-		log.Printf("[TaskQueue] 查询视频状态失败: task=%s err=%v，重新执行", task.ID, err)
+		log.Printf("[TaskQueue] 查询视频状态失败: task=%d err=%v，重新执行", task.ID, err)
 		tq.worker(task.ID, task.Type, task.Params)
 		return
 	}
 
 	switch status.Status {
 	case "completed":
-		log.Printf("[TaskQueue] 恢复: 任务 %s 已完成", task.ID)
+		log.Printf("[TaskQueue] 恢复: 任务 %d 已完成", task.ID)
 		resultJSON, _ := json.Marshal([]string{status.URL})
 		tq.repo.UpdateTaskStatus(task.ID, string(model.TaskStatusCompleted), 100, string(resultJSON), "")
 		if tq.onComplete != nil {
@@ -752,10 +752,10 @@ func (tq *TaskQueue) recoverVideoTask(task *model.TaskRecord) {
 		}
 	case "failed":
 		errMsg := extractError(status.Error)
-		log.Printf("[TaskQueue] 恢复: 任务 %s 已失败: %s", task.ID, errMsg)
+		log.Printf("[TaskQueue] 恢复: 任务 %d 已失败: %s", task.ID, errMsg)
 		tq.repo.UpdateTaskStatus(task.ID, string(model.TaskStatusFailed), 0, "", errMsg)
 	default:
-		log.Printf("[TaskQueue] 恢复: 任务 %s 仍在处理中，重启轮询", task.ID)
+		log.Printf("[TaskQueue] 恢复: 任务 %d 仍在处理中，重启轮询", task.ID)
 		// 从 params 中解析 opts
 		var p struct {
 			Prompt         string `json:"prompt"`

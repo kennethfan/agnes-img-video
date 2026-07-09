@@ -312,11 +312,11 @@ type PendingVideoInfo struct {
 }
 
 // FindByTaskId 通过 extra.taskId 查找历史记录 ID
-func (r *HistoryRepo) FindByTaskId(taskId string) (int64, error) {
+func (r *HistoryRepo) FindByTaskId(taskId int64) (int64, error) {
 	var id int64
 	err := r.db.QueryRow(
-		"SELECT id FROM history WHERE json_extract(extra, '$.taskId') = ? ORDER BY id DESC LIMIT 1",
-		taskId,
+		"SELECT id FROM history WHERE json_extract(extra, '$.taskId') = ? OR json_extract(extra, '$.taskId') = ? ORDER BY id DESC LIMIT 1",
+		taskId, fmt.Sprintf("%d", taskId),
 	).Scan(&id)
 	if err != nil {
 		return 0, err
@@ -362,7 +362,15 @@ func (r *HistoryRepo) FindPendingVideos() ([]PendingVideoInfo, error) {
 		if err := json.Unmarshal([]byte(extraJSON), &extra); err != nil {
 			continue
 		}
-		taskID, _ := extra["taskId"].(string)
+		taskID := ""
+		switch v := extra["taskId"].(type) {
+		case string:
+			taskID = v
+		case float64:
+			taskID = fmt.Sprintf("%.0f", v)
+		case int64:
+			taskID = fmt.Sprintf("%d", v)
+		}
 		if taskID == "" {
 			continue
 		}

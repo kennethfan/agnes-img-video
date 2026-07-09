@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -43,7 +44,11 @@ func (h *TaskHandler) ListTasks(c *gin.Context) {
 // GetTask 查询任务状态
 // GET /api/v1/tasks/:id
 func (h *TaskHandler) GetTask(c *gin.Context) {
-	id := c.Param("id")
+	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "无效的任务 ID"})
+		return
+	}
 	rec, err := h.task.GetTask(id)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "查询任务失败: " + err.Error()})
@@ -59,7 +64,11 @@ func (h *TaskHandler) GetTask(c *gin.Context) {
 // StreamSSE 统一 SSE 进度推送
 // GET /api/v1/tasks/:id/stream
 func (h *TaskHandler) StreamSSE(c *gin.Context) {
-	id := c.Param("id")
+	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "无效的任务 ID"})
+		return
+	}
 
 	rec, err := h.task.GetTask(id)
 	if err != nil || rec == nil {
@@ -111,7 +120,11 @@ func (h *TaskHandler) StreamSSE(c *gin.Context) {
 // CancelTask 取消 pending 任务
 // POST /api/v1/tasks/:id/cancel
 func (h *TaskHandler) CancelTask(c *gin.Context) {
-	id := c.Param("id")
+	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "无效的任务 ID"})
+		return
+	}
 	if err := h.task.CancelTask(id); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -122,7 +135,11 @@ func (h *TaskHandler) CancelTask(c *gin.Context) {
 // RetryTask 手动重试失败的任务
 // POST /api/v1/tasks/:id/retry
 func (h *TaskHandler) RetryTask(c *gin.Context) {
-	id := c.Param("id")
+	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "无效的任务 ID"})
+		return
+	}
 	if err := h.task.RetryTask(id); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return

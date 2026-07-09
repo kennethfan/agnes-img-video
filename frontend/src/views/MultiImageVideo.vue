@@ -16,7 +16,7 @@ const loading = ref(false)
 const errorMsg = ref('')
 const resultVideos = ref<string[]>([])
 const showProgress = ref(false)
-const taskId = ref('')
+const taskId = ref<number | string>('')
 const redoStore = useRedoStore()
 let cleanupSSE: (() => void) | null = null
 

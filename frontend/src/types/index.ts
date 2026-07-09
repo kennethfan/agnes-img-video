@@ -39,7 +39,7 @@ export interface VideoCreateRequest {
 }
 
 export interface VideoTaskResponse {
-  taskId: string
+  taskId: number
 }
 
 export interface VideoStatus {
@@ -163,7 +163,7 @@ export interface UpdateShotRequest {
 // ==================== 异步任务队列 ====================
 
 export interface TaskRecord {
-  id: string
+  id: number
   type: string
   status: 'pending' | 'processing' | 'completed' | 'failed' | 'cancelled'
   params: string
@@ -177,7 +177,7 @@ export interface TaskRecord {
 }
 
 export interface TaskCreateResponse {
-  taskId: string
+  taskId: number
 }
 
 export interface TaskSSEHandlers {

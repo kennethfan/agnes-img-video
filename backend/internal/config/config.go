@@ -10,7 +10,6 @@ import (
 
 const (
 	DefaultBaseURL    = "https://apihub.agnes-ai.com/v1"
-	DefaultModel      = "agnes-image-2.1-flash"
 	DefaultImageModel = "agnes-image-2.1-flash"
 	DefaultVideoModel = "agnes-video-v2.0"
 	DefaultChatModel  = "agnes-2.0-flash"
@@ -23,31 +22,57 @@ var (
 )
 
 // LoadConfig 从文件加载配置，环境变量覆盖
-func LoadConfig(configPath, apiKeyEnv string) (*model.Config, error) {
+func LoadConfig(configPath string) (*model.Config, error) {
 	cfg := &model.Config{
-		BaseURL: DefaultBaseURL,
-		Model:   DefaultModel,
+		BaseURL:    DefaultBaseURL,
+		ImageModel: DefaultImageModel,
+		VideoModel: DefaultVideoModel,
+		ChatModel:  DefaultChatModel,
 	}
 
 	data, err := os.ReadFile(configPath)
 	if err == nil {
 		var fileCfg model.Config
 		if err := json.Unmarshal(data, &fileCfg); err == nil {
+			if fileCfg.APIKey != "" {
+				cfg.APIKey = fileCfg.APIKey
+			}
 			if fileCfg.BaseURL != "" {
 				cfg.BaseURL = fileCfg.BaseURL
 			}
-			if fileCfg.Model != "" {
-				cfg.Model = fileCfg.Model
+			if fileCfg.ImageModel != "" {
+				cfg.ImageModel = fileCfg.ImageModel
 			}
-			if fileCfg.APIKey != "" {
-				cfg.APIKey = fileCfg.APIKey
+			if fileCfg.VideoModel != "" {
+				cfg.VideoModel = fileCfg.VideoModel
+			}
+			if fileCfg.ChatModel != "" {
+				cfg.ChatModel = fileCfg.ChatModel
+			}
+			if fileCfg.GithubToken != "" {
+				cfg.GithubToken = fileCfg.GithubToken
+			}
+			if fileCfg.GithubRepo != "" {
+				cfg.GithubRepo = fileCfg.GithubRepo
+			}
+			if fileCfg.GithubBranch != "" {
+				cfg.GithubBranch = fileCfg.GithubBranch
 			}
 		}
 	}
 
 	// 环境变量覆盖
-	if envKey := os.Getenv(apiKeyEnv); envKey != "" {
+	if envKey := os.Getenv("AGNES_API_KEY"); envKey != "" {
 		cfg.APIKey = envKey
+	}
+	if envImageModel := os.Getenv("IMAGE_MODEL"); envImageModel != "" {
+		cfg.ImageModel = envImageModel
+	}
+	if envVideoModel := os.Getenv("VIDEO_MODEL"); envVideoModel != "" {
+		cfg.VideoModel = envVideoModel
+	}
+	if envChatModel := os.Getenv("CHAT_MODEL"); envChatModel != "" {
+		cfg.ChatModel = envChatModel
 	}
 	if envToken := os.Getenv("GITHUB_TOKEN"); envToken != "" {
 		cfg.GithubToken = envToken
@@ -58,61 +83,10 @@ func LoadConfig(configPath, apiKeyEnv string) (*model.Config, error) {
 	if envBranch := os.Getenv("GITHUB_BRANCH"); envBranch != "" {
 		cfg.GithubBranch = envBranch
 	}
-	if v := os.Getenv("IMAGE_MODEL"); v != "" {
-		cfg.ImageModel = v
-	} else if cfg.ImageModel == "" {
-		cfg.ImageModel = DefaultImageModel
-	}
-	if v := os.Getenv("VIDEO_MODEL"); v != "" {
-		cfg.VideoModel = v
-	} else if cfg.VideoModel == "" {
-		cfg.VideoModel = DefaultVideoModel
-	}
-	if v := os.Getenv("CHAT_MODEL"); v != "" {
-		cfg.ChatModel = v
-	} else if cfg.ChatModel == "" {
-		cfg.ChatModel = DefaultChatModel
-	}
 
 	mu.Lock()
 	cached = cfg
 	mu.Unlock()
 
 	return cfg, nil
-}
-
-// GetConfig 返回当前配置缓存
-func GetConfig() *model.Config {
-	mu.RLock()
-	defer mu.RUnlock()
-	if cached == nil {
-		return &model.Config{
-			BaseURL: DefaultBaseURL,
-			Model:   DefaultModel,
-		}
-	}
-	cp := *cached
-	return &cp
-}
-
-// UpdateConfig 更新配置文件并刷新缓存
-func UpdateConfig(configPath string, cfg *model.Config) error {
-	mu.Lock()
-	defer mu.Unlock()
-
-	data, err := json.MarshalIndent(cfg, "", "  ")
-	if err != nil {
-		return err
-	}
-	if err := os.WriteFile(configPath, data, 0644); err != nil {
-		return err
-	}
-
-	cached = cfg
-	return nil
-}
-
-// SaveConfig 保存配置（兼容外部调用）
-func SaveConfig(configPath string, cfg *model.Config) error {
-	return UpdateConfig(configPath, cfg)
 }

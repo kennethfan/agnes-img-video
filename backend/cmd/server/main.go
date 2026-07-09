@@ -20,11 +20,6 @@ func main() {
 	// 加载 .env 文件
 	_ = godotenv.Load(".env") // 从 backend/ 目录加载 .env
 
-	apiKey := os.Getenv("AGNES_API_KEY")
-	if apiKey == "" {
-		log.Fatal("AGNES_API_KEY 环境变量未设置")
-	}
-
 	// 所有运行时数据都在 backend/ 目录下
 	configPath := ".config.json"
 	dbPath := "history.db"
@@ -34,15 +29,15 @@ func main() {
 	os.MkdirAll(outputsPath, 0755)
 
 	// 加载配置
-	cfg, err := config.LoadConfig(configPath, "AGNES_API_KEY")
+	cfg, err := config.LoadConfig(configPath)
 	if err != nil {
 		log.Printf("警告: 加载配置失败: %v", err)
 	}
 	if cfg.APIKey == "" {
-		cfg.APIKey = apiKey
+		log.Fatal("AGNES_API_KEY 环境变量未设置")
 	}
 
-	log.Printf("配置加载完成: base_url=%s, model=%s", cfg.BaseURL, cfg.Model)
+	log.Printf("配置加载完成: base_url=%s, image_model=%s, video_model=%s, chat_model=%s", cfg.BaseURL, cfg.ImageModel, cfg.VideoModel, cfg.ChatModel)
 	log.Printf("配置文件: %s", configPath)
 	log.Printf("数据库: %s", dbPath)
 	log.Printf("输出目录: %s", outputsPath)
@@ -98,7 +93,6 @@ func main() {
 	videoHandler := handler.NewVideoHandler(svc, taskQueue)
 	historyHandler := handler.NewHistoryHandler(histRepo)
 	taskHandler := handler.NewTaskHandler(taskQueue)
-	configHandler := handler.NewConfigHandler(configPath)
 	ideasHandler := handler.NewIdeasHandler(svc)
 	comicHandler := handler.NewComicHandler(svc)
 	accessLogHandler := handler.NewAccessLogHandler(accessLogRepo)
@@ -163,8 +157,6 @@ func main() {
 		return nil
 	}
 
-
-
 	dbHandler := handler.NewDBHandler(dbPath, dbReplaceFunc, func() *sql.DB { return histRepo.DB() })
 
 	// 设置任务完成回调（自动保存历史记录）
@@ -181,10 +173,6 @@ func main() {
 		api.POST("/images/text-to-image", imageHandler.TextToImage)
 		api.POST("/images/image-to-image", imageHandler.ImageToImage)
 		api.POST("/images/batch", imageHandler.BatchGenerate)
-
-		// 配置
-		api.GET("/config", configHandler.GetConfig)
-		api.PUT("/config", configHandler.UpdateConfig)
 
 		// 视频 & 脚本
 		api.POST("/videos/text-to-video", videoHandler.TextToVideo)
@@ -246,9 +234,9 @@ func main() {
 		// 统一任务查询与进度推送
 		api.GET("/tasks", taskHandler.ListTasks)
 		api.GET("/tasks/:id", taskHandler.GetTask)
-	api.GET("/tasks/:id/stream", taskHandler.StreamSSE)
-	api.POST("/tasks/:id/cancel", taskHandler.CancelTask)
-	api.POST("/tasks/:id/retry", taskHandler.RetryTask)
+		api.GET("/tasks/:id/stream", taskHandler.StreamSSE)
+		api.POST("/tasks/:id/cancel", taskHandler.CancelTask)
+		api.POST("/tasks/:id/retry", taskHandler.RetryTask)
 	}
 
 	// 静态文件服务 - outputs/ 目录
@@ -264,5 +252,3 @@ func main() {
 		log.Fatalf("服务器启动失败: %v", err)
 	}
 }
-
-

@@ -25,7 +25,7 @@ func TestHistoryRepo(t *testing.T) {
 	t.Logf("Insert OK, id=%d", id)
 
 	// Test FindByTaskId (negative)
-	_, err = repo.FindByTaskId("nonexistent")
+	_, err = repo.FindByTaskId(99999)
 	if err == nil {
 		t.Log("FindByTaskId: nonexistent returns no error (ok)")
 	}

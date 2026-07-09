@@ -5,13 +5,12 @@ package model
 type Config struct {
 	APIKey       string `json:"api_key"`
 	BaseURL      string `json:"base_url"`
-	Model        string `json:"model"`
-	GithubToken  string `json:"github_token"`
-	GithubRepo   string `json:"github_repo"`
-	GithubBranch string `json:"github_branch"`
 	ImageModel   string `json:"image_model,omitempty"`
 	VideoModel   string `json:"video_model,omitempty"`
 	ChatModel    string `json:"chat_model,omitempty"`
+	GithubToken  string `json:"github_token"`
+	GithubRepo   string `json:"github_repo"`
+	GithubBranch string `json:"github_branch"`
 }
 
 // ==================== 图片请求/响应 ====================
@@ -59,22 +58,22 @@ type BatchDeleteRequest struct {
 // ==================== 视频 ====================
 
 type VideoCreateRequest struct {
-	Prompt             string   `json:"prompt" binding:"required"`
-	Duration           int      `json:"duration"`
-	AspectRatio        string   `json:"aspect_ratio"`
-	FrameRate          int      `json:"frame_rate"`
-	NegativePrompt     string   `json:"negative_prompt"`
-	Seed               *int     `json:"seed,omitempty"`
-	NumInferenceSteps  *int     `json:"num_inference_steps,omitempty"`
-	Width              *int     `json:"width,omitempty"`
-	Height             *int     `json:"height,omitempty"`
-	NumFrames          *int     `json:"num_frames,omitempty"`
-	ImageURLs          []string `json:"image_urls,omitempty"`
-	Mode               string   `json:"mode,omitempty"`
+	Prompt            string   `json:"prompt" binding:"required"`
+	Duration          int      `json:"duration"`
+	AspectRatio       string   `json:"aspect_ratio"`
+	FrameRate         int      `json:"frame_rate"`
+	NegativePrompt    string   `json:"negative_prompt"`
+	Seed              *int     `json:"seed,omitempty"`
+	NumInferenceSteps *int     `json:"num_inference_steps,omitempty"`
+	Width             *int     `json:"width,omitempty"`
+	Height            *int     `json:"height,omitempty"`
+	NumFrames         *int     `json:"num_frames,omitempty"`
+	ImageURLs         []string `json:"image_urls,omitempty"`
+	Mode              string   `json:"mode,omitempty"`
 }
 
 type VideoTaskResponse struct {
-	TaskID string `json:"taskId"`
+	TaskID int64 `json:"taskId"`
 }
 
 type VideoStatus struct {
@@ -88,12 +87,12 @@ type VideoStatus struct {
 // ==================== SSE 事件 ====================
 
 type VideoEvent struct {
-	Event   string `json:"-"` // progress / complete / error
-	Progress int   `json:"progress,omitempty"`
-	Status  string `json:"status,omitempty"`
-	URL     string `json:"url,omitempty"`
-	Seconds string `json:"seconds,omitempty"`
-	Error   string `json:"error,omitempty"`
+	Event    string `json:"-"` // progress / complete / error
+	Progress int    `json:"progress,omitempty"`
+	Status   string `json:"status,omitempty"`
+	URL      string `json:"url,omitempty"`
+	Seconds  string `json:"seconds,omitempty"`
+	Error    string `json:"error,omitempty"`
 }
 
 // ==================== Agnes API 请求/响应 ====================
@@ -133,10 +132,10 @@ type AgnesVideoStatusResponse struct {
 // ==================== 脚本生成 ====================
 
 type ScriptGenRequest struct {
-	Topic       string `json:"topic" binding:"required"`
-	Duration    int    `json:"duration"`
-	Style       string `json:"style"`
-	Language    string `json:"language"`
+	Topic    string `json:"topic" binding:"required"`
+	Duration int    `json:"duration"`
+	Style    string `json:"style"`
+	Language string `json:"language"`
 }
 
 type ScriptGenResponse struct {
@@ -157,10 +156,10 @@ type ExpandIdeaResponse struct {
 
 // ChatCompletionRequest OpenAI 兼容的聊天请求
 type ChatCompletionRequest struct {
-	Model       string              `json:"model"`
-	Messages    []ChatMessage       `json:"messages"`
-	Temperature float64             `json:"temperature,omitempty"`
-	MaxTokens   int                 `json:"max_tokens,omitempty"`
+	Model       string        `json:"model"`
+	Messages    []ChatMessage `json:"messages"`
+	Temperature float64       `json:"temperature,omitempty"`
+	MaxTokens   int           `json:"max_tokens,omitempty"`
 }
 
 type ChatMessage struct {
@@ -217,16 +216,16 @@ type StoryboardProject struct {
 }
 
 type StoryboardShot struct {
-	ID            int64  `json:"id"`
-	ProjectID     int64  `json:"project_id"`
-	Sequence      int    `json:"sequence"`
-	Prompt        string `json:"prompt"`
-	Type          string `json:"type"`
+	ID             int64  `json:"id"`
+	ProjectID      int64  `json:"project_id"`
+	Sequence       int    `json:"sequence"`
+	Prompt         string `json:"prompt"`
+	Type           string `json:"type"`
 	ReferenceImage string `json:"reference_image"`
-	Status        string `json:"status"`
-	ResultVideo   string `json:"result_video"`
-	TaskID        string `json:"task_id"`
-	CreatedAt     string `json:"created_at"`
+	Status         string `json:"status"`
+	ResultVideo    string `json:"result_video"`
+	TaskID         string `json:"task_id"`
+	CreatedAt      string `json:"created_at"`
 }
 
 type CreateProjectRequest struct {
@@ -258,7 +257,7 @@ type ReorderShotsRequest struct {
 // ==================== 异步任务队列 ====================
 
 type TaskRecord struct {
-	ID          string `json:"id"`
+	ID          int64  `json:"id"`
 	Type        string `json:"type"`
 	Status      string `json:"status"`
 	Params      string `json:"params"`
@@ -281,5 +280,5 @@ type TaskEvent struct {
 }
 
 type TaskCreateResponse struct {
-	TaskID string `json:"taskId"`
+	TaskID int64 `json:"taskId"`
 }

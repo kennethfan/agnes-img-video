@@ -4,13 +4,13 @@ import { connectTaskSSE } from '../utils/sse'
 import { cancelTask, retryTask } from '../api/task'
 
 const props = defineProps<{
-  taskId: string
+  taskId: number | string
 }>()
 
 const emit = defineEmits<{
   complete: [result: string]
   error: [message: string]
-  retry: [taskId: string]
+  retry: [taskId: number | string]
 }>()
 
 const progress = ref(0)

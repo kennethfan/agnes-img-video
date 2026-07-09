@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -57,7 +58,7 @@ func (h *VideoHandler) TextToVideo(c *gin.Context) {
 	}
 
 	saveHistoryRecord(req.Prompt, []string{}, "text2video", map[string]any{"taskId": taskID})
-	log.Printf("[Video] 文生视频任务已创建: task=%s", taskID)
+	log.Printf("[Video] 文生视频任务已创建: task=%d", taskID)
 	c.JSON(http.StatusOK, model.VideoTaskResponse{TaskID: taskID})
 }
 
@@ -149,7 +150,7 @@ func (h *VideoHandler) ImageToVideo(c *gin.Context) {
 	}
 
 	saveHistoryRecord(req.Prompt, []string{}, "image2video", map[string]any{"taskId": taskID})
-	log.Printf("[Video] 图生视频任务已创建: task=%s", taskID)
+	log.Printf("[Video] 图生视频任务已创建: task=%d", taskID)
 	c.JSON(http.StatusOK, model.VideoTaskResponse{TaskID: taskID})
 }
 
@@ -193,7 +194,7 @@ func (h *VideoHandler) MultiImageVideo(c *gin.Context) {
 	}
 
 	saveHistoryRecord(req.Prompt, []string{}, "multi_image_video", map[string]any{"taskId": taskID})
-	log.Printf("[Video] 多图视频任务已创建: task=%s", taskID)
+	log.Printf("[Video] 多图视频任务已创建: task=%d", taskID)
 	c.JSON(http.StatusOK, model.VideoTaskResponse{TaskID: taskID})
 }
 
@@ -232,7 +233,11 @@ func (h *VideoHandler) GenerateScript(c *gin.Context) {
 
 // GetTaskStatus 查询任务状态
 func (h *VideoHandler) GetTaskStatus(c *gin.Context) {
-	taskID := c.Param("taskId")
+	taskID, err := strconv.ParseInt(c.Param("taskId"), 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "无效的任务 ID"})
+		return
+	}
 	task, err := h.task.GetTask(taskID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "查询任务失败: " + err.Error()})
@@ -268,7 +273,11 @@ func extractURLFromResult(result string) string {
 
 // StreamSSE SSE 实时推送任务进度
 func (h *VideoHandler) StreamSSE(c *gin.Context) {
-	taskID := c.Param("taskId")
+	taskID, err := strconv.ParseInt(c.Param("taskId"), 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "无效的任务 ID"})
+		return
+	}
 
 	task, err := h.task.GetTask(taskID)
 	if err != nil || task == nil {
@@ -321,7 +330,7 @@ func (h *VideoHandler) StreamSSE(c *gin.Context) {
 
 // SetupVideoHistoryCallback 设置任务完成时自动保存历史记录
 func SetupVideoHistoryCallback(task *service.TaskQueue, svc *service.AgnesClient) {
-	task.SetOnComplete(func(taskID, taskType, prompt, resultURL string) {
+	task.SetOnComplete(func(taskID int64, taskType, prompt, resultURL string) {
 		if resultURL == "" {
 			return
 		}
@@ -329,7 +338,7 @@ func SetupVideoHistoryCallback(task *service.TaskQueue, svc *service.AgnesClient
 		if historyRepo != nil {
 			if id, err := historyRepo.FindByTaskId(taskID); err == nil && id > 0 {
 				updateHistoryImages(id, paths)
-				log.Printf("[History] 任务 %s 历史已更新", taskID)
+				log.Printf("[History] 任务 %d 历史已更新", taskID)
 				return
 			}
 		}
@@ -338,7 +347,7 @@ func SetupVideoHistoryCallback(task *service.TaskQueue, svc *service.AgnesClient
 			recordType = "video"
 		}
 		saveHistoryRecord(prompt, paths, recordType, nil)
-		log.Printf("[History] 任务 %s 历史已保存", taskID)
+		log.Printf("[History] 任务 %d 历史已保存", taskID)
 	})
 }
 
