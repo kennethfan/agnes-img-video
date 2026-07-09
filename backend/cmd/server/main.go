@@ -106,6 +106,7 @@ func main() {
 	settingsHandler := handler.NewSettingsHandler(settingsRepo)
 
 	// 数据库导出与恢复
+	var dbHandler *handler.DBHandler
 	dbReplaceFunc := func(tmpPath string) error {
 		// 关闭旧连接
 		sqlDB.Close()
@@ -154,13 +155,14 @@ func main() {
 		settingsHandler = handler.NewSettingsHandler(newSettingsRepo)
 		middleware.SetAccessLogRepo(newAccessLogRepo)
 		storyboardHandler.SetRepo(newStoryRepo)
+		dbHandler.SetGormDB(newGormDB)
 
 		os.Remove(bakPath)
 		log.Printf("[DB] 数据库恢复完成，连接已刷新")
 		return nil
 	}
 
-	dbHandler := handler.NewDBHandler(dbPath, dbReplaceFunc, func() *sql.DB { return sqlDB }, gormDB)
+	dbHandler = handler.NewDBHandler(dbPath, dbReplaceFunc, func() *sql.DB { return sqlDB }, gormDB)
 
 	// 设置任务完成回调
 	handler.SetupVideoHistoryCallback(taskQueue, svc)
