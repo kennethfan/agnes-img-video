@@ -1,8 +1,8 @@
 import { ElMessage } from 'element-plus'
 import client from './client'
 
-/** 导出数据库文件：支持 .db 或 .sql 格式 */
-export async function exportDB(format: 'db' | 'sql' = 'db') {
+/** 导出数据库文件：支持 .db / .sql / .json 格式 */
+export async function exportDB(format: 'db' | 'sql' | 'json' = 'db') {
   const res = await fetch(`/api/v1/db/export?format=${format}`)
   if (!res.ok) {
     const err = await res.json().catch(() => ({ error: '导出失败' }))
@@ -20,7 +20,7 @@ export async function exportDB(format: 'db' | 'sql' = 'db') {
   URL.revokeObjectURL(url)
 }
 
-/** 恢复数据库：上传 .db/.sqlite/.sql 文件 */
+/** 恢复数据库：上传 .db/.sqlite/.sql/.json 文件 */
 export async function restoreDB(file: File): Promise<void> {
   const form = new FormData()
   form.append('file', file)
