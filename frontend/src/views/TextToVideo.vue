@@ -1,7 +1,9 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { ref, watch, onUnmounted } from 'vue'
 import { ElMessage } from 'element-plus'
-import { createTextToVideo } from '../api/video'
+import { submitTextToVideo } from '../api/video'
+import { connectTaskSSE } from '../utils/sse'
+import TaskProgress from '../components/TaskProgress.vue'
 import { useRedoStore } from '../stores/redo'
 
 const prompt = ref('')
@@ -9,8 +11,16 @@ const duration = ref(5)
 const aspectRatio = ref('16:9')
 const frameRate = ref(24)
 const loading = ref(false)
-const taskId = ref('')
+const errorMsg = ref('')
+const resultVideos = ref<string[]>([])
+const showProgress = ref(false)
+const taskId = ref<number | string>('')
 const redoStore = useRedoStore()
+let cleanupSSE: (() => void) | null = null
+
+onUnmounted(() => {
+  cleanupSSE?.()
+})
 
 const durationOptions = [3, 5, 8, 10, 15, 18]
 const ratioOptions = ['16:9', '9:16', '1:1', '4:3', '3:4']
@@ -32,17 +42,40 @@ async function handleGenerate() {
     return
   }
   loading.value = true
+  errorMsg.value = ''
+  resultVideos.value = []
+  taskId.value = ''
+  showProgress.value = false
+
   try {
-    const res = await createTextToVideo({
+    const res = await submitTextToVideo({
       prompt: prompt.value,
       duration: duration.value,
       aspect_ratio: aspectRatio.value,
       frame_rate: frameRate.value,
     })
     taskId.value = res.taskId
+    showProgress.value = true
+
+    cleanupSSE = connectTaskSSE(res.taskId, {
+      onProgress: () => {},
+      onComplete: (data) => {
+        showProgress.value = false
+        try {
+          resultVideos.value = JSON.parse(data.result)
+        } catch {
+          resultVideos.value = [data.result]
+        }
+        loading.value = false
+      },
+      onError: (data) => {
+        showProgress.value = false
+        errorMsg.value = data.error
+        loading.value = false
+      },
+    })
   } catch (e: any) {
-    ElMessage.error(e.message || '提交失败')
-  } finally {
+    errorMsg.value = e.message || '提交失败'
     loading.value = false
   }
 }
@@ -85,13 +118,18 @@ async function handleGenerate() {
     </div>
 
     <div class="gen-preview">
-      <div v-if="taskId" style="padding: 20px">
-        <el-alert title="任务已提交" type="success" show-icon>
-          <template #default>
-            <p>任务 ID: {{ taskId }}</p>
-            <p>视频生成可能需要几分钟，请在「历史记录」中查看进度。</p>
-          </template>
-        </el-alert>
+      <div v-if="errorMsg" style="padding: 20px">
+        <el-alert title="生成失败" :description="errorMsg" type="error" show-icon />
+      </div>
+      <TaskProgress v-else-if="showProgress && taskId" :task-id="taskId" />
+      <div v-else-if="resultVideos.length > 0" style="padding: 20px">
+        <video
+          v-for="(video, idx) in resultVideos"
+          :key="idx"
+          :src="video"
+          controls
+          style="width: 100%; max-height: 400px; border-radius: var(--radius-sm); margin-bottom: 12px"
+        />
       </div>
       <div v-else style="padding: 20px; text-align: center; color: var(--text-muted); font-size: 14px">
         填写左侧表单并点击生成，视频结果将出现在这里

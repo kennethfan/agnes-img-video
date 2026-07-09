@@ -2,6 +2,7 @@
 import { ref, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { getHistory, clearHistory, deleteHistory, deleteRecord } from '../api/history'
+import { uploadToGitHub } from '../api/github'
 import type { HistoryRecord } from '../types'
 import { useRedoStore } from '../stores/redo'
 
@@ -12,6 +13,7 @@ const previewVideoUrl = ref('')
 const selectedIds = ref<Set<number>>(new Set())
 const deleteFiles = ref(false)
 const expandedScripts = ref<Set<number>>(new Set())
+const uploadingUrls = ref<Set<string>>(new Set())
 const redoStore = useRedoStore()
 
 const modeConfig: Record<string, { label: string; type: string; color: string }> = {
@@ -49,6 +51,20 @@ function isImageUrl(url: string): boolean {
 function playVideo(url: string) {
   previewVideoUrl.value = url
   videoDialogVisible.value = true
+}
+
+async function handleUploadToGitHub(url: string) {
+  uploadingUrls.value = new Set([...uploadingUrls.value, url])
+  try {
+    const githubUrl = await uploadToGitHub(url)
+    ElMessage.success(`已上传到 GitHub: ${githubUrl}`)
+  } catch (e: any) {
+    ElMessage.error(e.message || '上传到 GitHub 失败')
+  } finally {
+    const next = new Set(uploadingUrls.value)
+    next.delete(url)
+    uploadingUrls.value = next
+  }
 }
 
 function toggleScript(id: number) {
@@ -323,6 +339,16 @@ onMounted(loadHistory)
                   <div v-if="i === 3 && rec.images.length > 4" class="media-overlay">
                     +{{ rec.images.length - 3 }}
                   </div>
+                  <el-button
+                    v-if="rec.images.length <= 4 || i < 3"
+                    size="small"
+                    class="media-github-btn"
+                    :loading="uploadingUrls.has(img)"
+                    :disabled="uploadingUrls.has(img)"
+                    @click.stop="handleUploadToGitHub(img)"
+                  >
+                    转存
+                  </el-button>
                 </div>
                 <div v-else class="media-item media-video" @click="playVideo(img)">
                   <div class="video-play-btn">
@@ -589,6 +615,21 @@ onMounted(loadHistory)
   font-size: 18px;
   font-weight: 600;
   backdrop-filter: blur(2px);
+}
+.media-github-btn {
+  position: absolute;
+  bottom: 4px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 11px;
+  padding: 2px 8px;
+  height: 24px;
+  opacity: 0;
+  transition: opacity 0.2s;
+  white-space: nowrap;
+}
+.media-item:hover .media-github-btn {
+  opacity: 1;
 }
 .media-video {
   display: flex;

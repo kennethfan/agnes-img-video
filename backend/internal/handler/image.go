@@ -2,6 +2,7 @@ package handler
 
 import (
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"os"
@@ -16,14 +17,15 @@ import (
 )
 
 type ImageHandler struct {
-	svc *service.AgnesClient
+	svc  *service.AgnesClient
+	task *service.TaskQueue
 }
 
-func NewImageHandler(svc *service.AgnesClient) *ImageHandler {
-	return &ImageHandler{svc: svc}
+func NewImageHandler(svc *service.AgnesClient, task *service.TaskQueue) *ImageHandler {
+	return &ImageHandler{svc: svc, task: task}
 }
 
-// TextToImage 文生图
+// TextToImage 文生图（异步）
 // POST /api/v1/images/text-to-image
 func (h *ImageHandler) TextToImage(c *gin.Context) {
 	var req model.TextToImageRequest
@@ -32,31 +34,23 @@ func (h *ImageHandler) TextToImage(c *gin.Context) {
 		return
 	}
 
-	urls, err := h.svc.TextToImage(req.Prompt, req.Size, req.N, req.NegativePrompt)
+	params, _ := json.Marshal(map[string]any{
+		"prompt":          req.Prompt,
+		"size":            req.Size,
+		"n":               req.N,
+		"negative_prompt": req.NegativePrompt,
+	})
+	taskID, err := h.task.SubmitTask(string(model.TaskTypeTextToImage), string(params))
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "提交任务失败: " + err.Error()})
 		return
 	}
 
-	// 下载所有图片到本地
-	localPaths := make([]string, 0, len(urls))
-	for i, url := range urls {
-		prefix := fmt.Sprintf("text2img_%d", i)
-		localPath, err := h.svc.DownloadAndSave(url, prefix)
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("下载图片 %d 失败: %v", i, err)})
-			return
-		}
-		localPaths = append(localPaths, toRelPath(localPath))
-	}
-
-	// 保存历史
-	saveHistoryRecord(req.Prompt, localPaths, "text2image", nil)
-
-	c.JSON(http.StatusOK, model.ImageResponse{Images: localPaths})
+	saveHistoryRecord(req.Prompt, []string{}, "text2image", map[string]any{"taskId": taskID})
+	c.JSON(http.StatusAccepted, model.TaskCreateResponse{TaskID: taskID})
 }
 
-// ImageToImage 图生图
+// ImageToImage 图生图（异步）
 // POST /api/v1/images/image-to-image
 // Content-Type application/json: {"image_url": "https://...", "prompt": "...", "size": "...", "strength": 0.75}
 // Content-Type multipart/form-data: image file + prompt + size + strength
@@ -66,7 +60,6 @@ func (h *ImageHandler) ImageToImage(c *gin.Context) {
 	size := "1024x1024"
 	strength := 0.75
 	negativePrompt := ""
-	n := 1
 
 	if c.Request.Header.Get("Content-Type") == "application/json" {
 		var req struct {
@@ -94,7 +87,6 @@ func (h *ImageHandler) ImageToImage(c *gin.Context) {
 		}
 		negativePrompt = req.NegativePrompt
 	} else {
-		// multipart/form-data：上传图片文件
 		file, err := c.FormFile("image")
 		if err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "请上传图片文件"})
@@ -110,7 +102,6 @@ func (h *ImageHandler) ImageToImage(c *gin.Context) {
 		}
 		defer os.Remove(tmpPath)
 
-		// 读取图片并编码为 base64 Data URI
 		imageData, err := os.ReadFile(tmpPath)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "读取图片失败: " + err.Error()})
@@ -138,32 +129,29 @@ func (h *ImageHandler) ImageToImage(c *gin.Context) {
 		negativePrompt = c.PostForm("negative_prompt")
 	}
 
-	urls, err := h.svc.ImageToImage(imageValue, prompt, size, n, strength, negativePrompt)
+	params, _ := json.Marshal(map[string]any{
+		"prompt":          prompt,
+		"size":            size,
+		"image_value":     imageValue,
+		"strength":        strength,
+		"negative_prompt": negativePrompt,
+	})
+	taskID, err := h.task.SubmitTask(string(model.TaskTypeImageToImage), string(params))
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "提交任务失败: " + err.Error()})
 		return
 	}
 
-	localPaths := make([]string, 0, len(urls))
-	for i, url := range urls {
-		prefix := fmt.Sprintf("img2img_%d", i)
-		localPath, err := h.svc.DownloadAndSave(url, prefix)
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("下载图片 %d 失败: %v", i, err)})
-			return
-		}
-		localPaths = append(localPaths, toRelPath(localPath))
-	}
-
-	saveHistoryRecord(prompt, localPaths, "image2image", map[string]any{
+	saveHistoryRecord(prompt, []string{}, "image2image", map[string]any{
+		"taskId":   taskID,
 		"size":     size,
 		"strength": strength,
 	})
 
-	c.JSON(http.StatusOK, model.ImageResponse{Images: localPaths})
+	c.JSON(http.StatusAccepted, model.TaskCreateResponse{TaskID: taskID})
 }
 
-// BatchGenerate 批量文生图
+// BatchGenerate 批量文生图（异步）
 // POST /api/v1/images/batch
 func (h *ImageHandler) BatchGenerate(c *gin.Context) {
 	var req model.BatchRequest
@@ -177,43 +165,25 @@ func (h *ImageHandler) BatchGenerate(c *gin.Context) {
 		return
 	}
 
-	allImages := make([]string, 0)
-	for i, prompt := range req.Prompts {
-		urls, err := h.svc.TextToImage(prompt, req.Size, 1, "")
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("第 %d 个提示词失败: %v", i+1, err)})
-			return
-		}
-		for _, url := range urls {
-			localPath, err := h.svc.DownloadAndSave(url, fmt.Sprintf("batch_%d", i))
-			if err != nil {
-				continue
-			}
-			allImages = append(allImages, toRelPath(localPath))
-		}
+	params, _ := json.Marshal(map[string]any{
+		"prompts": req.Prompts,
+		"size":    req.Size,
+	})
+	taskID, err := h.task.SubmitTask(string(model.TaskTypeBatch), string(params))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "提交任务失败: " + err.Error()})
+		return
 	}
 
-	saveHistoryRecord(strings.Join(req.Prompts, "; "), allImages, "batch", map[string]any{
-		"size": req.Size,
+	saveHistoryRecord(strings.Join(req.Prompts, "; "), []string{}, "batch", map[string]any{
+		"taskId": taskID,
+		"size":   req.Size,
 	})
 
-	c.JSON(http.StatusOK, model.ImageResponse{Images: allImages})
+	c.JSON(http.StatusAccepted, model.TaskCreateResponse{TaskID: taskID})
 }
 
 // ==================== 辅助函数 ====================
-
-func toRelPath(absPath string) string {
-	// 将绝对路径转为相对路径（相对于项目根）
-	// 如果路径包含 "outputs/"，返回 "outputs/xxx"
-	if idx := strings.Index(absPath, "outputs/"); idx >= 0 {
-		return absPath[idx:]
-	}
-	// 如果已经在 outputs/ 下
-	if strings.HasPrefix(absPath, "outputs/") {
-		return absPath
-	}
-	return absPath
-}
 
 func parseFloat(s string) float64 {
 	var f float64

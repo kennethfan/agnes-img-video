@@ -13,11 +13,16 @@ import (
 )
 
 type StoryboardHandler struct {
-	repo *repository.StoryboardRepo
+	repo repository.StoryboardRepository
 }
 
-func NewStoryboardHandler(repo *repository.StoryboardRepo) *StoryboardHandler {
+func NewStoryboardHandler(repo repository.StoryboardRepository) *StoryboardHandler {
 	return &StoryboardHandler{repo: repo}
+}
+
+// SetRepo 替换内部仓库引用（用于数据库恢复后刷新）
+func (h *StoryboardHandler) SetRepo(repo repository.StoryboardRepository) {
+	h.repo = repo
 }
 
 func (h *StoryboardHandler) ListProjects(c *gin.Context) {

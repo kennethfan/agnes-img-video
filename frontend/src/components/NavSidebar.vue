@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 
-const activePage = defineModel<string>('activePage', { required: true })
+const props = defineProps<{ activePage: string }>()
+const emit = defineEmits<{ navigate: [pageId: string] }>()
 
 const groups = [
   {
@@ -50,7 +51,18 @@ const groups = [
     label: '作品',
     items: [
       { id: 'assets', label: '作品库' },
+      { id: 'tasks', label: '任务记录' },
       { id: 'history', label: '历史记录' },
+    ],
+  },
+  {
+    id: 'system',
+    icon: '⚙️',
+    label: '系统',
+    items: [
+      { id: 'access_logs', label: '接口日志' },
+      { id: 'db_manage', label: '备份恢复' },
+      { id: 'settings', label: '存储设置' },
     ],
   },
 ]
@@ -62,7 +74,7 @@ function toggleGroup(groupId: string) {
 }
 
 function selectPage(pageId: string) {
-  activePage.value = pageId
+  emit('navigate', pageId)
 }
 </script>
 

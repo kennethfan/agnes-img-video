@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import NavSidebar from './components/NavSidebar.vue'
 import TextToImage from './views/TextToImage.vue'
 import ImageToImage from './views/ImageToImage.vue'
@@ -12,26 +13,28 @@ import History from './views/History.vue'
 import Ideas from './views/Ideas.vue'
 import Assets from './views/Assets.vue'
 import Storyboard from './views/Storyboard.vue'
+import AccessLogs from './views/AccessLogs.vue'
+import DBManage from './views/DBManage.vue'
+import TaskRecords from './views/TaskRecords.vue'
+import Settings from './views/Settings.vue'
 import WorkflowWizard from './views/WorkflowWizard.vue'
-import { useRedoStore } from './stores/redo'
 
+const route = useRoute()
+const router = useRouter()
 const activePage = ref('text2img')
-const redoStore = useRedoStore()
 
-function handleRedoTrigger() {
-  const tab = redoStore.targetTab
-  if (tab) {
-    activePage.value = tab
+// 路由变化 → 同步 activePage（浏览器前进/后退 & 刷新恢复）
+watch(() => route.name, (name) => {
+  if (name && typeof name === 'string') {
+    activePage.value = name
   }
+}, { immediate: true })
+
+// 页面切换：同步 activePage + URL
+function navigateTo(page: string) {
+  activePage.value = page
+  router.push({ name: page })
 }
-
-onMounted(() => {
-  window.addEventListener('redo-trigger', handleRedoTrigger)
-})
-
-onUnmounted(() => {
-  window.removeEventListener('redo-trigger', handleRedoTrigger)
-})
 </script>
 
 <template>
@@ -42,7 +45,7 @@ onUnmounted(() => {
     </header>
 
     <div class="app-body">
-      <NavSidebar v-model:active-page="activePage" />
+      <NavSidebar :active-page="activePage" @navigate="navigateTo" />
 
       <main class="main-content">
         <TextToImage v-if="activePage === 'text2img'" />
@@ -55,10 +58,14 @@ onUnmounted(() => {
         <Ideas v-else-if="activePage === 'ideas'" />
         <Storyboard v-else-if="activePage === 'storyboard'" />
         <Assets v-else-if="activePage === 'assets'" />
+        <TaskRecords v-else-if="activePage === 'tasks'" />
         <History v-else-if="activePage === 'history'" />
-        <WorkflowWizard v-else-if="activePage === 'image_refine'" workflowType="image_refine" />
-        <WorkflowWizard v-else-if="activePage === 'comic'" workflowType="comic" />
-        <WorkflowWizard v-else-if="activePage === 'novel'" workflowType="novel" />
+        <AccessLogs v-else-if="activePage === 'access_logs'" />
+        <DBManage v-else-if="activePage === 'db_manage'" />
+        <Settings v-else-if="activePage === 'settings'" />
+        <WorkflowWizard v-else-if="activePage === 'image_refine'" />
+        <WorkflowWizard v-else-if="activePage === 'comic'" />
+        <WorkflowWizard v-else-if="activePage === 'novel'" />
       </main>
     </div>
   </div>

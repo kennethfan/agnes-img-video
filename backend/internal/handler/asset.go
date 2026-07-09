@@ -19,11 +19,15 @@ import (
 )
 
 type AssetHandler struct {
-	repo *repository.HistoryRepo
+	repo repository.HistoryRepository
 }
 
-func NewAssetHandler(repo *repository.HistoryRepo) *AssetHandler {
+func NewAssetHandler(repo repository.HistoryRepository) *AssetHandler {
 	return &AssetHandler{repo: repo}
+}
+
+func (h *AssetHandler) SetRepo(repo repository.HistoryRepository) {
+	h.repo = repo
 }
 
 func (h *AssetHandler) ListAssets(c *gin.Context) {

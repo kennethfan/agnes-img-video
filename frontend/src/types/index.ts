@@ -39,7 +39,7 @@ export interface VideoCreateRequest {
 }
 
 export interface VideoTaskResponse {
-  taskId: string
+  taskId: number
 }
 
 export interface VideoStatus {
@@ -158,4 +158,40 @@ export interface UpdateShotRequest {
   prompt?: string
   type?: string
   reference_image?: string
+}
+
+// ==================== 异步任务队列 ====================
+
+export interface TaskRecord {
+  id: number
+  type: string
+  status: 'pending' | 'processing' | 'completed' | 'failed' | 'cancelled'
+  params: string
+  result?: string
+  progress: number
+  error?: string
+  retry_count: number
+  created_at: string
+  updated_at: string
+  completed_at?: string
+}
+
+export interface TaskCreateResponse {
+  taskId: number
+}
+
+export interface TaskSSEHandlers {
+  onProgress?: (data: { progress: number; status: string }) => void
+  onComplete?: (data: { result: string }) => void
+  onError?: (data: { error: string }) => void
+}
+
+// ==================== 存储设置 ====================
+
+export interface Settings {
+  storage_target: string
+  local_image_dir: string
+  local_video_dir: string
+  github_image_path: string
+  github_video_path: string
 }
