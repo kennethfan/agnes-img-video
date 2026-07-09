@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"log"
@@ -18,14 +19,14 @@ import (
 
 type VideoHandler struct {
 	svc  *service.AgnesClient
-	mgr  *service.TaskManager
+	task *service.TaskQueue
 }
 
-func NewVideoHandler(svc *service.AgnesClient, mgr *service.TaskManager) *VideoHandler {
-	return &VideoHandler{svc: svc, mgr: mgr}
+func NewVideoHandler(svc *service.AgnesClient, task *service.TaskQueue) *VideoHandler {
+	return &VideoHandler{svc: svc, task: task}
 }
 
-// TextToVideo 文生视频
+// TextToVideo 文生视频（异步）
 func (h *VideoHandler) TextToVideo(c *gin.Context) {
 	var req model.VideoCreateRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -36,31 +37,37 @@ func (h *VideoHandler) TextToVideo(c *gin.Context) {
 	opts := h.buildVideoOptions(req)
 	opts.RecordType = "text2video"
 
-	// 提交任务
-	videoID, err := h.svc.SubmitVideoTask(h.svc.BuildVideoPayload(req.Prompt, opts))
+	params, _ := json.Marshal(map[string]any{
+		"prompt":              req.Prompt,
+		"duration":            opts.Duration,
+		"aspect_ratio":        opts.AspectRatio,
+		"frame_rate":          opts.FrameRate,
+		"negative_prompt":     opts.NegativePrompt,
+		"seed":                opts.Seed,
+		"num_inference_steps": opts.NumInferenceSteps,
+		"width":               opts.Width,
+		"height":              opts.Height,
+		"num_frames":          opts.NumFrames,
+	})
+
+	taskID, err := h.task.SubmitTask(string(model.TaskTypeTextToVideo), string(params))
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "提交视频任务失败: " + err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "提交任务失败: " + err.Error()})
 		return
 	}
 
-	// 创建任务管理器中的跟踪
-	h.mgr.CreateTask(videoID, req.Prompt, opts)
-
-	// 立即写入历史记录（待更新）
-	saveHistoryRecord(req.Prompt, []string{}, "text2video", map[string]any{"taskId": videoID})
-
-	log.Printf("[Video] 文生视频任务已创建: %s", videoID)
-	c.JSON(http.StatusOK, model.VideoTaskResponse{TaskID: videoID})
+	saveHistoryRecord(req.Prompt, []string{}, "text2video", map[string]any{"taskId": taskID})
+	log.Printf("[Video] 文生视频任务已创建: task=%s", taskID)
+	c.JSON(http.StatusOK, model.VideoTaskResponse{TaskID: taskID})
 }
 
-// ImageToVideo 图生视频
+// ImageToVideo 图生视频（异步）
 // POST /api/v1/videos/image-to-video
 // Content-Type application/json: {"image_url": "https://...", "prompt": "...", ...}
 //   also supports {"image_urls": ["https://..."], ...} for compatibility
 // Content-Type multipart/form-data: image file + prompt + ...
 func (h *VideoHandler) ImageToVideo(c *gin.Context) {
 	var req model.VideoCreateRequest
-	// 尝试 JSON 绑定或表单
 	if c.Request.Header.Get("Content-Type") == "application/json" {
 		var jsonReq struct {
 			model.VideoCreateRequest
@@ -85,17 +92,10 @@ func (h *VideoHandler) ImageToVideo(c *gin.Context) {
 	opts := h.buildVideoOptions(req)
 	opts.RecordType = "image2video"
 
-	var videoID string
-	var err error
-
+	var imageValue string
 	if len(req.ImageURLs) > 0 {
-		// 直接使用提供的 URL
-		opts.ImageURLs = req.ImageURLs
-		payload := h.svc.BuildVideoPayload(req.Prompt, opts)
-		payload["image"] = req.ImageURLs[0]
-		videoID, err = h.svc.SubmitVideoTask(payload)
+		imageValue = req.ImageURLs[0]
 	} else {
-		// multipart 上传图片
 		file, err := c.FormFile("image")
 		if err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "请上传图片文件或提供图片 URL"})
@@ -111,13 +111,11 @@ func (h *VideoHandler) ImageToVideo(c *gin.Context) {
 		}
 		defer os.Remove(tmpPath)
 
-		// 转换为 base64 URL
 		imageData, err := os.ReadFile(tmpPath)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "读取图片失败: " + err.Error()})
 			return
 		}
-
 		ext := strings.ToLower(filepath.Ext(file.Filename))
 		mimeType := map[string]string{
 			".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg",
@@ -126,25 +124,36 @@ func (h *VideoHandler) ImageToVideo(c *gin.Context) {
 		if mimeType == "" {
 			mimeType = "image/png"
 		}
-
-		b64 := fmt.Sprintf("data:%s;base64,%s", mimeType, imageData)
-		payload := h.svc.BuildVideoPayload(req.Prompt, opts)
-		payload["image"] = b64
-		videoID, err = h.svc.SubmitVideoTask(payload)
+		imageValue = fmt.Sprintf("data:%s;base64,%s", mimeType, imageData)
 	}
 
+	params, _ := json.Marshal(map[string]any{
+		"prompt":              req.Prompt,
+		"duration":            opts.Duration,
+		"aspect_ratio":        opts.AspectRatio,
+		"frame_rate":          opts.FrameRate,
+		"negative_prompt":     opts.NegativePrompt,
+		"seed":                opts.Seed,
+		"num_inference_steps": opts.NumInferenceSteps,
+		"width":               opts.Width,
+		"height":              opts.Height,
+		"num_frames":          opts.NumFrames,
+		"image_value":         imageValue,
+		"image_urls":          req.ImageURLs,
+	})
+
+	taskID, err := h.task.SubmitTask(string(model.TaskTypeImageToVideo), string(params))
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "提交视频任务失败: " + err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "提交任务失败: " + err.Error()})
 		return
 	}
 
-	h.mgr.CreateTask(videoID, req.Prompt, opts)
-	saveHistoryRecord(req.Prompt, []string{}, "image2video", map[string]any{"taskId": videoID})
-	log.Printf("[Video] 图生视频任务已创建: %s", videoID)
-	c.JSON(http.StatusOK, model.VideoTaskResponse{TaskID: videoID})
+	saveHistoryRecord(req.Prompt, []string{}, "image2video", map[string]any{"taskId": taskID})
+	log.Printf("[Video] 图生视频任务已创建: task=%s", taskID)
+	c.JSON(http.StatusOK, model.VideoTaskResponse{TaskID: taskID})
 }
 
-// MultiImageVideo 多图视频 / 关键帧
+// MultiImageVideo 多图视频 / 关键帧（异步）
 func (h *VideoHandler) MultiImageVideo(c *gin.Context) {
 	var req model.VideoCreateRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -162,25 +171,30 @@ func (h *VideoHandler) MultiImageVideo(c *gin.Context) {
 	opts.ImageURLs = req.ImageURLs
 	opts.Mode = req.Mode
 
-	payload := h.svc.BuildVideoPayload(req.Prompt, opts)
-	extraBody := map[string]any{
-		"image": req.ImageURLs,
-	}
-	if req.Mode == "keyframes" {
-		extraBody["mode"] = "keyframes"
-	}
-	payload["extra_body"] = extraBody
+	params, _ := json.Marshal(map[string]any{
+		"prompt":              req.Prompt,
+		"duration":            opts.Duration,
+		"aspect_ratio":        opts.AspectRatio,
+		"frame_rate":          opts.FrameRate,
+		"negative_prompt":     opts.NegativePrompt,
+		"seed":                opts.Seed,
+		"num_inference_steps": opts.NumInferenceSteps,
+		"width":               opts.Width,
+		"height":              opts.Height,
+		"num_frames":          opts.NumFrames,
+		"image_urls":          req.ImageURLs,
+		"mode":                req.Mode,
+	})
 
-	videoID, err := h.svc.SubmitVideoTask(payload)
+	taskID, err := h.task.SubmitTask(string(model.TaskTypeMultiImageVideo), string(params))
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "提交视频任务失败: " + err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "提交任务失败: " + err.Error()})
 		return
 	}
 
-	h.mgr.CreateTask(videoID, req.Prompt, opts)
-	saveHistoryRecord(req.Prompt, []string{}, "multi_image_video", map[string]any{"taskId": videoID})
-	log.Printf("[Video] 多图视频任务已创建: %s", videoID)
-	c.JSON(http.StatusOK, model.VideoTaskResponse{TaskID: videoID})
+	saveHistoryRecord(req.Prompt, []string{}, "multi_image_video", map[string]any{"taskId": taskID})
+	log.Printf("[Video] 多图视频任务已创建: task=%s", taskID)
+	c.JSON(http.StatusOK, model.VideoTaskResponse{TaskID: taskID})
 }
 
 // GenerateScript 生成视频脚本
@@ -219,7 +233,11 @@ func (h *VideoHandler) GenerateScript(c *gin.Context) {
 // GetTaskStatus 查询任务状态
 func (h *VideoHandler) GetTaskStatus(c *gin.Context) {
 	taskID := c.Param("taskId")
-	task := h.mgr.GetTask(taskID)
+	task, err := h.task.GetTask(taskID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "查询任务失败: " + err.Error()})
+		return
+	}
 	if task == nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "任务不存在"})
 		return
@@ -228,30 +246,44 @@ func (h *VideoHandler) GetTaskStatus(c *gin.Context) {
 	c.JSON(http.StatusOK, model.VideoStatus{
 		Status:   task.Status,
 		Progress: task.Progress,
-		URL:      task.ResultURL,
+		URL:      extractURLFromResult(task.Result),
 		Error:    task.Error,
-		Seconds:  task.Seconds,
 	})
 }
 
-// StreamSSE SSE 实时推送视频进度
+// extractURLFromResult 从 result JSON 中提取第一个 URL
+func extractURLFromResult(result string) string {
+	if result == "" {
+		return ""
+	}
+	var urls []string
+	if err := json.Unmarshal([]byte(result), &urls); err != nil {
+		return result
+	}
+	if len(urls) > 0 {
+		return urls[0]
+	}
+	return ""
+}
+
+// StreamSSE SSE 实时推送任务进度
 func (h *VideoHandler) StreamSSE(c *gin.Context) {
 	taskID := c.Param("taskId")
-	task := h.mgr.GetTask(taskID)
-	if task == nil {
+
+	task, err := h.task.GetTask(taskID)
+	if err != nil || task == nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "任务不存在"})
 		return
 	}
 
 	subID := fmt.Sprintf("sse_%d", time.Now().UnixNano())
-	ch := h.mgr.Subscribe(taskID, subID)
+	ch := h.task.Subscribe(taskID, subID)
 	if ch == nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "订阅失败"})
 		return
 	}
-	defer h.mgr.Unsubscribe(taskID, subID)
+	defer h.task.Unsubscribe(taskID, subID)
 
-	// 设置 SSE headers
 	c.Header("Content-Type", "text/event-stream")
 	c.Header("Cache-Control", "no-cache")
 	c.Header("Connection", "keep-alive")
@@ -272,8 +304,7 @@ func (h *VideoHandler) StreamSSE(c *gin.Context) {
 				})
 			case "complete":
 				c.SSEvent("complete", map[string]any{
-					"url":     event.URL,
-					"seconds": event.Seconds,
+					"result": event.Result,
 				})
 			case "error":
 				c.SSEvent("error", map[string]any{
@@ -288,29 +319,26 @@ func (h *VideoHandler) StreamSSE(c *gin.Context) {
 	})
 }
 
-// SetupVideoHistoryCallback 设置视频完成时自动保存历史记录
-func SetupVideoHistoryCallback(tm *service.TaskManager, svc *service.AgnesClient) {
-	tm.SetOnComplete(func(taskID, prompt, resultURL string, opts service.VideoOptions) {
+// SetupVideoHistoryCallback 设置任务完成时自动保存历史记录
+func SetupVideoHistoryCallback(task *service.TaskQueue, svc *service.AgnesClient) {
+	task.SetOnComplete(func(taskID, taskType, prompt, resultURL string) {
 		if resultURL == "" {
 			return
 		}
-			// 直接使用 API 返回的 URL，不自动下载到本地
-			paths := []string{resultURL}
-		// 更新已有的待完成记录（通过 extra.taskId 匹配）
+		paths := []string{resultURL}
 		if historyRepo != nil {
 			if id, err := historyRepo.FindByTaskId(taskID); err == nil && id > 0 {
 				updateHistoryImages(id, paths)
-				log.Printf("[History] 视频任务 %s 历史已更新", taskID)
+				log.Printf("[History] 任务 %s 历史已更新", taskID)
 				return
 			}
 		}
-		// 未找到待更新记录时，创建新记录
-		recordType := opts.RecordType
+		recordType := taskType
 		if recordType == "" {
 			recordType = "video"
 		}
 		saveHistoryRecord(prompt, paths, recordType, nil)
-		log.Printf("[History] 视频任务 %s 历史已保存", taskID)
+		log.Printf("[History] 任务 %s 历史已保存", taskID)
 	})
 }
 
