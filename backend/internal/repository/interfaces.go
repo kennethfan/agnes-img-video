@@ -38,12 +38,12 @@ type StoryboardRepository interface {
 	GetProject(id int64) (*model.StoryboardProject, error)
 	UpdateProject(id int64, title, script string) error
 	DeleteProject(id int64) error
-	DuplicateProject(id int64, newTitle string) (int64, error)
-	CreateShot(projectID int64, shot model.StoryboardShot) (int64, error)
-	UpdateShot(id int64, shot model.StoryboardShot) error
+	DuplicateProject(id int64) (int64, error)
+	ListShots(projectID int64) ([]model.StoryboardShot, error)
+	CreateShot(projectID int64, seq int, prompt, shotType, refImage string) (int64, error)
+	UpdateShot(id int64, prompt, shotType, refImage string) error
 	DeleteShot(id int64) error
-	ReorderShots(projectID int64, shotIDs []int64) error
-	GetShotsByProject(projectID int64) ([]model.StoryboardShot, error)
+	ReorderShots(ids []int64) error
 	Close() error
 }
 
@@ -90,11 +90,11 @@ type AccessLogQueryResult struct {
 }
 
 type AccessLogRepository interface {
-	InsertRecord(method, path string, status int, durationMs int, clientIP, userAgent, requestBody, responseBody, errMsg string) (int64, error)
+	Insert(record *AccessLogRecord) error
 	Query(q AccessLogQuery) (*AccessLogQueryResult, error)
-	DeleteRecord(id int64) error
-	ClearRecords() error
-	StartDailyCleanup(days int)
+	Delete(id int64) error
+	ClearAll() error
+	StartDailyCleanup(retentionDays int)
 }
 
 // ==================== Task Queue ====================

@@ -10,10 +10,10 @@ import (
 )
 
 type AccessLogHandler struct {
-	repo *repository.AccessLogRepo
+	repo repository.AccessLogRepository
 }
 
-func NewAccessLogHandler(repo *repository.AccessLogRepo) *AccessLogHandler {
+func NewAccessLogHandler(repo repository.AccessLogRepository) *AccessLogHandler {
 	return &AccessLogHandler{repo: repo}
 }
 

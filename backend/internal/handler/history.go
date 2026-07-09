@@ -14,10 +14,10 @@ import (
 	"github.com/agnes-image-tool/backend/internal/service"
 )
 
-var historyRepo *repository.HistoryRepo
+var historyRepo repository.HistoryRepository
 var githubStorage *service.GithubStorage
 
-func SetHistoryRepo(repo *repository.HistoryRepo) {
+func SetHistoryRepo(repo repository.HistoryRepository) {
 	historyRepo = repo
 }
 
@@ -26,14 +26,14 @@ func SetGithubStorage(gs *service.GithubStorage) {
 }
 
 type HistoryHandler struct {
-	repo *repository.HistoryRepo
+	repo repository.HistoryRepository
 }
 
-func NewHistoryHandler(repo *repository.HistoryRepo) *HistoryHandler {
+func NewHistoryHandler(repo repository.HistoryRepository) *HistoryHandler {
 	return &HistoryHandler{repo: repo}
 }
 
-func (h *HistoryHandler) SetRepo(repo *repository.HistoryRepo) {
+func (h *HistoryHandler) SetRepo(repo repository.HistoryRepository) {
 	h.repo = repo
 }
 

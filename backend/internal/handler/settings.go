@@ -10,10 +10,10 @@ import (
 )
 
 type SettingsHandler struct {
-	repo *repository.SettingsRepo
+	repo repository.SettingsRepository
 }
 
-func NewSettingsHandler(repo *repository.SettingsRepo) *SettingsHandler {
+func NewSettingsHandler(repo repository.SettingsRepository) *SettingsHandler {
 	return &SettingsHandler{repo: repo}
 }
 
