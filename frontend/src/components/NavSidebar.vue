@@ -62,6 +62,7 @@ const groups = [
     items: [
       { id: 'access_logs', label: '接口日志' },
       { id: 'db_manage', label: '备份恢复' },
+      { id: 'settings', label: '存储设置' },
     ],
   },
 ]

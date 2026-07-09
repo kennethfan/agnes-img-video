@@ -1,5 +1,15 @@
 package model
 
+// ==================== 存储设置 ====================
+
+type Settings struct {
+	StorageTarget   string `json:"storage_target"`
+	LocalImageDir   string `json:"local_image_dir"`
+	LocalVideoDir   string `json:"local_video_dir"`
+	GithubImagePath string `json:"github_image_path"`
+	GithubVideoPath string `json:"github_video_path"`
+}
+
 // ==================== 配置 ====================
 
 type Config struct {

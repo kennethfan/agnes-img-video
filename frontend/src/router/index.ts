@@ -16,6 +16,7 @@ const routes = [
   { path: '/history',     name: 'history',     component: () => import('../views/History.vue') },
   { path: '/access-logs', name: 'access_logs', component: () => import('../views/AccessLogs.vue') },
   { path: '/db-manage',   name: 'db_manage',   component: () => import('../views/DBManage.vue') },
+  { path: '/settings',    name: 'settings',    component: () => import('../views/Settings.vue') },
   { path: '/image-refine', name: 'image_refine', component: () => import('../views/WorkflowWizard.vue') },
   { path: '/comic',        name: 'comic',        component: () => import('../views/WorkflowWizard.vue') },
   { path: '/novel',        name: 'novel',        component: () => import('../views/WorkflowWizard.vue') },

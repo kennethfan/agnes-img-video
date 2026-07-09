@@ -16,6 +16,7 @@ import Storyboard from './views/Storyboard.vue'
 import AccessLogs from './views/AccessLogs.vue'
 import DBManage from './views/DBManage.vue'
 import TaskRecords from './views/TaskRecords.vue'
+import Settings from './views/Settings.vue'
 import WorkflowWizard from './views/WorkflowWizard.vue'
 
 const route = useRoute()
@@ -61,6 +62,7 @@ function navigateTo(page: string) {
         <History v-else-if="activePage === 'history'" />
         <AccessLogs v-else-if="activePage === 'access_logs'" />
         <DBManage v-else-if="activePage === 'db_manage'" />
+        <Settings v-else-if="activePage === 'settings'" />
         <WorkflowWizard v-else-if="activePage === 'image_refine'" />
         <WorkflowWizard v-else-if="activePage === 'comic'" />
         <WorkflowWizard v-else-if="activePage === 'novel'" />

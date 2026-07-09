@@ -106,6 +106,13 @@ func main() {
 	defer storyboardRepo.Close()
 	storyboardHandler := handler.NewStoryboardHandler(storyboardRepo)
 
+	// 存储设置
+	settingsRepo := repository.NewSettingsRepo(histRepo.DB())
+	if err := settingsRepo.InitTable(); err != nil {
+		log.Fatalf("初始化设置表失败: %v", err)
+	}
+	settingsHandler := handler.NewSettingsHandler(settingsRepo)
+
 	// 数据库导出与恢复
 	dbReplaceFunc := func(tmpPath string) error {
 		// 关闭旧连接
@@ -148,6 +155,8 @@ func main() {
 		handler.SetHistoryRepo(newHistRepo)
 		historyHandler.SetRepo(newHistRepo)
 		assetHandler.SetRepo(newHistRepo)
+		settingsRepo = repository.NewSettingsRepo(newHistRepo.DB())
+		settingsHandler = handler.NewSettingsHandler(settingsRepo)
 		middleware.SetAccessLogRepo(accessLogRepo)
 		storyboardHandler.SetRepo(newStoryRepo)
 
@@ -198,6 +207,10 @@ func main() {
 		api.GET("/access-logs", accessLogHandler.ListLogs)
 		api.DELETE("/access-logs", accessLogHandler.ClearLogs)
 		api.DELETE("/access-logs/:id", accessLogHandler.DeleteLog)
+
+		// 存储设置
+		api.GET("/settings", settingsHandler.GetSettings)
+		api.PUT("/settings", settingsHandler.UpdateSettings)
 
 		// 资产管理
 		api.GET("/assets", assetHandler.ListAssets)
