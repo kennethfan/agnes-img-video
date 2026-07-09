@@ -21,11 +21,9 @@ env/
 
 # App generated files
 outputs/
-history.json
-history.db
-history.db-shm
-history.db-wal
 *.db
+*.db-shm
+*.db-wal
 .config.json
 
 # OpenCode
