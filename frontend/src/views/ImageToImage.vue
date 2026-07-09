@@ -2,8 +2,10 @@
 import { ref, computed, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { UploadFilled, Link } from '@element-plus/icons-vue'
-import { imageToImage } from '../api/image'
+import { submitImageToImage } from '../api/image'
+import { connectTaskSSE } from '../utils/sse'
 import ImageResult from '../components/ImageResult.vue'
+import TaskProgress from '../components/TaskProgress.vue'
 import { useRedoStore } from '../stores/redo'
 
 const inputMode = ref<'upload' | 'url'>('upload')
@@ -12,7 +14,10 @@ const negativePrompt = ref('')
 const size = ref('1024x1024')
 const strength = ref(0.75)
 const loading = ref(false)
+const showProgress = ref(false)
+const taskId = ref('')
 const images = ref<string[]>([])
+const errorMsg = ref('')
 const file = ref<File | null>(null)
 const imageUrl = ref('')
 const filePreviewUrl = ref('')
@@ -76,19 +81,40 @@ async function handleGenerate() {
     return
   }
   loading.value = true
+  errorMsg.value = ''
   images.value = []
+  taskId.value = ''
+  showProgress.value = false
+
   try {
-    const res = await imageToImage(
+    const res = await submitImageToImage(
       source,
       prompt.value,
       size.value,
       strength.value,
       negativePrompt.value
     )
-    images.value = res.images
+    taskId.value = res.taskId
+    showProgress.value = true
+
+    connectTaskSSE(res.taskId, {
+      onComplete: (data) => {
+        showProgress.value = false
+        try {
+          images.value = JSON.parse(data.result)
+        } catch {
+          images.value = data.result ? [data.result] : []
+        }
+        loading.value = false
+      },
+      onError: (data) => {
+        showProgress.value = false
+        errorMsg.value = data.error
+        loading.value = false
+      },
+    })
   } catch (e: any) {
-    ElMessage.error(e.message || '生成失败')
-  } finally {
+    errorMsg.value = e.message || '提交失败'
     loading.value = false
   }
 }
@@ -176,7 +202,9 @@ async function handleGenerate() {
     </div>
 
     <div class="gen-preview">
-      <ImageResult :images="images" :loading="loading" />
+      <TaskProgress v-if="showProgress && taskId" :task-id="taskId" @error="errorMsg = $event" />
+      <el-alert v-if="errorMsg" type="error" :description="errorMsg" show-icon closable class="error-alert" />
+      <ImageResult :images="images" :loading="loading && !showProgress" />
     </div>
   </div>
 </template>
@@ -209,5 +237,8 @@ async function handleGenerate() {
   font-weight: 500;
   color: var(--text-muted);
   margin: 0 0 16px 0;
+}
+.error-alert {
+  margin-bottom: 12px;
 }
 </style>
