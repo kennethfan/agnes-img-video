@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, watch } from 'vue'
+import { useRoute } from 'vue-router'
 import { useWizardStore } from '../stores/wizard'
 import type { WorkflowType } from '../stores/wizard'
 import { ArrowLeft, ArrowRight, Close } from '@element-plus/icons-vue'
@@ -29,9 +30,8 @@ import NovelStepGenerateChapters from './novel/StepGenerateChapters.vue'
 import NovelStepIllustrate from './novel/StepIllustrate.vue'
 import NovelStepExport from './novel/StepExport.vue'
 
-const props = defineProps<{
-  workflowType: WorkflowType
-}>()
+const route = useRoute()
+const workflowType = computed<WorkflowType>(() => (route.name as WorkflowType) || 'image_refine')
 
 const store = useWizardStore()
 
@@ -41,8 +41,8 @@ function syncWorkflow(type: WorkflowType) {
   }
 }
 
-onMounted(() => syncWorkflow(props.workflowType))
-watch(() => props.workflowType, syncWorkflow)
+onMounted(() => syncWorkflow(workflowType.value))
+watch(workflowType, syncWorkflow)
 
 const workType = computed(() => store.workflow)
 const step = computed(() => store.step)

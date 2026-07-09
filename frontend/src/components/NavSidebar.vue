@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 
-const activePage = defineModel<string>('activePage', { required: true })
+const props = defineProps<{ activePage: string }>()
+const emit = defineEmits<{ navigate: [pageId: string] }>()
 
 const groups = [
   {
@@ -72,7 +73,7 @@ function toggleGroup(groupId: string) {
 }
 
 function selectPage(pageId: string) {
-  activePage.value = pageId
+  emit('navigate', pageId)
 }
 </script>
 
