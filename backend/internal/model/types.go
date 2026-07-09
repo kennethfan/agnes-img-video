@@ -254,3 +254,31 @@ type UpdateShotRequest struct {
 type ReorderShotsRequest struct {
 	IDs []int64 `json:"ids" binding:"required"`
 }
+
+// ==================== 异步任务队列 ====================
+
+type TaskRecord struct {
+	ID          string `json:"id"`
+	Type        string `json:"type"`
+	Status      string `json:"status"`
+	Params      string `json:"params"`
+	Result      string `json:"result,omitempty"`
+	Progress    int    `json:"progress"`
+	Error       string `json:"error,omitempty"`
+	RetryCount  int    `json:"retry_count"`
+	CreatedAt   string `json:"created_at"`
+	UpdatedAt   string `json:"updated_at"`
+	CompletedAt string `json:"completed_at,omitempty"`
+}
+
+type TaskEvent struct {
+	Event    string `json:"-"` // progress / complete / error
+	Progress int    `json:"progress,omitempty"`
+	Status   string `json:"status,omitempty"`
+	Result   string `json:"result,omitempty"`
+	Error    string `json:"error,omitempty"`
+}
+
+type TaskCreateResponse struct {
+	TaskID string `json:"taskId"`
+}
