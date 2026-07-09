@@ -160,7 +160,7 @@ func main() {
 		return nil
 	}
 
-	dbHandler := handler.NewDBHandler(dbPath, dbReplaceFunc, func() *sql.DB { return sqlDB })
+	dbHandler := handler.NewDBHandler(dbPath, dbReplaceFunc, func() *sql.DB { return sqlDB }, gormDB)
 
 	// 设置任务完成回调
 	handler.SetupVideoHistoryCallback(taskQueue, svc)

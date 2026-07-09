@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 )
 
 // ReplaceFunc 数据库替换函数，接收临时文件路径，返回错误信息
@@ -19,11 +20,14 @@ type ReplaceFunc func(tmpPath string) error
 type DBHandler struct {
 	dbPath      string
 	replaceFunc ReplaceFunc
-	getDB       func() *sql.DB
+	getDB       func() *sql.DB    // 仅用于 .sql 导出（保持兼容）
+	gormDB      *gorm.DB          // 新增：JSON 格式使用
 }
 
-func NewDBHandler(dbPath string, replaceFunc ReplaceFunc, getDB func() *sql.DB) *DBHandler {
-	return &DBHandler{dbPath: dbPath, replaceFunc: replaceFunc, getDB: getDB}
+func (h *DBHandler) SetGormDB(db *gorm.DB) { h.gormDB = db }
+
+func NewDBHandler(dbPath string, replaceFunc ReplaceFunc, getDB func() *sql.DB, gormDB *gorm.DB) *DBHandler {
+	return &DBHandler{dbPath: dbPath, replaceFunc: replaceFunc, getDB: getDB, gormDB: gormDB}
 }
 
 // ExportDB 导出数据库
