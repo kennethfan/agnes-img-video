@@ -277,6 +277,7 @@ type TaskEvent struct {
 	Status   string `json:"status,omitempty"`
 	Result   string `json:"result,omitempty"`
 	Error    string `json:"error,omitempty"`
+	Message  string `json:"message,omitempty"` // 重试说明等
 }
 
 type TaskCreateResponse struct {
