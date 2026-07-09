@@ -37,7 +37,7 @@ type ExportPayload struct {
 // exportTableOrder 导出顺序（按外键依赖排序）
 var exportTableOrder = []string{
 	"settings",
-	"histories",
+	"history",
 	"favorites",
 	"storyboard_projects",
 	"storyboard_shots",
