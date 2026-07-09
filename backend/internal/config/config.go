@@ -55,10 +55,16 @@ func LoadConfig(configPath string) (*model.Config, error) {
 			if fileCfg.GithubRepo != "" {
 				cfg.GithubRepo = fileCfg.GithubRepo
 			}
-			if fileCfg.GithubBranch != "" {
-				cfg.GithubBranch = fileCfg.GithubBranch
-			}
+		if fileCfg.GithubBranch != "" {
+			cfg.GithubBranch = fileCfg.GithubBranch
 		}
+		if fileCfg.DBDriver != "" {
+			cfg.DBDriver = fileCfg.DBDriver
+		}
+		if fileCfg.DBDSN != "" {
+			cfg.DBDSN = fileCfg.DBDSN
+		}
+	}
 	}
 
 	// 环境变量覆盖
@@ -82,6 +88,12 @@ func LoadConfig(configPath string) (*model.Config, error) {
 	}
 	if envBranch := os.Getenv("GITHUB_BRANCH"); envBranch != "" {
 		cfg.GithubBranch = envBranch
+	}
+	if envDriver := os.Getenv("DB_DRIVER"); envDriver != "" {
+		cfg.DBDriver = envDriver
+	}
+	if envDSN := os.Getenv("DB_DSN"); envDSN != "" {
+		cfg.DBDSN = envDSN
 	}
 
 	mu.Lock()

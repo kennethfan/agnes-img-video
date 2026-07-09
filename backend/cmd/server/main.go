@@ -53,7 +53,15 @@ func main() {
 	}
 
 	// 初始化 GORM 数据库（AutoMigrate 自动建表）
-	gormDB, err := gormrepo.OpenDB(gormrepo.DBConfig{Driver: "sqlite", DSN: dbPath})
+	dbDriver := cfg.DBDriver
+	dbDSN := cfg.DBDSN
+	if dbDriver == "" {
+		dbDriver = "sqlite"
+	}
+	if dbDSN == "" {
+		dbDSN = dbPath
+	}
+	gormDB, err := gormrepo.OpenDB(gormrepo.DBConfig{Driver: dbDriver, DSN: dbDSN})
 	if err != nil {
 		log.Fatalf("初始化数据库失败: %v", err)
 	}

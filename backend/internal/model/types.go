@@ -21,6 +21,8 @@ type Config struct {
 	GithubToken  string `json:"github_token"`
 	GithubRepo   string `json:"github_repo"`
 	GithubBranch string `json:"github_branch"`
+	DBDriver     string `json:"db_driver,omitempty"`
+	DBDSN        string `json:"db_dsn,omitempty"`
 }
 
 // ==================== 图片请求/响应 ====================
