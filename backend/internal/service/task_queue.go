@@ -18,6 +18,8 @@ const (
 	pollInterval              = 5 * time.Second
 	maxPollTime               = 30 * time.Minute
 	pollRetryMax              = 10
+	defaultMaxRetries         = 3
+	retryBackoffBase          = 5 * time.Second
 )
 
 // TaskCompleteFunc 任务完成回调（保存历史记录等）
@@ -33,6 +35,7 @@ type TaskQueue struct {
 	onComplete  TaskCompleteFunc
 	ctx         context.Context
 	cancel      context.CancelFunc
+	cancelChans map[string]chan struct{} // per-task 取消信号
 }
 
 // NewTaskQueue 创建任务队列
@@ -46,6 +49,7 @@ func NewTaskQueue(repo *repository.TaskRepository, client *AgnesClient, maxConcu
 		client:      client,
 		workerSem:   make(chan struct{}, maxConcurrent),
 		subscribers: make(map[string]map[string]chan model.TaskEvent),
+		cancelChans: make(map[string]chan struct{}),
 		ctx:         ctx,
 		cancel:      cancel,
 	}
@@ -68,24 +72,111 @@ func (tq *TaskQueue) SubmitTask(taskType string, paramsJSON string) (string, err
 		return "", err
 	}
 
-	// 启动 Worker（不阻塞）
+	if err := tq.submitExistingTask(id, taskType, paramsJSON); err != nil {
+		return "", err
+	}
+	return id, nil
+}
+
+// submitExistingTask 启动 worker goroutine（供 SubmitTask 和 RetryTask 共用）
+func (tq *TaskQueue) submitExistingTask(id, taskType, paramsJSON string) error {
+	cancelCh := make(chan struct{})
+	tq.mu.Lock()
+	tq.cancelChans[id] = cancelCh
+	tq.mu.Unlock()
+
 	select {
 	case tq.workerSem <- struct{}{}:
+		tq.mu.Lock()
+		delete(tq.cancelChans, id)
+		tq.mu.Unlock()
 		go tq.worker(id, taskType, paramsJSON)
 	default:
 		log.Printf("[TaskQueue] 达到最大并发数，任务 %s 排队等待", id)
 		go func() {
-			tq.workerSem <- struct{}{}
-			tq.worker(id, taskType, paramsJSON)
+			select {
+			case tq.workerSem <- struct{}{}:
+				tq.mu.Lock()
+				delete(tq.cancelChans, id)
+				tq.mu.Unlock()
+				// 再检查一次是否在排队期间被取消
+				rec, _ := tq.repo.GetTask(id)
+				if rec != nil && rec.Status == string(model.TaskStatusCancelled) {
+					<-tq.workerSem
+					return
+				}
+				tq.worker(id, taskType, paramsJSON)
+			case <-cancelCh:
+				return
+			}
 		}()
 	}
-
-	return id, nil
+	return nil
 }
 
 // GetTask 查询任务状态
 func (tq *TaskQueue) GetTask(id string) (*model.TaskRecord, error) {
 	return tq.repo.GetTask(id)
+}
+
+// CancelTask 取消 pending 状态的任务
+func (tq *TaskQueue) CancelTask(id string) error {
+	rec, err := tq.repo.GetTask(id)
+	if err != nil {
+		return err
+	}
+	if rec == nil {
+		return fmt.Errorf("任务不存在")
+	}
+	if rec.Status != string(model.TaskStatusPending) {
+		return fmt.Errorf("只能取消 pending 状态的任务（当前: %s）", rec.Status)
+	}
+
+	cancelled, err := tq.repo.CancelTaskAtomic(id)
+	if err != nil {
+		return err
+	}
+	if !cancelled {
+		return fmt.Errorf("任务已不在 pending 状态，无法取消")
+	}
+
+	// 通知等待中的 goroutine
+	tq.mu.Lock()
+	ch, ok := tq.cancelChans[id]
+	delete(tq.cancelChans, id)
+	tq.mu.Unlock()
+	if ok {
+		close(ch)
+	}
+
+	tq.notifySubscribers(id, model.TaskEvent{
+		Event:  "progress",
+		Status: string(model.TaskStatusCancelled),
+	})
+
+	log.Printf("[TaskQueue] 任务已取消: id=%s", id)
+	return nil
+}
+
+// RetryTask 手动重试失败的任务
+func (tq *TaskQueue) RetryTask(id string) error {
+	rec, err := tq.repo.GetTask(id)
+	if err != nil {
+		return err
+	}
+	if rec == nil {
+		return fmt.Errorf("任务不存在")
+	}
+	if rec.Status != string(model.TaskStatusFailed) {
+		return fmt.Errorf("只能重试失败的任务（当前: %s）", rec.Status)
+	}
+
+	// 重置状态
+	tq.repo.UpdateTaskStatus(id, string(model.TaskStatusPending), 0, "", "")
+	tq.repo.UpdateRetryCount(id, 0)
+
+	// 重新提交
+	return tq.submitExistingTask(id, rec.Type, rec.Params)
 }
 
 // Subscribe 注册 SSE 订阅者
@@ -138,43 +229,70 @@ func (tq *TaskQueue) worker(taskID, taskType, paramsJSON string) {
 		<-tq.workerSem
 	}()
 
-	log.Printf("[TaskQueue] Worker 开始任务: id=%s type=%s", taskID, taskType)
+	// 检查是否已被取消
+	rec, _ := tq.repo.GetTask(taskID)
+	if rec != nil && rec.Status == string(model.TaskStatusCancelled) {
+		log.Printf("[TaskQueue] 任务 %s 已取消，跳过执行", taskID)
+		return
+	}
 
-	// 标记为 processing
+	log.Printf("[TaskQueue] Worker 开始任务: id=%s type=%s", taskID, taskType)
 	tq.repo.UpdateTaskStatus(taskID, string(model.TaskStatusProcessing), 0, "", "")
 	tq.notifySubscribers(taskID, model.TaskEvent{
 		Event:  "progress",
 		Status: string(model.TaskStatusProcessing),
 	})
 
-	var err error
-	switch taskType {
-	case string(model.TaskTypeTextToImage):
-		err = tq.execTextToImage(taskID, paramsJSON)
-	case string(model.TaskTypeImageToImage):
-		err = tq.execImageToImage(taskID, paramsJSON)
-	case string(model.TaskTypeBatch):
-		err = tq.execBatch(taskID, paramsJSON)
-	case string(model.TaskTypeTextToVideo):
-		err = tq.execTextToVideo(taskID, paramsJSON)
-	case string(model.TaskTypeImageToVideo):
-		err = tq.execImageToVideo(taskID, paramsJSON)
-	case string(model.TaskTypeMultiImageVideo):
-		err = tq.execMultiImageVideo(taskID, paramsJSON)
-	default:
-		err = fmt.Errorf("未知任务类型: %s", taskType)
+	var lastErr error
+	maxRetries := defaultMaxRetries
+
+	for attempt := 0; attempt <= maxRetries; attempt++ {
+		if attempt > 0 {
+			backoff := retryBackoffBase * time.Duration(1<<uint(attempt-1))
+			log.Printf("[TaskQueue] 任务 %s 失败，第 %d/%d 次重试，等待 %v", taskID, attempt, maxRetries, backoff)
+
+			tq.repo.UpdateRetryCount(taskID, attempt)
+			tq.notifySubscribers(taskID, model.TaskEvent{
+				Event:   "progress",
+				Status:  string(model.TaskStatusProcessing),
+				Message: fmt.Sprintf("失败后自动重试中 (%d/%d)", attempt, maxRetries),
+			})
+
+			time.Sleep(backoff)
+		}
+
+		var err error
+		switch taskType {
+		case string(model.TaskTypeTextToImage):
+			err = tq.execTextToImage(taskID, paramsJSON)
+		case string(model.TaskTypeImageToImage):
+			err = tq.execImageToImage(taskID, paramsJSON)
+		case string(model.TaskTypeBatch):
+			err = tq.execBatch(taskID, paramsJSON)
+		case string(model.TaskTypeTextToVideo):
+			err = tq.execTextToVideo(taskID, paramsJSON)
+		case string(model.TaskTypeImageToVideo):
+			err = tq.execImageToVideo(taskID, paramsJSON)
+		case string(model.TaskTypeMultiImageVideo):
+			err = tq.execMultiImageVideo(taskID, paramsJSON)
+		default:
+			err = fmt.Errorf("未知任务类型: %s", taskType)
+		}
+
+		if err == nil {
+			return // 成功
+		}
+		lastErr = err
 	}
 
-	if err != nil {
-		errMsg := err.Error()
-		log.Printf("[TaskQueue] 任务失败: id=%s err=%s", taskID, errMsg)
-		tq.repo.UpdateTaskStatus(taskID, string(model.TaskStatusFailed), 0, "", errMsg)
-		tq.notifySubscribers(taskID, model.TaskEvent{
-			Event: "error",
-			Error: errMsg,
-		})
-		return
-	}
+	// 全部重试失败
+	errMsg := lastErr.Error()
+	log.Printf("[TaskQueue] 任务失败: id=%s err=%s", taskID, errMsg)
+	tq.repo.UpdateTaskStatus(taskID, string(model.TaskStatusFailed), 0, "", errMsg)
+	tq.notifySubscribers(taskID, model.TaskEvent{
+		Event: "error",
+		Error: errMsg,
+	})
 }
 
 // ==================== 图片任务执行 ====================
