@@ -50,6 +50,7 @@ const groups = [
     label: '作品',
     items: [
       { id: 'assets', label: '作品库' },
+      { id: 'tasks', label: '任务记录' },
       { id: 'history', label: '历史记录' },
     ],
   },

@@ -119,6 +119,11 @@ func (tq *TaskQueue) GetTask(id string) (*model.TaskRecord, error) {
 	return tq.repo.GetTask(id)
 }
 
+// ListTasks 查询任务列表，按创建时间倒序
+func (tq *TaskQueue) ListTasks(taskType, status string, limit, offset int) ([]*model.TaskRecord, error) {
+	return tq.repo.ListTasks(taskType, status, limit, offset)
+}
+
 // CancelTask 取消 pending 状态的任务
 func (tq *TaskQueue) CancelTask(id string) error {
 	rec, err := tq.repo.GetTask(id)

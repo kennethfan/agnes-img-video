@@ -14,6 +14,7 @@ import Assets from './views/Assets.vue'
 import Storyboard from './views/Storyboard.vue'
 import AccessLogs from './views/AccessLogs.vue'
 import DBManage from './views/DBManage.vue'
+import TaskRecords from './views/TaskRecords.vue'
 import WorkflowWizard from './views/WorkflowWizard.vue'
 import { useRedoStore } from './stores/redo'
 
@@ -57,6 +58,7 @@ onUnmounted(() => {
         <Ideas v-else-if="activePage === 'ideas'" />
         <Storyboard v-else-if="activePage === 'storyboard'" />
         <Assets v-else-if="activePage === 'assets'" />
+        <TaskRecords v-else-if="activePage === 'tasks'" />
         <History v-else-if="activePage === 'history'" />
         <AccessLogs v-else-if="activePage === 'access_logs'" />
         <DBManage v-else-if="activePage === 'db_manage'" />

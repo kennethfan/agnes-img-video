@@ -8,6 +8,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	"github.com/agnes-image-tool/backend/internal/model"
 	"github.com/agnes-image-tool/backend/internal/service"
 )
 
@@ -18,6 +19,25 @@ type TaskHandler struct {
 
 func NewTaskHandler(task *service.TaskQueue) *TaskHandler {
 	return &TaskHandler{task: task}
+}
+
+// ListTasks 查询任务列表
+// GET /api/v1/tasks
+func (h *TaskHandler) ListTasks(c *gin.Context) {
+	taskType := c.Query("type")
+	status := c.Query("status")
+	limit := 50
+	offset := 0
+
+	records, err := h.task.ListTasks(taskType, status, limit, offset)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "查询任务列表失败: " + err.Error()})
+		return
+	}
+	if records == nil {
+		records = []*model.TaskRecord{}
+	}
+	c.JSON(http.StatusOK, gin.H{"records": records})
 }
 
 // GetTask 查询任务状态

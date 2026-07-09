@@ -165,7 +165,7 @@ export interface UpdateShotRequest {
 export interface TaskRecord {
   id: string
   type: string
-  status: 'pending' | 'processing' | 'completed' | 'failed'
+  status: 'pending' | 'processing' | 'completed' | 'failed' | 'cancelled'
   params: string
   result?: string
   progress: number

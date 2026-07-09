@@ -244,7 +244,8 @@ func main() {
 		api.GET("/download", handler.ProxyDownload)
 
 		// 统一任务查询与进度推送
-	api.GET("/tasks/:id", taskHandler.GetTask)
+		api.GET("/tasks", taskHandler.ListTasks)
+		api.GET("/tasks/:id", taskHandler.GetTask)
 	api.GET("/tasks/:id/stream", taskHandler.StreamSSE)
 	api.POST("/tasks/:id/cancel", taskHandler.CancelTask)
 	api.POST("/tasks/:id/retry", taskHandler.RetryTask)
