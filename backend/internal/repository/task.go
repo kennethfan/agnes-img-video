@@ -130,6 +130,23 @@ func (r *TaskRepository) UpdateRetryCount(id string, count int) error {
 	return err
 }
 
+func (r *TaskRepository) CancelTaskAtomic(id string) (bool, error) {
+	now := time.Now().Format("2006-01-02 15:04:05")
+	res, err := r.db.Exec(
+		"UPDATE tasks SET status = ?, updated_at = ?, completed_at = ? WHERE id = ? AND status = ?",
+		string(model.TaskStatusCancelled), now, now, id, string(model.TaskStatusPending),
+	)
+	if err != nil {
+		return false, fmt.Errorf("取消任务失败: %w", err)
+	}
+	rows, _ := res.RowsAffected()
+	if rows == 0 {
+		return false, nil
+	}
+	log.Printf("[TaskRepo] 任务已取消: id=%s", id)
+	return true, nil
+}
+
 func (r *TaskRepository) FindPendingTasks() ([]*model.TaskRecord, error) {
 	rows, err := r.db.Query(
 		"SELECT id, type, status, params, result, progress, error, retry_count, created_at, updated_at, completed_at FROM tasks WHERE status IN ('pending', 'processing') ORDER BY created_at ASC",
