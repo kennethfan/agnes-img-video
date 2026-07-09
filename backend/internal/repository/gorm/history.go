@@ -150,7 +150,7 @@ func (r *HistoryRepository) FindPendingVideos() ([]repository.PendingVideoInfo, 
 }
 
 func (r *HistoryRepository) TrimRecords(max int) error {
-	sub := r.db.Select("id").Order("id DESC").Limit(max)
+	sub := r.db.Model(&History{}).Select("id").Order("id DESC").Limit(max)
 	return r.db.Where("id NOT IN (?)", sub).Delete(&History{}).Error
 }
 

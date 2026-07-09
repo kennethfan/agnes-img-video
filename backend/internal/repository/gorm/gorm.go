@@ -3,6 +3,8 @@ package gorm
 import (
 	"fmt"
 
+	"gorm.io/driver/mysql"
+	"gorm.io/driver/postgres"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
@@ -17,6 +19,10 @@ func OpenDB(cfg DBConfig) (*gorm.DB, error) {
 	switch cfg.Driver {
 	case "sqlite":
 		dialector = sqlite.Open(cfg.DSN + "?_journal_mode=WAL&_busy_timeout=5000")
+	case "mysql":
+		dialector = mysql.Open(cfg.DSN)
+	case "postgres":
+		dialector = postgres.Open(cfg.DSN)
 	default:
 		return nil, fmt.Errorf("不支持的数据库驱动: %s", cfg.Driver)
 	}
