@@ -10,39 +10,6 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 )
 
-type AccessLogRecord struct {
-	ID           int64  `json:"id"`
-	Timestamp    string `json:"timestamp"`
-	Method       string `json:"method"`
-	Path         string `json:"path"`
-	Status       int    `json:"status"`
-	DurationMs   int    `json:"duration_ms"`
-	ClientIP     string `json:"client_ip"`
-	UserAgent    string `json:"user_agent"`
-	RequestBody  string `json:"request_body"`
-	ResponseBody string `json:"response_body"`
-	Error        string `json:"error"`
-}
-
-type AccessLogQuery struct {
-	Page      int
-	PageSize  int
-	Method    string
-	Path      string
-	StatusMin int
-	StatusMax int
-	From      string
-	To        string
-	Sort      string // asc or desc
-}
-
-type AccessLogQueryResult struct {
-	Items []AccessLogRecord `json:"items"`
-	Total int               `json:"total"`
-	Page  int               `json:"page"`
-	Size  int               `json:"page_size"`
-}
-
 type AccessLogRepo struct {
 	db *sql.DB
 }

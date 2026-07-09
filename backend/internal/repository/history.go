@@ -275,14 +275,6 @@ func (r *HistoryRepo) ClearRecords() error {
 	return err
 }
 
-// PendingVideoInfo 待恢复的视频任务信息
-type PendingVideoInfo struct {
-	ID     int64
-	TaskID string
-	Prompt string
-	Mode   string
-}
-
 // FindByTaskId 通过 extra.taskId 查找历史记录 ID
 func (r *HistoryRepo) FindByTaskId(taskId int64) (int64, error) {
 	var id int64

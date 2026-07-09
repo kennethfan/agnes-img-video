@@ -9,15 +9,15 @@ import (
 	"github.com/agnes-image-tool/backend/internal/model"
 )
 
-type TaskRepository struct {
+type TaskSQLiteRepository struct {
 	db *sql.DB
 }
 
-func NewTaskRepository(db *sql.DB) *TaskRepository {
-	return &TaskRepository{db: db}
+func NewTaskRepository(db *sql.DB) *TaskSQLiteRepository {
+	return &TaskSQLiteRepository{db: db}
 }
 
-func (r *TaskRepository) InitTable() error {
+func (r *TaskSQLiteRepository) InitTable() error {
 	_, err := r.db.Exec(`
 		CREATE TABLE IF NOT EXISTS tasks (
 			id          INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -51,7 +51,7 @@ func (r *TaskRepository) InitTable() error {
 	return nil
 }
 
-func (r *TaskRepository) CreateTask(taskType, params string) (int64, error) {
+func (r *TaskSQLiteRepository) CreateTask(taskType, params string) (int64, error) {
 	now := time.Now().Format("2006-01-02 15:04:05")
 	res, err := r.db.Exec(
 		"INSERT INTO tasks (type, status, params, progress, created_at, updated_at) VALUES (?, 'pending', ?, 0, ?, ?)",
@@ -65,7 +65,7 @@ func (r *TaskRepository) CreateTask(taskType, params string) (int64, error) {
 	return id, nil
 }
 
-func (r *TaskRepository) GetTask(id int64) (*model.TaskRecord, error) {
+func (r *TaskSQLiteRepository) GetTask(id int64) (*model.TaskRecord, error) {
 	var rec model.TaskRecord
 	var result, errStr, completedAt sql.NullString
 	err := r.db.QueryRow(
@@ -90,7 +90,7 @@ func (r *TaskRepository) GetTask(id int64) (*model.TaskRecord, error) {
 	return &rec, nil
 }
 
-func (r *TaskRepository) UpdateTaskStatus(id int64, status string, progress int, result, errMsg string) error {
+func (r *TaskSQLiteRepository) UpdateTaskStatus(id int64, status string, progress int, result, errMsg string) error {
 	now := time.Now().Format("2006-01-02 15:04:05")
 	completedAt := sql.NullString{Valid: false}
 	if status == string(model.TaskStatusCompleted) || status == string(model.TaskStatusFailed) {
@@ -107,7 +107,7 @@ func (r *TaskRepository) UpdateTaskStatus(id int64, status string, progress int,
 	return nil
 }
 
-func (r *TaskRepository) UpdateTaskProgress(id int64, progress int) error {
+func (r *TaskSQLiteRepository) UpdateTaskProgress(id int64, progress int) error {
 	now := time.Now().Format("2006-01-02 15:04:05")
 	_, err := r.db.Exec(
 		"UPDATE tasks SET progress = ?, updated_at = ? WHERE id = ?",
@@ -116,12 +116,12 @@ func (r *TaskRepository) UpdateTaskProgress(id int64, progress int) error {
 	return err
 }
 
-func (r *TaskRepository) UpdateRetryCount(id int64, count int) error {
+func (r *TaskSQLiteRepository) UpdateRetryCount(id int64, count int) error {
 	_, err := r.db.Exec("UPDATE tasks SET retry_count = ? WHERE id = ?", count, id)
 	return err
 }
 
-func (r *TaskRepository) CancelTaskAtomic(id int64) (bool, error) {
+func (r *TaskSQLiteRepository) CancelTaskAtomic(id int64) (bool, error) {
 	now := time.Now().Format("2006-01-02 15:04:05")
 	res, err := r.db.Exec(
 		"UPDATE tasks SET status = ?, updated_at = ?, completed_at = ? WHERE id = ? AND status = ?",
@@ -138,7 +138,7 @@ func (r *TaskRepository) CancelTaskAtomic(id int64) (bool, error) {
 	return true, nil
 }
 
-func (r *TaskRepository) FindPendingTasks() ([]*model.TaskRecord, error) {
+func (r *TaskSQLiteRepository) FindPendingTasks() ([]*model.TaskRecord, error) {
 	rows, err := r.db.Query(
 		"SELECT id, type, status, params, result, progress, error, retry_count, created_at, updated_at, completed_at FROM tasks WHERE status IN ('pending', 'processing') ORDER BY created_at ASC",
 	)
@@ -168,7 +168,7 @@ func (r *TaskRepository) FindPendingTasks() ([]*model.TaskRecord, error) {
 	return results, rows.Err()
 }
 
-func (r *TaskRepository) ListTasks(taskType, status string, limit, offset int) ([]*model.TaskRecord, error) {
+func (r *TaskSQLiteRepository) ListTasks(taskType, status string, limit, offset int) ([]*model.TaskRecord, error) {
 	if limit <= 0 {
 		limit = 50
 	}
@@ -214,7 +214,7 @@ func (r *TaskRepository) ListTasks(taskType, status string, limit, offset int) (
 	return results, rows.Err()
 }
 
-func (r *TaskRepository) CleanupOlderThan(hours int) (int64, error) {
+func (r *TaskSQLiteRepository) CleanupOlderThan(hours int) (int64, error) {
 	res, err := r.db.Exec(
 		"DELETE FROM tasks WHERE completed_at IS NOT NULL AND completed_at < datetime('now', ?)",
 		fmt.Sprintf("-%d hours", hours),

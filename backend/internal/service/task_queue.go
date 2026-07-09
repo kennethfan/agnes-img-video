@@ -28,7 +28,7 @@ type TaskCompleteFunc func(taskID int64, taskType, prompt, resultURL string)
 // TaskQueue 统一异步任务队列
 type TaskQueue struct {
 	mu          sync.RWMutex
-	repo        *repository.TaskRepository
+	repo        repository.TaskRepository
 	client      *AgnesClient
 	workerSem   chan struct{}
 	subscribers map[int64]map[string]chan model.TaskEvent
@@ -39,7 +39,7 @@ type TaskQueue struct {
 }
 
 // NewTaskQueue 创建任务队列
-func NewTaskQueue(repo *repository.TaskRepository, client *AgnesClient, maxConcurrent int) *TaskQueue {
+func NewTaskQueue(repo repository.TaskRepository, client *AgnesClient, maxConcurrent int) *TaskQueue {
 	if maxConcurrent <= 0 {
 		maxConcurrent = defaultMaxConcurrentTasks
 	}
