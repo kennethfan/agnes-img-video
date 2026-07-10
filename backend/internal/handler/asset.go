@@ -411,18 +411,42 @@ func (h *AssetHandler) BatchDownload(c *gin.Context) {
 	zw := zip.NewWriter(&buf)
 
 	for _, a := range assets {
-		if a.LocalPath == "" {
-			continue
+		var data []byte
+		var ext string
+
+		if a.LocalPath != "" {
+			data, err = os.ReadFile(a.LocalPath)
+			if err != nil {
+				fallback := filepath.Join("outputs", filepath.Base(a.LocalPath))
+				data, err = os.ReadFile(fallback)
+			}
+			ext = filepath.Ext(a.LocalPath)
 		}
-		data, err := os.ReadFile(a.LocalPath)
-		if err != nil {
-			fallback := filepath.Join("outputs", filepath.Base(a.LocalPath))
-			data, err = os.ReadFile(fallback)
+
+		// 无本地文件，尝试从远程 URL 下载
+		if len(data) == 0 {
+			downloadURL := a.GitHubURL
+			if downloadURL == "" {
+				downloadURL = a.OriginalURL
+			}
+			if downloadURL == "" {
+				continue
+			}
+			resp, err := http.Get(downloadURL)
 			if err != nil {
 				continue
 			}
+			data, err = io.ReadAll(resp.Body)
+			resp.Body.Close()
+			if err != nil {
+				continue
+			}
+			ext = filepath.Ext(downloadURL)
+			if ext == "" {
+				ext = ".bin"
+			}
 		}
-		ext := filepath.Ext(a.LocalPath)
+
 		entryName := fmt.Sprintf("%s_%d%s", a.Mode, a.ID, ext)
 		f, err := zw.Create(entryName)
 		if err != nil {
