@@ -1,5 +1,5 @@
 import client from './client'
-import type { AssetListResponse, AssetFavoriteRequest, AssetDeleteRequest } from '../types'
+import type { AssetListResponse, AssetFavoriteRequest, AssetDeleteRequest, AssetItem } from '../types'
 
 export async function saveAsset(data: { image_url: string; prompt: string; mode: string }): Promise<{ id: number }> {
   const res = await client.post('/api/v1/assets', data)
@@ -29,6 +29,11 @@ export async function batchDownload(ids: number[]): Promise<Blob> {
     responseType: 'blob',
   })
   return res.data
+}
+
+export async function transferAsset(id: number): Promise<AssetItem> {
+  const res = await client.post(`/api/v1/assets/${id}/transfer`)
+  return res.data.asset || res.data
 }
 
 export async function deleteAssets(data: AssetDeleteRequest): Promise<void> {

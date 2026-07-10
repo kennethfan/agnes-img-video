@@ -2,8 +2,7 @@
 import { ref, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Search, Star, StarFilled, Download, Delete, PictureFilled } from '@element-plus/icons-vue'
-import { getAssets, toggleFavorite, batchDownload, deleteAssets } from '../api/assets'
-import { uploadToGitHub } from '../api/github'
+import { getAssets, toggleFavorite, batchDownload, deleteAssets, transferAsset } from '../api/assets'
 import type { AssetItem } from '../types'
 import AssetCard from '../components/AssetCard.vue'
 
@@ -83,15 +82,17 @@ function handleCardClick(item: AssetItem) {
   drawerVisible.value = true
 }
 
-async function handleUploadToGitHub(url: string) {
+async function handleTransfer() {
   if (!detailAsset.value) return
-  uploadingUrl.value = url
+  uploadingUrl.value = detailAsset.value.original_url
   try {
-    const githubUrl = await uploadToGitHub(url, undefined, detailAsset.value.id)
-    if (detailAsset.value) detailAsset.value.github_url = githubUrl
-    ElMessage.success(`已上传到 GitHub: ${githubUrl}`)
+    const updated = await transferAsset(detailAsset.value.id)
+    detailAsset.value = updated
+    const idx = items.value.findIndex(i => i.id === updated.id)
+    if (idx >= 0) items.value[idx] = updated
+    ElMessage.success('转存完成')
   } catch (e: any) {
-    ElMessage.error(e.message || '上传到 GitHub 失败')
+    ElMessage.error(e.message || '转存失败')
   } finally {
     uploadingUrl.value = ''
   }
@@ -247,7 +248,7 @@ onMounted(loadAssets)
           </el-button>
           <el-button
             :loading="uploadingUrl === (detailAsset.original_url || '')"
-            @click="handleUploadToGitHub(detailAsset.original_url)"
+            @click="handleTransfer"
           >
             转存
           </el-button>
