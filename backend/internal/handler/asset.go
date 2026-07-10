@@ -56,12 +56,12 @@ func (h *AssetHandler) SaveAsset(c *gin.Context) {
 		assetType = "video"
 	}
 
-	// 解析本地路径 — 本地路径直接引用，远程 URL 则下载到本地
-	var localPath string
-	var githubURL string
+	// 解析本地路径 — 本地路径直接引用，远程 URL 则异步处理
+	var id int64
 	var err error
 	if !strings.HasPrefix(req.ImageURL, "http://") && !strings.HasPrefix(req.ImageURL, "https://") {
 		// 本地路径：尝试 outputs/ 和 backend/outputs/
+		var localPath string
 		candidates := []string{
 			req.ImageURL,
 			filepath.Join("outputs", filepath.Base(req.ImageURL)),
@@ -76,27 +76,33 @@ func (h *AssetHandler) SaveAsset(c *gin.Context) {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "图片文件不存在"})
 			return
 		}
+
+		asset := &model.Asset{
+			Mode:        req.Mode,
+			Prompt:      req.Prompt,
+			Type:        assetType,
+			Time:        time.Now().Format("2006-01-02 15:04:05"),
+			Favorite:    false,
+			OriginalURL: req.ImageURL,
+			LocalPath:   localPath,
+		}
+		id, err = h.repo.Insert(asset)
 	} else {
-		// 远程 URL：调用共享的 storeFile()
-		localPath, githubURL, err = h.storeFile(req.ImageURL, assetType)
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-			return
+		// 远程 URL：先立即插入记录（local_path/github_url 为空），后台异步下载+上传
+		asset := &model.Asset{
+			Mode:        req.Mode,
+			Prompt:      req.Prompt,
+			Type:        assetType,
+			Time:        time.Now().Format("2006-01-02 15:04:05"),
+			Favorite:    false,
+			OriginalURL: req.ImageURL,
+		}
+		id, err = h.repo.Insert(asset)
+		if err == nil {
+			go h.processAssetStorage(id, req.ImageURL, assetType)
 		}
 	}
 
-	asset := &model.Asset{
-		Mode:        req.Mode,
-		Prompt:      req.Prompt,
-		Type:        assetType,
-		Time:        time.Now().Format("2006-01-02 15:04:05"),
-		Favorite:    false,
-		OriginalURL: req.ImageURL,
-		LocalPath:   localPath,
-		GitHubURL:   githubURL,
-	}
-
-	id, err := h.repo.Insert(asset)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "保存到作品库失败: " + err.Error()})
 		return
@@ -174,6 +180,18 @@ func (h *AssetHandler) storeFile(imageURL string, assetType string) (string, str
 	}
 
 	return localPath, githubURL, nil
+}
+
+// processAssetStorage 异步处理资产存储（下载+上传）
+func (h *AssetHandler) processAssetStorage(id int64, imageURL string, assetType string) {
+	localPath, githubURL, err := h.storeFile(imageURL, assetType)
+	if err != nil {
+		log.Printf("[Asset] 异步处理存储失败 id=%d: %v", id, err)
+		return
+	}
+	if err := h.repo.UpdateStoragePaths(id, localPath, githubURL); err != nil {
+		log.Printf("[Asset] 异步更新存储路径失败 id=%d: %v", id, err)
+	}
 }
 
 // TransferAsset 转存 — 对已入库 asset 补全 local_path / github_url
