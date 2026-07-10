@@ -66,6 +66,16 @@ function handleViewDetail(row: TaskRecord) {
   detailDialogVisible.value = true
 }
 
+async function copyText(text: string | undefined | null, label: string) {
+  if (!text) return
+  try {
+    await navigator.clipboard.writeText(text)
+    ElMessage.success(`${label}已复制`)
+  } catch {
+    ElMessage.error('复制失败')
+  }
+}
+
 async function loadRecords() {
   loading.value = true
   try {
@@ -288,17 +298,26 @@ onMounted(loadRecords)
         </div>
 
         <div v-if="detailRecord.error" class="detail-section">
-          <div class="detail-section-title">错误信息</div>
+          <div class="detail-section-title">
+            错误信息
+            <el-button size="small" text @click="copyText(detailRecord!.error, '错误信息')">复制</el-button>
+          </div>
           <div class="detail-code error-bg">{{ detailRecord.error }}</div>
         </div>
 
         <div class="detail-section">
-          <div class="detail-section-title">请求参数</div>
+          <div class="detail-section-title">
+            请求参数
+            <el-button size="small" text @click="copyText(formatJSON(detailRecord.params), '请求参数')">复制</el-button>
+          </div>
           <pre class="detail-code">{{ formatJSON(detailRecord.params) }}</pre>
         </div>
 
         <div v-if="detailRecord.result" class="detail-section">
-          <div class="detail-section-title">返回结果</div>
+          <div class="detail-section-title">
+            返回结果
+            <el-button size="small" text @click="copyText(formatJSON(detailRecord.result), '返回结果')">复制</el-button>
+          </div>
           <pre class="detail-code">{{ formatJSON(detailRecord.result) }}</pre>
         </div>
       </template>
@@ -431,6 +450,9 @@ onMounted(loadRecords)
   margin-bottom: 8px;
   padding-bottom: 6px;
   border-bottom: 1px solid #e5e6eb;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 }
 .detail-code {
   background: #f7f8fa;
