@@ -21,6 +21,14 @@ const drawerVisible = ref(false)
 const detailAsset = ref<AssetItem | null>(null)
 const uploadingUrl = ref('')
 
+// assetSrc 按 localPath > originalURL > githubURL 返回可展示的 URL，并修正本地路径为 HTTP 路径
+function assetSrc(item: AssetItem): string {
+  if (item.local_path) {
+    return item.local_path.startsWith('outputs/') ? '/' + item.local_path : item.local_path
+  }
+  return item.original_url || item.github_url || ''
+}
+
 async function loadAssets() {
   loading.value = true
   try {
@@ -218,19 +226,19 @@ onMounted(loadAssets)
     >
       <template v-if="detailAsset">
         <div class="detail-preview">
-          <el-image
-            v-if="detailAsset.type === 'image'"
-            :src="detailAsset.thumbnail"
-            fit="contain"
-            style="width: 100%; max-height: 400px"
-          />
-          <video
-            v-else
-            :src="detailAsset.local_path || detailAsset.github_url || detailAsset.original_url"
-            controls
-            style="width: 100%; max-height: 400px"
-          />
-        </div>
+	          <el-image
+	            v-if="detailAsset.type === 'image'"
+	            :src="detailAsset.thumbnail || assetSrc(detailAsset)"
+	            fit="contain"
+	            style="width: 100%; max-height: 400px"
+	          />
+	          <video
+	            v-else
+	            :src="assetSrc(detailAsset)"
+	            controls
+	            style="width: 100%; max-height: 400px"
+	          />
+	        </div>
         <div class="detail-meta">
           <p class="detail-prompt">{{ detailAsset.prompt }}</p>
           <p class="detail-info">
