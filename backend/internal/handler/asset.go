@@ -258,12 +258,12 @@ func (h *AssetHandler) TransferAsset(c *gin.Context) {
 		return
 	}
 
-	// 决定下载源：githubURL > localPath > originalURL
+	// 决定下载源：localPath > originalURL > githubURL
 	downloadURL := asset.OriginalURL
-	if asset.GitHubURL != "" {
-		downloadURL = asset.GitHubURL
-	} else if asset.LocalPath != "" {
+	if asset.LocalPath != "" {
 		downloadURL = asset.LocalPath
+	} else if asset.GitHubURL != "" {
+		downloadURL = asset.GitHubURL
 	}
 
 	// 下载文件（仅当需要且本地无现成文件时）
@@ -309,12 +309,36 @@ func (h *AssetHandler) TransferAsset(c *gin.Context) {
 		return
 	}
 
-	// 返回最新数据
+	// 返回最新数据（转为 AssetItem 确保包含 thumbnail）
 	updated, _ := h.repo.GetByIDs([]int64{id})
 	if len(updated) > 0 {
-		c.JSON(http.StatusOK, gin.H{"asset": updated[0]})
+		item := assetToItem(&updated[0])
+		c.JSON(http.StatusOK, gin.H{"asset": item})
 	} else {
 		c.JSON(http.StatusOK, gin.H{"message": "转存完成"})
+	}
+}
+
+// assetToItem 将 Asset 转换为 AssetItem，按 localPath > githubURL > originalURL 计算 thumbnail
+func assetToItem(a *model.Asset) model.AssetItem {
+	thumbnail := a.LocalPath
+	if thumbnail == "" {
+		thumbnail = a.GitHubURL
+	}
+	if thumbnail == "" {
+		thumbnail = a.OriginalURL
+	}
+	return model.AssetItem{
+		ID:          a.ID,
+		Mode:        a.Mode,
+		Prompt:      a.Prompt,
+		Type:        a.Type,
+		Time:        a.Time,
+		Favorite:    a.Favorite,
+		OriginalURL: a.OriginalURL,
+		LocalPath:   a.LocalPath,
+		GitHubURL:   a.GitHubURL,
+		Thumbnail:   thumbnail,
 	}
 }
 
@@ -340,26 +364,8 @@ func (h *AssetHandler) ListAssets(c *gin.Context) {
 	}
 
 	items := make([]model.AssetItem, 0, len(assets))
-	for _, a := range assets {
-		thumbnail := a.LocalPath
-		if thumbnail == "" {
-			thumbnail = a.GitHubURL
-		}
-		if thumbnail == "" {
-			thumbnail = a.OriginalURL
-		}
-		items = append(items, model.AssetItem{
-			ID:          a.ID,
-			Mode:        a.Mode,
-			Prompt:      a.Prompt,
-			Type:        a.Type,
-			Time:        a.Time,
-			Favorite:    a.Favorite,
-			OriginalURL: a.OriginalURL,
-			LocalPath:   a.LocalPath,
-			GitHubURL:   a.GitHubURL,
-			Thumbnail:   thumbnail,
-		})
+	for i := range assets {
+		items = append(items, assetToItem(&assets[i]))
 	}
 
 	c.JSON(http.StatusOK, model.AssetListResponse{
