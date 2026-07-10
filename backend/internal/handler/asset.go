@@ -454,8 +454,15 @@ func (h *AssetHandler) DeleteAssets(c *gin.Context) {
 		assets, err := h.repo.GetByIDs(req.IDs)
 		if err == nil {
 			for _, a := range assets {
+				var paths []string
 				if a.LocalPath != "" {
-					deleteRecordFiles([]string{a.LocalPath})
+					paths = append(paths, a.LocalPath)
+				}
+				if a.GitHubURL != "" {
+					paths = append(paths, a.GitHubURL)
+				}
+				if len(paths) > 0 {
+					deleteRecordFiles(paths)
 				}
 			}
 		}
