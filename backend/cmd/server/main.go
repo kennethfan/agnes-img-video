@@ -99,7 +99,8 @@ func main() {
 	assetHandler := handler.NewAssetHandler(assetRepo)
 
 	storyboardRepo := gormrepo.NewStoryboardRepository(gormDB)
-	storyboardHandler := handler.NewStoryboardHandler(storyboardRepo)
+	storyboardGenerator := service.NewStoryboardGenerator(svc, taskQueue, storyboardRepo)
+	storyboardHandler := handler.NewStoryboardHandler(storyboardRepo, storyboardGenerator)
 
 	settingsRepo := gormrepo.NewSettingsRepository(gormDB)
 	settingsHandler := handler.NewSettingsHandler(settingsRepo)

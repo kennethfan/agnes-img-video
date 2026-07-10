@@ -10,14 +10,16 @@ import (
 
 	"github.com/agnes-image-tool/backend/internal/model"
 	"github.com/agnes-image-tool/backend/internal/repository"
+	"github.com/agnes-image-tool/backend/internal/service"
 )
 
 type StoryboardHandler struct {
-	repo repository.StoryboardRepository
+	repo      repository.StoryboardRepository
+	generator *service.StoryboardGenerator
 }
 
-func NewStoryboardHandler(repo repository.StoryboardRepository) *StoryboardHandler {
-	return &StoryboardHandler{repo: repo}
+func NewStoryboardHandler(repo repository.StoryboardRepository, generator *service.StoryboardGenerator) *StoryboardHandler {
+	return &StoryboardHandler{repo: repo, generator: generator}
 }
 
 // SetRepo 替换内部仓库引用（用于数据库恢复后刷新）
@@ -258,23 +260,16 @@ func (h *StoryboardHandler) GenerateShots(c *gin.Context) {
 		return
 	}
 
-	shots, err := h.repo.ListShots(projectID)
+	result, err := h.generator.GenerateAll(c.Request.Context(), projectID)
 	if err != nil {
-		log.Printf("[Storyboard] 获取镜头列表失败: %v", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "获取镜头列表失败: " + err.Error()})
+		log.Printf("[Storyboard] 批量生成失败: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "批量生成失败: " + err.Error()})
 		return
 	}
 
-	pending := make([]model.StoryboardShot, 0)
-	for _, s := range shots {
-		if s.Status == "pending" {
-			pending = append(pending, s)
-		}
-	}
-
-	c.JSON(http.StatusOK, gin.H{
-		"total":   len(shots),
-		"pending": len(pending),
-		"shots":   pending,
+	c.JSON(http.StatusAccepted, gin.H{
+		"submitted": result.Submitted,
+		"total":     result.Total,
+		"failed":    result.Failed,
 	})
 }
