@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { submitBatchGenerate } from '../api/image'
 import { connectTaskSSE } from '../utils/sse'
@@ -13,6 +13,9 @@ const loading = ref(false)
 const showProgress = ref(false)
 const taskId = ref<number | string>('')
 const images = ref<string[]>([])
+const prompts = computed(() =>
+  promptsText.value.split('\n').map((s) => s.trim()).filter(Boolean)
+)
 const errorMsg = ref('')
 const redoStore = useRedoStore()
 
@@ -106,7 +109,7 @@ async function handleGenerate() {
     <div class="gen-preview">
       <TaskProgress v-if="showProgress && taskId" :task-id="taskId" @error="errorMsg = $event" />
       <el-alert v-if="errorMsg" type="error" :description="errorMsg" show-icon closable class="error-alert" />
-      <ImageResult :images="images" :loading="loading && !showProgress" />
+      <ImageResult :images="images" :loading="loading && !showProgress" :prompt="prompts.join('; ')" mode="batch" />
     </div>
   </div>
 </template>
