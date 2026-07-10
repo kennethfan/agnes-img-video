@@ -20,11 +20,12 @@ import (
 )
 
 type AssetHandler struct {
-	repo repository.AssetRepository
+	repo         repository.AssetRepository
+	settingsRepo repository.SettingsRepository
 }
 
-func NewAssetHandler(repo repository.AssetRepository) *AssetHandler {
-	return &AssetHandler{repo: repo}
+func NewAssetHandler(repo repository.AssetRepository, settingsRepo repository.SettingsRepository) *AssetHandler {
+	return &AssetHandler{repo: repo, settingsRepo: settingsRepo}
 }
 
 // SaveAsset 保存到作品库
@@ -75,7 +76,12 @@ func (h *AssetHandler) SaveAsset(c *gin.Context) {
 			return
 		}
 	} else {
-		// 远程 URL：下载到本地 outputs/ 目录
+		// 远程 URL：根据存储设置决定如何处理
+		storageTarget := "local"
+		if s, err := h.settingsRepo.GetSettings(); err == nil {
+			storageTarget = s.StorageTarget
+		}
+
 		outputDir := "outputs"
 		os.MkdirAll(outputDir, 0755)
 
@@ -115,10 +121,15 @@ func (h *AssetHandler) SaveAsset(c *gin.Context) {
 			return
 		}
 
-		localPath = filePath
+		// 根据 storage_target 决定是否保留本地文件 / 上传 GitHub
+		saveLocal := storageTarget == "local" || storageTarget == "both"
+		uploadGithub := (storageTarget == "github" || storageTarget == "both") && githubStorage != nil
 
-		// 如果配置了 GitHub 存储，同步上传
-		if githubStorage != nil {
+		if saveLocal {
+			localPath = filePath
+		}
+
+		if uploadGithub {
 			remotePath := fmt.Sprintf("images/%s", filename)
 			uploadedURL, err := githubStorage.UploadFile(filePath, remotePath)
 			if err != nil {
@@ -126,6 +137,11 @@ func (h *AssetHandler) SaveAsset(c *gin.Context) {
 			} else {
 				githubURL = uploadedURL
 			}
+		}
+
+		// 仅 GitHub 模式：上传后删除本地临时文件
+		if storageTarget == "github" && githubURL != "" {
+			os.Remove(filePath)
 		}
 	}
 

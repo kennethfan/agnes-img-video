@@ -95,15 +95,15 @@ func main() {
 	ideasHandler := handler.NewIdeasHandler(svc)
 	comicHandler := handler.NewComicHandler(svc)
 	accessLogHandler := handler.NewAccessLogHandler(accessLogRepo)
+	settingsRepo := gormrepo.NewSettingsRepository(gormDB)
 	assetRepo := gormrepo.NewAssetRepository(gormDB)
 	handler.SetAssetRepo(assetRepo)
-	assetHandler := handler.NewAssetHandler(assetRepo)
+	assetHandler := handler.NewAssetHandler(assetRepo, settingsRepo)
 
 	storyboardRepo := gormrepo.NewStoryboardRepository(gormDB)
 	storyboardGenerator := service.NewStoryboardGenerator(svc, taskQueue, storyboardRepo)
 	storyboardHandler := handler.NewStoryboardHandler(storyboardRepo, storyboardGenerator)
 
-	settingsRepo := gormrepo.NewSettingsRepository(gormDB)
 	settingsHandler := handler.NewSettingsHandler(settingsRepo)
 
 	// 数据库导出与恢复（JSON 格式）
