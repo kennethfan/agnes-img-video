@@ -1,7 +1,7 @@
 # AGENTS.md — Agnes Creator Studio
 
-**Generated:** 2026-07-08
-**Commit:** 1ce4b2c (dev)
+**Generated:** 2026-07-10
+**Commit:** b69b356 (dev)
 **Stack:** Go 1.25 · Gin · SQLite · Vue 3 · TypeScript 6 · Vite 8 · Element Plus · Pinia · Axios · SSE
 
 ## Quick Start
@@ -26,7 +26,7 @@ pnpm dev                   # → http://localhost:5173
 | Video generation API | `backend/internal/handler/video.go` | 6 handlers + SSE streaming |
 | Ideas/comic expansion | `backend/internal/handler/ideas.go`, `comic.go` | Chat-based AI features |
 | History CRUD | `backend/internal/handler/history.go` | SQLite-backed, file deletion |
-| Asset gallery | `backend/internal/handler/asset.go` | Uses HistoryRepo |
+| Asset gallery | `backend/internal/handler/asset.go` | Uses AssetRepository |
 | Config management | `backend/internal/handler/config_handler.go` | GET/PUT .config.json |
 | Storyboard | `backend/internal/handler/storyboard.go` | Projects + shots CRUD |
 | Core business logic | `backend/internal/service/` | AgnesClient, TaskQueue, GithubStorage |
@@ -88,7 +88,7 @@ No legacy Python/Gradio code — everything goes through the B/S architecture.
 | `internal/config/config.go` | `.config.json` file I/O, env var fallback, default models |
 | `internal/model/types.go` | All shared types (request/response/SSE events) |
 | `internal/service/agnes.go` | `AgnesClient` — raw HTTP to Agnes AI API (image/video/chat/idea expansion) |
-| `internal/service/video_manager.go` | `TaskManager` — goroutine polling + subscriber pattern for SSE |
+| `internal/service/video_manager.go` | `TaskManager` — goroutine polling + subscriber pattern for SSE (legacy, replaced by TaskQueue) |
 | `internal/service/task_queue.go` | `TaskQueue` — worker pool + SSE subscriber pattern (replaces TaskManager for new features) |
 | `internal/service/github_storage.go` | `GithubStorage` — upload/download files via GitHub Contents API |
 | `internal/handler/image.go` | 3 handlers: text-to-image, image-to-image (multipart), batch |
@@ -96,9 +96,7 @@ No legacy Python/Gradio code — everything goes through the B/S architecture.
 | `internal/handler/ideas.go` | `ExpandIdea` — AI enhancement for creative ideas via chat completions |
 | `internal/handler/comic.go` | `GeneratePrompts` — AI generation of comic panel prompts via chat completions |
 | `internal/handler/history.go` | History API (SQLite via repository) + file deletion |
-| `internal/handler/config_handler.go` | GET/PUT config |
 | `internal/handler/asset.go` | Asset gallery: list/favorite/batch-download/delete (uses HistoryRepo) |
-| `internal/handler/config_handler.go` | GET/PUT config |
 | `internal/handler/settings.go` | GET/PUT settings (storage target, paths) |
 | `internal/handler/task_handler.go` | List/Get/Stream/Cancel/Retry tasks |
 | `internal/handler/access_log.go` | List/Delete/Clear access logs |
@@ -211,14 +209,14 @@ pnpm dev        # dev server on :5173 with proxy to :8080
 - **Video frame count must satisfy `8n + 1`** — enforced in `BuildVideoPayload()`. See `maxFramesForResolution()`: 1080p=169, 720p=409, 480p=961.
 - **Video polling**: 5s interval, 30min timeout, max 10 concurrent tasks (semaphore channel), exponential backoff on errors (max 10 retries, 1s→30s).
 - **Video status API quirk**: status query URL strips `/v1` from baseURL, queries `{baseDomain}/agnesapi?video_id={id}`. Video download URL sometimes appears in `remixed_from_video_id` field.
-- **Image download**: saved to `outputs/` with timestamped filenames (`{prefix}_{timestamp}.png`). Video downloads stream in chunks to mp4 files.
+- **Image/video URLs**: generation flow stores raw API URLs directly — no auto-download to `outputs/`. On-demand save/transfer available in UI.
 - **Download path fallback**: tries `outputs/` (relative to backend/), then falls back to `../outputs/` (project root).
 
 ## SSE (Server-Sent Events)
 
 - Video progress pushed via `GET /api/v1/videos/stream/:taskId`.
 - Events: `progress` (status + percentage), `complete` (download URL + seconds), `error`.
-- Backend: `gin.Context.Stream()` with `text/event-stream` content type. Subscriber pattern via `TaskManager` channel.
+- Backend: `gin.Context.Stream()` with `text/event-stream` content type. Subscriber pattern via `TaskQueue` channel (replaces legacy `TaskManager`).
 - Frontend: `EventSource` with `addEventListener` in `src/utils/sse.ts`. Auto-closes on `complete` or `error`.
 - Max 10 buffered events per subscriber channel; drops overflow silently.
 

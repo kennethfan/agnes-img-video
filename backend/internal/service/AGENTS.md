@@ -1,31 +1,35 @@
 # backend/internal/service/ — Core Business Logic
 
-**3 files, 3 distinct concerns:** AgnesClient (HTTP to Agnes AI), TaskManager (goroutine video polling), GithubStorage (GitHub Contents API).
+**5 files, 5 distinct concerns:** AgnesClient (HTTP to Agnes AI), TaskQueue (unified async worker pool), GithubStorage (GitHub Contents API), StoryboardGenerator (shot video pipeline), TaskManager (legacy video polling).
 
 ## WHERE TO LOOK
 
 | File | Concern | Key Types |
 |------|---------|-----------|
 | `agnes.go` | Raw Agnes AI API calls | `AgnesClient` — SubmitImageTask, SubmitVideoTask, CheckVideoStatus, GenerateScript, ExpandIdea, ChatCompletion |
-| `video_manager.go` | Async video task lifecycle | `TaskManager`, `VideoTask` — CreateTask, Subscribe/Unsubscribe (SSE), polling goroutine, exponential backoff |
-| `github_storage.go` | Remote file persistence | `GithubStorage` — Upload, Download, Delete via GitHub Contents API |
+| `task_queue.go` | Unified async task queue | `TaskQueue` — worker pool + SSE subscriber pattern (replaces TaskManager for new features) |
+| `storyboard_generator.go` | Shot video pipeline | `StoryboardGenerator` — GenerateAll, GenerateOne, pollVideoStatus |
+| `video_manager.go` | Async video task lifecycle (legacy) | `TaskManager`, `VideoTask` — CreateTask, Subscribe/Unsubscribe (SSE), polling goroutine, exponential backoff |
+| `github_storage.go` | Remote file persistence | `GithubStorage` — Upload, Delete, DeleteByURL via GitHub Contents API |
 
 ## ARCHITECTURE
 
 - `AgnesClient` is the **sole HTTP client** — all handlers receive it via constructor injection
-- `TaskManager` wraps `AgnesClient.CheckVideoStatus` with a polling goroutine (5s interval, 30min timeout, max 10 concurrent, exponential backoff 1s→30s, max 10 retries)
-- `VideoTask.notifySubscribers` fan-out to SSE subscribers (buffered channels, drops overflow silently)
+- `TaskQueue` is the primary async worker: submits tasks (image/video) → goroutine pool → completion callback → history save. 10 concurrent workers, 5s poll interval, exponential backoff retry.
+- `TaskManager` is legacy — only used by old video handlers. `TaskQueue` replaces it for all new features.
+- `StoryboardGenerator` wraps `TaskQueue` for the shot video pipeline: submits shots → polls video status → downloads result to `outputs/` → updates shot record.
 - `VideoOptions` struct carries resolution/duration/frame-rate config, validated in handler's `buildVideoOptions()`
 
 ## CONVENTIONS
 
 - Errors returned as strings from all methods (no custom error types)
-- Video payload building (`BuildVideoPayload`, `BuildImagePayload`) returns `map[string]any` — dynamic keys for Agnes API flexibility
-- Chinese log prefixes: `[Video]`, `[Task %s]`, `[Image]`
-- Image download (`DownloadVideo`) saves to `outputs/` then falls back to `../outputs/`
+- Video payload building (`BuildVideoPayload`) returns `map[string]any` — dynamic keys for Agnes API flexibility
+- Chinese log prefixes: `[Video]`, `[Task %s]`, `[Image]`, `[TaskQueue]`, `[StoryboardGenerator]`
+- Image download (`DownloadVideo`) saved to `outputs/` then falls back to `../outputs/` (used only by storyboard)
 
 ## ANTI-PATTERNS
 
 - Do NOT add new HTTP client instances — always inject `AgnesClient`
-- Do NOT bypass `TaskManager` for video status — use Subscribe pattern
+- Do NOT bypass `TaskQueue` for async video status — use Subscribe pattern
 - Do NOT hardcode URLs — always use `client.BaseURL` from config
+- Do NOT use `TaskManager` for new code — it's legacy; use `TaskQueue` instead
