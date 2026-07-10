@@ -88,7 +88,7 @@ func (h *AssetHandler) SaveAsset(c *gin.Context) {
 		}
 		id, err = h.repo.Insert(asset)
 	} else {
-		// 远程 URL：先立即插入记录（local_path/github_url 为空），后台异步下载+上传
+		// 远程 URL：先插入记录（local_path/github_url 为空），有存储目标再异步下载+上传
 		asset := &model.Asset{
 			Mode:        req.Mode,
 			Prompt:      req.Prompt,
@@ -99,7 +99,12 @@ func (h *AssetHandler) SaveAsset(c *gin.Context) {
 		}
 		id, err = h.repo.Insert(asset)
 		if err == nil {
-			go h.processAssetStorage(id, req.ImageURL, assetType)
+			// 没配存储目标时只存记录，不触发转存
+			if s, e := h.settingsRepo.GetSettings(); e == nil && s.StorageTarget == "" {
+				log.Printf("[Asset] 存储目标未配置，跳过转存 id=%d", id)
+			} else {
+				go h.processAssetStorage(id, req.ImageURL, assetType)
+			}
 		}
 	}
 
@@ -117,6 +122,9 @@ func (h *AssetHandler) storeFile(imageURL string, assetType string) (string, str
 	storageTarget := "local"
 	if s, err := h.settingsRepo.GetSettings(); err == nil {
 		storageTarget = s.StorageTarget
+	}
+	if storageTarget == "" {
+		return "", "", fmt.Errorf("存储目标未配置，请在设置中至少选择一种存储方式（本地/GitHub）")
 	}
 
 	outputDir := "outputs"

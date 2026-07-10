@@ -15,12 +15,11 @@ func NewSettingsRepository(db *gorm.DB) *SettingsRepository {
 
 func (r *SettingsRepository) GetSettings() (*model.Settings, error) {
 	s := &model.Settings{
-		StorageTarget:   "local",
 		LocalImageDir:   "images",
 		LocalVideoDir:   "videos",
 		GithubImagePath: "outputs/images",
 		GithubVideoPath: "outputs/videos",
-	}
+	} // StorageTarget 不设默认值，由调用方处理空值
 	var settings []Setting
 	if err := r.db.Find(&settings).Error; err != nil {
 		return nil, err
@@ -51,7 +50,12 @@ func (r *SettingsRepository) UpdateSettings(s *model.Settings) error {
 		"github_video_path": s.GithubVideoPath,
 	}
 	for k, v := range pairs {
-		if err := r.db.Where("key = ?", k).Assign(Setting{Value: v}).FirstOrCreate(&Setting{Key: k}).Error; err != nil {
+		// 确保记录存在（FirstOrCreate 仅创建时设值，更新时忽略零值）
+		if err := r.db.Where("key = ?", k).FirstOrCreate(&Setting{Key: k}).Error; err != nil {
+			return err
+		}
+		// 显式 Update（带 Model 可正确处理空字符串等零值）
+		if err := r.db.Model(&Setting{}).Where("key = ?", k).Update("value", v).Error; err != nil {
 			return err
 		}
 	}
