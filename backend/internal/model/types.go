@@ -187,17 +187,34 @@ type ChatChoice struct {
 	Message ChatMessage `json:"message"`
 }
 
+// ==================== 资产模型 ====================
+
+// Asset 作品库模型（GORM + JSON 双用途）
+type Asset struct {
+	ID          int64  `json:"id" gorm:"primaryKey"`
+	Mode        string `json:"mode" gorm:"index"`
+	Prompt      string `json:"prompt"`
+	Type        string `json:"type"`    // "image" | "video"
+	Time        string `json:"time"`    // 保存时间
+	Favorite    bool   `json:"favorite"`
+	OriginalURL string `json:"original_url"`
+	LocalPath   string `json:"local_path"`
+	GitHubURL   string `json:"github_url"`
+}
+
 // ==================== 资产管理 ====================
 
 type AssetItem struct {
-	ID        int64    `json:"id"`
-	Mode      string   `json:"mode"`
-	Prompt    string   `json:"prompt"`
-	Files     []string `json:"files"`
-	Thumbnail string   `json:"thumbnail"`
-	Type      string   `json:"type"`
-	Time      string   `json:"time"`
-	Favorite  bool     `json:"favorite"`
+	ID          int64  `json:"id"`
+	Mode        string `json:"mode"`
+	Prompt      string `json:"prompt"`
+	Type        string `json:"type"`
+	Time        string `json:"time"`
+	Favorite    bool   `json:"favorite"`
+	OriginalURL string `json:"original_url"`
+	LocalPath   string `json:"local_path"`
+	GitHubURL   string `json:"github_url"`
+	Thumbnail   string `json:"thumbnail"`
 }
 
 type AssetListResponse struct {
@@ -207,8 +224,8 @@ type AssetListResponse struct {
 }
 
 type AssetFavoriteRequest struct {
-	HistoryID int64 `json:"history_id" binding:"required"`
-	Favorite  bool  `json:"favorite"`
+	AssetID  int64 `json:"asset_id" binding:"required"`
+	Favorite bool  `json:"favorite"`
 }
 
 type AssetDeleteRequest struct {

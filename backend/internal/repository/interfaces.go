@@ -97,6 +97,16 @@ type AccessLogRepository interface {
 	StartDailyCleanup(retentionDays int)
 }
 
+// ==================== Asset ====================
+
+type AssetRepository interface {
+	Insert(asset *model.Asset) (int64, error)
+	List(page, perPage int, assetType, search string, favoriteFilter bool) ([]model.Asset, int, error)
+	GetByIDs(ids []int64) ([]model.Asset, error)
+	ToggleFavorite(id int64, favorite bool) error
+	Delete(ids []int64) error
+}
+
 // ==================== Task Queue ====================
 
 type TaskRepository interface {
