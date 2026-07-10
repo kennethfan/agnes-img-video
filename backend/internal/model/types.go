@@ -197,9 +197,9 @@ type Asset struct {
 	Type        string `json:"type"`    // "image" | "video"
 	Time        string `json:"time"`    // 保存时间
 	Favorite    bool   `json:"favorite"`
-	OriginalURL string `json:"original_url"`
-	LocalPath   string `json:"local_path"`
-	GitHubURL   string `json:"github_url"`
+	OriginalURL string `json:"original_url" gorm:"column:original_url"`
+	LocalPath   string `json:"local_path" gorm:"column:local_path"`
+	GitHubURL   string `json:"github_url" gorm:"column:github_url"`
 }
 
 // ==================== 资产管理 ====================

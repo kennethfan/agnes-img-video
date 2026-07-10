@@ -7,8 +7,6 @@ import (
 	"gorm.io/driver/postgres"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
-
-	"github.com/agnes-image-tool/backend/internal/model"
 )
 
 type DBConfig struct {
@@ -35,8 +33,7 @@ func OpenDB(cfg DBConfig) (*gorm.DB, error) {
 	if err := db.AutoMigrate(
 		&History{},
 		&StoryboardProject{}, &StoryboardShot{},
-		&Setting{}, &AccessLog{}, &TaskRecord{},
-		&model.Asset{},
+		&Setting{}, &Asset{}, &AccessLog{}, &TaskRecord{},
 	); err != nil {
 		return nil, fmt.Errorf("自动迁移失败: %w", err)
 	}

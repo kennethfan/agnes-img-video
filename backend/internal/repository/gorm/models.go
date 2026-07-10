@@ -51,6 +51,20 @@ type Setting struct {
 
 func (Setting) TableName() string { return "settings" }
 
+type Asset struct {
+	ID          int64  `gorm:"primaryKey"`
+	Mode        string `gorm:"index"`
+	Prompt      string
+	Type        string
+	Time        string
+	Favorite    bool
+	OriginalURL string `gorm:"column:original_url"`
+	LocalPath   string `gorm:"column:local_path"`
+	GitHubURL   string `gorm:"column:github_url"`
+}
+
+func (Asset) TableName() string { return "assets" }
+
 type AccessLog struct {
 	ID           int64  `gorm:"primaryKey"`
 	Timestamp    string

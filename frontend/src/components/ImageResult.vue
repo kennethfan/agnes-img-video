@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { ElMessage } from 'element-plus'
-import { uploadToGitHub } from '../api/github'
 import { saveAsset } from '../api/assets'
 
 const props = defineProps<{
@@ -11,25 +10,10 @@ const props = defineProps<{
   mode: string
 }>()
 
-const uploadingUrls = ref<Set<string>>(new Set())
 const savingUrls = ref<Set<string>>(new Set())
 
 function downloadImage(url: string) {
   window.open('/api/v1/download?url=' + encodeURIComponent(url), '_blank')
-}
-
-async function handleUploadToGitHub(url: string) {
-  uploadingUrls.value = new Set([...uploadingUrls.value, url])
-  try {
-    const githubUrl = await uploadToGitHub(url)
-    ElMessage.success(`已上传到 GitHub: ${githubUrl}`)
-  } catch (e: any) {
-    ElMessage.error(e.message || '上传到 GitHub 失败')
-  } finally {
-    const next = new Set(uploadingUrls.value)
-    next.delete(url)
-    uploadingUrls.value = next
-  }
 }
 
 async function handleSaveToGallery(url: string) {
@@ -73,14 +57,6 @@ async function handleSaveToGallery(url: string) {
           @click="handleSaveToGallery(img)"
         >
           保存到作品库
-        </el-button>
-        <el-button
-          size="small"
-          :loading="uploadingUrls.has(img)"
-          :disabled="uploadingUrls.has(img)"
-          @click="handleUploadToGitHub(img)"
-        >
-          转存
         </el-button>
       </div>
     </div>
