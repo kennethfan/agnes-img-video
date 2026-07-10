@@ -7,7 +7,7 @@
 | 组件 | 文件 | 用途 |
 |------|------|------|
 | `NavSidebar` | `NavSidebar.vue` | 左侧导航栏 — 接收 `activePage` prop，emit `navigate` 事件 |
-| `ImageResult` | `ImageResult.vue` | 图片画廊 — 预览 + 下载图片结果 |
+| `ImageResult` | `ImageResult.vue` | 图片画廊 — 预览 + 下载 + 保存到作品库 + 上传到 GitHub |
 | `ShotCard` | `ShotCard.vue` | 分镜卡片 — 显示分镜镜头（prompt/type/refImage） |
 | `AssetCard` | `AssetCard.vue` | 作品卡片 — 收藏、选择、批量操作 |
 | `TaskProgress` | `TaskProgress.vue` | 任务进度条 — SSE 驱动的进度显示 |
