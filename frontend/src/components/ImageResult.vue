@@ -2,6 +2,7 @@
 import { ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import { saveAsset } from '../api/assets'
+import { useRedoStore } from '../stores/redo'
 const props = defineProps<{
   images: string[]
   loading: boolean
@@ -10,6 +11,16 @@ const props = defineProps<{
 }>()
 
 const savingUrls = ref<Set<string>>(new Set())
+const redoStore = useRedoStore()
+
+function handleRefine(img: string) {
+  redoStore.setRedoData({
+    mode: 'image2image',
+    imageUrl: img,
+    prompt: props.prompt,
+    inputMode: 'url',
+  })
+}
 
 function downloadImage(url: string) {
   window.open('/api/v1/download?url=' + encodeURIComponent(url), '_blank')
@@ -56,6 +67,13 @@ async function handleSaveToGallery(url: string) {
           @click="handleSaveToGallery(img)"
         >
           保存到作品库
+        </el-button>
+        <el-button
+          v-if="props.mode === 'image2image'"
+          size="small"
+          @click="handleRefine(img)"
+        >
+          继续精修
         </el-button>
       </div>
     </div>
