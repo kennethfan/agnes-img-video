@@ -2,8 +2,7 @@
 import { ref, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Search, Star, StarFilled, Download, Delete, PictureFilled } from '@element-plus/icons-vue'
-import { getAssets, toggleFavorite, batchDownload, deleteAssets } from '../api/assets'
-import { uploadToGitHub } from '../api/github'
+import { getAssets, toggleFavorite, batchDownload, deleteAssets, transferAsset } from '../api/assets'
 import type { AssetItem } from '../types'
 import AssetCard from '../components/AssetCard.vue'
 
@@ -21,6 +20,14 @@ const deleteFiles = ref(false)
 const drawerVisible = ref(false)
 const detailAsset = ref<AssetItem | null>(null)
 const uploadingUrl = ref('')
+
+// assetSrc 按 localPath > originalURL > githubURL 返回可展示的 URL，并修正本地路径为 HTTP 路径
+function assetSrc(item: AssetItem): string {
+  if (item.local_path) {
+    return item.local_path.startsWith('outputs/') ? '/' + item.local_path : item.local_path
+  }
+  return item.original_url || item.github_url || ''
+}
 
 async function loadAssets() {
   loading.value = true
@@ -67,7 +74,7 @@ function toggleSelectionMode() {
 }
 
 function handleToggleFavorite(item: AssetItem) {
-  toggleFavorite({ history_id: item.id, favorite: !item.favorite })
+  toggleFavorite({ asset_id: item.id, favorite: !item.favorite })
   item.favorite = !item.favorite
 }
 
@@ -83,13 +90,17 @@ function handleCardClick(item: AssetItem) {
   drawerVisible.value = true
 }
 
-async function handleUploadToGitHub(url: string) {
-  uploadingUrl.value = url
+async function handleTransfer() {
+  if (!detailAsset.value) return
+  uploadingUrl.value = detailAsset.value.original_url
   try {
-    const githubUrl = await uploadToGitHub(url)
-    ElMessage.success(`已上传到 GitHub: ${githubUrl}`)
+    const updated = await transferAsset(detailAsset.value.id)
+    detailAsset.value = updated
+    const idx = items.value.findIndex(i => i.id === updated.id)
+    if (idx >= 0) items.value[idx] = updated
+    ElMessage.success('转存完成')
   } catch (e: any) {
-    ElMessage.error(e.message || '上传到 GitHub 失败')
+    ElMessage.error(e.message || '转存失败')
   } finally {
     uploadingUrl.value = ''
   }
@@ -215,19 +226,19 @@ onMounted(loadAssets)
     >
       <template v-if="detailAsset">
         <div class="detail-preview">
-          <el-image
-            v-if="detailAsset.type === 'image'"
-            :src="detailAsset.thumbnail || detailAsset.files[0]"
-            fit="contain"
-            style="width: 100%; max-height: 400px"
-          />
-          <video
-            v-else
-            :src="detailAsset.files[0]"
-            controls
-            style="width: 100%; max-height: 400px"
-          />
-        </div>
+	          <el-image
+	            v-if="detailAsset.type === 'image'"
+	            :src="detailAsset.thumbnail || assetSrc(detailAsset)"
+	            fit="contain"
+	            style="width: 100%; max-height: 400px"
+	          />
+	          <video
+	            v-else
+	            :src="assetSrc(detailAsset)"
+	            controls
+	            style="width: 100%; max-height: 400px"
+	          />
+	        </div>
         <div class="detail-meta">
           <p class="detail-prompt">{{ detailAsset.prompt }}</p>
           <p class="detail-info">
@@ -244,8 +255,8 @@ onMounted(loadAssets)
             {{ detailAsset.favorite ? '已收藏' : '收藏' }}
           </el-button>
           <el-button
-            :loading="uploadingUrl === (detailAsset.files[0] || '')"
-            @click="handleUploadToGitHub(detailAsset.files[0])"
+            :loading="uploadingUrl === (detailAsset.original_url || '')"
+            @click="handleTransfer"
           >
             转存
           </el-button>

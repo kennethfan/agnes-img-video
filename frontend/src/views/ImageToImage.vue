@@ -204,7 +204,7 @@ async function handleGenerate() {
     <div class="gen-preview">
       <TaskProgress v-if="showProgress && taskId" :task-id="taskId" @error="errorMsg = $event" />
       <el-alert v-if="errorMsg" type="error" :description="errorMsg" show-icon closable class="error-alert" />
-      <ImageResult :images="images" :loading="loading && !showProgress" />
+      <ImageResult :images="images" :loading="loading && !showProgress" :prompt="prompt" mode="image2image" />
     </div>
   </div>
 </template>

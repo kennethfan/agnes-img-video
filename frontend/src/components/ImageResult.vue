@@ -1,30 +1,31 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { ElMessage } from 'element-plus'
-import { uploadToGitHub } from '../api/github'
-
+import { saveAsset } from '../api/assets'
 const props = defineProps<{
   images: string[]
   loading: boolean
+  prompt: string
+  mode: string
 }>()
 
-const uploadingUrls = ref<Set<string>>(new Set())
+const savingUrls = ref<Set<string>>(new Set())
 
 function downloadImage(url: string) {
   window.open('/api/v1/download?url=' + encodeURIComponent(url), '_blank')
 }
 
-async function handleUploadToGitHub(url: string) {
-  uploadingUrls.value = new Set([...uploadingUrls.value, url])
+async function handleSaveToGallery(url: string) {
+  savingUrls.value = new Set([...savingUrls.value, url])
   try {
-    const githubUrl = await uploadToGitHub(url)
-    ElMessage.success(`已上传到 GitHub: ${githubUrl}`)
+    await saveAsset({ image_url: url, prompt: props.prompt, mode: props.mode })
+    ElMessage.success('已保存到作品库')
   } catch (e: any) {
-    ElMessage.error(e.message || '上传到 GitHub 失败')
+    ElMessage.error(e.message || '保存到作品库失败')
   } finally {
-    const next = new Set(uploadingUrls.value)
+    const next = new Set(savingUrls.value)
     next.delete(url)
-    uploadingUrls.value = next
+    savingUrls.value = next
   }
 }
 </script>
@@ -49,11 +50,12 @@ async function handleUploadToGitHub(url: string) {
         </el-button>
         <el-button
           size="small"
-          :loading="uploadingUrls.has(img)"
-          :disabled="uploadingUrls.has(img)"
-          @click="handleUploadToGitHub(img)"
+          type="success"
+          :loading="savingUrls.has(img)"
+          :disabled="savingUrls.has(img)"
+          @click="handleSaveToGallery(img)"
         >
-          转存
+          保存到作品库
         </el-button>
       </div>
     </div>

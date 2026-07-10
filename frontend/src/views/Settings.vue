@@ -42,8 +42,10 @@ function handleSave() {
     form.value.storage_target = 'both'
   } else if (targetGithub.value) {
     form.value.storage_target = 'github'
-  } else {
+  } else if (targetLocal.value) {
     form.value.storage_target = 'local'
+  } else {
+    form.value.storage_target = ''
   }
   saving.value = true
   updateSettings(form.value).then(() => {

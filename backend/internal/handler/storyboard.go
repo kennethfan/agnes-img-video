@@ -10,14 +10,16 @@ import (
 
 	"github.com/agnes-image-tool/backend/internal/model"
 	"github.com/agnes-image-tool/backend/internal/repository"
+	"github.com/agnes-image-tool/backend/internal/service"
 )
 
 type StoryboardHandler struct {
-	repo repository.StoryboardRepository
+	repo      repository.StoryboardRepository
+	generator *service.StoryboardGenerator
 }
 
-func NewStoryboardHandler(repo repository.StoryboardRepository) *StoryboardHandler {
-	return &StoryboardHandler{repo: repo}
+func NewStoryboardHandler(repo repository.StoryboardRepository, generator *service.StoryboardGenerator) *StoryboardHandler {
+	return &StoryboardHandler{repo: repo, generator: generator}
 }
 
 // SetRepo 替换内部仓库引用（用于数据库恢复后刷新）
@@ -251,6 +253,41 @@ func (h *StoryboardHandler) ReorderShots(c *gin.Context) {
 	_ = projectID
 }
 
+func (h *StoryboardHandler) BatchCreateShots(c *gin.Context) {
+	projectID, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "无效的项目ID"})
+		return
+	}
+
+	var req struct {
+		Prompts []string `json:"prompts"`
+		Type    string   `json:"type"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "参数错误: " + err.Error()})
+		return
+	}
+
+	if len(req.Prompts) == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "请提供至少一个提示词"})
+		return
+	}
+
+	if req.Type == "" {
+		req.Type = "text2video"
+	}
+
+	shots, err := h.repo.BatchCreateShots(projectID, req.Prompts, req.Type)
+	if err != nil {
+		log.Printf("[Storyboard] 批量创建镜头失败: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "批量创建镜头失败: " + err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusCreated, gin.H{"shots": shots})
+}
+
 func (h *StoryboardHandler) GenerateShots(c *gin.Context) {
 	projectID, err := strconv.ParseInt(c.Param("id"), 10, 64)
 	if err != nil {
@@ -258,23 +295,16 @@ func (h *StoryboardHandler) GenerateShots(c *gin.Context) {
 		return
 	}
 
-	shots, err := h.repo.ListShots(projectID)
+	result, err := h.generator.GenerateAll(c.Request.Context(), projectID)
 	if err != nil {
-		log.Printf("[Storyboard] 获取镜头列表失败: %v", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "获取镜头列表失败: " + err.Error()})
+		log.Printf("[Storyboard] 批量生成失败: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "批量生成失败: " + err.Error()})
 		return
 	}
 
-	pending := make([]model.StoryboardShot, 0)
-	for _, s := range shots {
-		if s.Status == "pending" {
-			pending = append(pending, s)
-		}
-	}
-
-	c.JSON(http.StatusOK, gin.H{
-		"total":   len(shots),
-		"pending": len(pending),
-		"shots":   pending,
+	c.JSON(http.StatusAccepted, gin.H{
+		"submitted": result.Submitted,
+		"total":     result.Total,
+		"failed":    result.Failed,
 	})
 }

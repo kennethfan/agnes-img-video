@@ -11,7 +11,6 @@ const loading = ref(false)
 const videoDialogVisible = ref(false)
 const previewVideoUrl = ref('')
 const selectedIds = ref<Set<number>>(new Set())
-const deleteFiles = ref(false)
 const expandedScripts = ref<Set<number>>(new Set())
 const uploadingUrls = ref<Set<string>>(new Set())
 const redoStore = useRedoStore()
@@ -184,7 +183,7 @@ async function handleClear() {
       cancelButtonText: '取消',
       type: 'warning',
     })
-    await clearHistory(deleteFiles.value)
+    await clearHistory()
     records.value = []
     selectedIds.value = new Set()
     ElMessage.success('历史已清空')
@@ -198,7 +197,7 @@ async function handleDeleteRecord(id: number) {
       cancelButtonText: '取消',
       type: 'warning',
     })
-    await deleteRecord(id, deleteFiles.value)
+    await deleteRecord(id)
     records.value = records.value.filter(r => r.id !== id)
     selectedIds.value.delete(id)
     ElMessage.success('已删除')
@@ -211,15 +210,12 @@ async function handleBatchDelete() {
     return
   }
   try {
-    const msg = deleteFiles.value
-      ? `确定删除选中的 ${selectedIds.value.size} 条记录？关联的文件也将被删除。`
-      : `确定删除选中的 ${selectedIds.value.size} 条记录？`
-    await ElMessageBox.confirm(msg, '确认', {
+    await ElMessageBox.confirm(`确定删除选中的 ${selectedIds.value.size} 条记录？`, '确认', {
       confirmButtonText: '确定',
       cancelButtonText: '取消',
       type: 'warning',
     })
-    await deleteHistory({ ids: Array.from(selectedIds.value), delete_files: deleteFiles.value })
+    await deleteHistory({ ids: Array.from(selectedIds.value) })
     records.value = records.value.filter(r => !selectedIds.value.has(r.id))
     selectedIds.value = new Set()
     ElMessage.success('已删除')
@@ -238,7 +234,6 @@ onMounted(loadHistory)
         <span class="header-count">{{ records.length }} 条</span>
       </div>
       <div class="header-actions">
-        <el-switch v-model="deleteFiles" active-text="同时删除文件" size="small" />
         <el-button
           v-if="selectedIds.size > 0"
           type="danger" size="small" plain

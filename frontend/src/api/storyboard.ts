@@ -6,7 +6,13 @@ import type {
   UpdateProjectRequest,
   CreateShotRequest,
   UpdateShotRequest,
+  GenerateShotsResponse,
 } from '../types'
+
+export async function batchCreateShots(projectId: number, prompts: string[], type = 'text2video'): Promise<{ shots: StoryboardShot[] }> {
+  const res = await client.post(`/api/v1/storyboard/projects/${projectId}/shots/batch`, { prompts, type })
+  return res.data
+}
 
 export async function listProjects(): Promise<StoryboardProject[]> {
   const res = await client.get('/api/v1/storyboard/projects')
@@ -53,6 +59,7 @@ export async function reorderShots(projectId: number, ids: number[]): Promise<vo
   await client.put(`/api/v1/storyboard/projects/${projectId}/shots/reorder`, { ids })
 }
 
-export async function generateShots(projectId: number): Promise<void> {
-  await client.post(`/api/v1/storyboard/projects/${projectId}/generate`)
+export async function generateShots(projectId: number): Promise<GenerateShotsResponse> {
+  const res = await client.post(`/api/v1/storyboard/projects/${projectId}/generate`)
+  return res.data
 }

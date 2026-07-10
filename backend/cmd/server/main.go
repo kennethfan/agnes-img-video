@@ -95,12 +95,15 @@ func main() {
 	ideasHandler := handler.NewIdeasHandler(svc)
 	comicHandler := handler.NewComicHandler(svc)
 	accessLogHandler := handler.NewAccessLogHandler(accessLogRepo)
-	assetHandler := handler.NewAssetHandler(histRepo)
+	settingsRepo := gormrepo.NewSettingsRepository(gormDB)
+	assetRepo := gormrepo.NewAssetRepository(gormDB)
+	handler.SetAssetRepo(assetRepo)
+	assetHandler := handler.NewAssetHandler(assetRepo, settingsRepo)
 
 	storyboardRepo := gormrepo.NewStoryboardRepository(gormDB)
-	storyboardHandler := handler.NewStoryboardHandler(storyboardRepo)
+	storyboardGenerator := service.NewStoryboardGenerator(svc, taskQueue, storyboardRepo)
+	storyboardHandler := handler.NewStoryboardHandler(storyboardRepo, storyboardGenerator)
 
-	settingsRepo := gormrepo.NewSettingsRepository(gormDB)
 	settingsHandler := handler.NewSettingsHandler(settingsRepo)
 
 	// 数据库导出与恢复（JSON 格式）
@@ -143,9 +146,11 @@ func main() {
 		api.PUT("/settings", settingsHandler.UpdateSettings)
 
 		api.GET("/assets", assetHandler.ListAssets)
+		api.POST("/assets", assetHandler.SaveAsset)
 		api.POST("/assets/favorite", assetHandler.ToggleFavorite)
-		api.POST("/assets/batch-download", assetHandler.BatchDownload)
-		api.DELETE("/assets", assetHandler.DeleteAssets)
+	api.POST("/assets/batch-download", assetHandler.BatchDownload)
+	api.POST("/assets/:id/transfer", assetHandler.TransferAsset)
+	api.DELETE("/assets", assetHandler.DeleteAssets)
 
 		storyboard := api.Group("/storyboard")
 		{
@@ -156,6 +161,7 @@ func main() {
 			storyboard.DELETE("/projects/:id", storyboardHandler.DeleteProject)
 			storyboard.POST("/projects/:id/duplicate", storyboardHandler.DuplicateProject)
 			storyboard.POST("/projects/:id/shots", storyboardHandler.CreateShot)
+			storyboard.POST("/projects/:id/shots/batch", storyboardHandler.BatchCreateShots)
 			storyboard.PUT("/projects/:id/shots/reorder", storyboardHandler.ReorderShots)
 			storyboard.PUT("/shots/:id", storyboardHandler.UpdateShot)
 			storyboard.DELETE("/shots/:id", storyboardHandler.DeleteShot)

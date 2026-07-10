@@ -15,7 +15,8 @@
 | `ComicHandler` | `comic.go` | GeneratePrompts (chat-based AI) |
 | `ConfigHandler` | `config_handler.go` | GET/PUT config |
 | `SettingsHandler` | `settings.go` | GetSettings, UpdateSettings |
-| `DBHandler` | `db_handler.go` | ExportDB (db/sql), RestoreDB (upload .db/.sql) |
+| `DBHandler` | `db_handler.go` | ExportDB (JSON), RestoreDB (upload JSON) |
+| `TaskHandler` | `task_handler.go` | ListTasks, GetTask, StreamSSE, CancelTask, RetryTask |
 | `AccessLogHandler` | `access_log.go` | ListLogs, DeleteLog, ClearLogs |
 | _(global funcs)_ | `github_handler.go` | Upload/fetch from GitHub |
 
@@ -25,7 +26,7 @@
 All handlers receive dependencies via `New*Handler(repo/svc)`:
 ```
 NewImageHandler(svc *service.AgnesClient)
-NewVideoHandler(svc *service.AgnesClient, tm *service.TaskManager)
+NewVideoHandler(svc *service.AgnesClient, tq *service.TaskQueue)
 NewHistoryHandler(repo *repository.HistoryRepo)
 NewStoryboardHandler(repo *repository.StoryboardRepo)
 ...
@@ -51,18 +52,12 @@ Uploaded files are saved to `backend/tmp/` and converted to base64 data URIs. Te
 ### SSE Streaming (video.go)
 - `GET /videos/stream/:taskId` pushes `text/event-stream`
 - Events: `progress` (status + %), `complete` (URL + seconds), `error`
-- Backend uses `gin.Context.Stream()` + `TaskManager.Subscribe` pattern
+- Backend uses `gin.Context.Stream()` + `TaskQueue` subscriber pattern
 
 ### Error Handling
 - All errors return Chinese messages: `gin.H{"error": "操作失败: " + err.Error()}`
 - Log prefixes: `[History]`, `[Asset]`, `[Storyboard]`, `[DB]`
 - No custom error types — plain string errors
-
-### SetRepo Pattern
-Several handlers expose `SetRepo()` for hot-reloading after database restore:
-- `HistoryHandler.SetRepo()`
-- `AssetHandler.SetRepo()`
-- `StoryboardHandler.SetRepo()`
 
 ## CONVENTIONS
 
@@ -70,11 +65,11 @@ Several handlers expose `SetRepo()` for hot-reloading after database restore:
 - **Null safety**: return empty slices `[]model.X{}` instead of nil
 - **File downloads**: `deleteRecordFiles()` handles both local paths and GitHub URLs (raw.githubusercontent.com)
 - **Batch download**: `AssetHandler.BatchDownload` streams ZIP archive in-memory
-- **DB export**: supports `.db` (binary) and `.sql` (SQL dump with `CREATE TABLE IF NOT EXISTS`) formats
+- **DB export**: JSON 格式 — `exportTableOrder` 控制表顺序，原生 INSERT 避免嵌套事务
 
 ## ANTI-PATTERNS
 
 - Do NOT add new global state — prefer constructor injection
 - Do NOT add auth middleware — local dev only
 - Do NOT refactor `deleteRecordFiles()` — it handles both local file deletion and GitHub remote cleanup
-- Do NOT bypass `TaskManager` for async video status — use Subscribe pattern
+- Do NOT bypass `TaskQueue` for async video status — use Subscribe pattern

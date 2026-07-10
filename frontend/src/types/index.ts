@@ -69,7 +69,6 @@ export interface HistoryRecord {
 
 export interface DeleteHistoryRequest {
   ids: number[]
-  delete_files?: boolean
 }
 
 export interface ScriptGenRequest {
@@ -93,11 +92,13 @@ export interface AssetItem {
   id: number
   mode: string
   prompt: string
-  files: string[]
-  thumbnail: string
-  type: 'image' | 'video'
+  type: string
   time: string
   favorite: boolean
+  original_url: string
+  local_path: string
+  github_url: string
+  thumbnail: string
 }
 
 export interface AssetListResponse {
@@ -107,7 +108,7 @@ export interface AssetListResponse {
 }
 
 export interface AssetFavoriteRequest {
-  history_id: number
+  asset_id: number
   favorite: boolean
 }
 
@@ -123,6 +124,12 @@ export interface StoryboardProject {
   created_at: string
   updated_at: string
   shot_count: number
+}
+
+export interface GenerateShotsResponse {
+  submitted: number
+  total: number
+  failed: number
 }
 
 export interface StoryboardShot {

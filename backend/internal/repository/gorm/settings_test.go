@@ -15,8 +15,8 @@ func TestSettingsGetDefaults(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetSettings failed: %v", err)
 	}
-	if s.StorageTarget != "local" {
-		t.Fatalf("expected default storage_target 'local', got %q", s.StorageTarget)
+	if s.StorageTarget != "" {
+		t.Fatalf("expected empty default storage_target, got %q", s.StorageTarget)
 	}
 	if s.LocalImageDir != "images" {
 		t.Fatalf("expected default local_image_dir 'images', got %q", s.LocalImageDir)

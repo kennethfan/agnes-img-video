@@ -3,6 +3,7 @@ package handler
 import (
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -24,6 +25,7 @@ func UploadToGitHub(c *gin.Context) {
 	var req struct {
 		URL      string `json:"url" binding:"required"`
 		Filename string `json:"filename"`
+		AssetID  int64  `json:"asset_id"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "参数错误: " + err.Error()})
@@ -69,6 +71,14 @@ func UploadToGitHub(c *gin.Context) {
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "上传到 GitHub 失败: " + err.Error()})
 		return
+	}
+
+	// 如果指定了 asset_id，将 github_url 回写到资产记录
+	if req.AssetID > 0 && assetRepo != nil {
+		if err := assetRepo.UpdateGithubURL(req.AssetID, githubURL); err != nil {
+			log.Printf("[GitHub] 回写 github_url 到资产 %d 失败: %v", req.AssetID, err)
+			// 不阻塞响应，仅记录日志
+		}
 	}
 
 	c.JSON(http.StatusOK, gin.H{"github_url": githubURL})

@@ -1,7 +1,7 @@
 # AGENTS.md — Agnes Creator Studio
 
-**Generated:** 2026-07-08
-**Commit:** 1ce4b2c (dev)
+**Generated:** 2026-07-10
+**Commit:** b69b356 (dev)
 **Stack:** Go 1.25 · Gin · SQLite · Vue 3 · TypeScript 6 · Vite 8 · Element Plus · Pinia · Axios · SSE
 
 ## Quick Start
@@ -26,19 +26,19 @@ pnpm dev                   # → http://localhost:5173
 | Video generation API | `backend/internal/handler/video.go` | 6 handlers + SSE streaming |
 | Ideas/comic expansion | `backend/internal/handler/ideas.go`, `comic.go` | Chat-based AI features |
 | History CRUD | `backend/internal/handler/history.go` | SQLite-backed, file deletion |
-| Asset gallery | `backend/internal/handler/asset.go` | Uses HistoryRepo |
+| Asset gallery | `backend/internal/handler/asset.go` | Uses AssetRepository |
 | Config management | `backend/internal/handler/config_handler.go` | GET/PUT .config.json |
 | Storyboard | `backend/internal/handler/storyboard.go` | Projects + shots CRUD |
-| Core business logic | `backend/internal/service/` | AgnesClient, TaskManager, GithubStorage |
-| SQLite persistence | `backend/internal/repository/` | history.go, storyboard.go |
+| Core business logic | `backend/internal/service/` | AgnesClient, TaskQueue, GithubStorage |
+| GORM persistence | `backend/internal/repository/gorm/` | 5 repositories (History/Storyboard/Settings/AccessLog/Task) |
 | Shared types | `backend/internal/model/types.go` | All request/response/SSE types |
-| Frontend views | `frontend/src/views/` | 10 views + 3 wizard subdirs |
+| Frontend views | `frontend/src/views/` | 15 views + 3 wizard subdirs |
 | API client layer | `frontend/src/api/` | Axios wrappers per domain |
 | Pinia stores | `frontend/src/stores/` | redo.ts, wizard.ts |
-| Shared components | `frontend/src/components/` | ImageResult, ShotCard, wizard steps |
+| Shared components | `frontend/src/components/` | NavSidebar, ImageResult, ShotCard, AssetCard, TaskProgress |
 | Types | `frontend/src/types/index.ts` | All TS interfaces |
 | SSE utility | `frontend/src/utils/sse.ts` | EventSource helper |
-| App entry | `frontend/src/App.vue` | el-tabs navigation, redo listener |
+| App entry | `frontend/src/App.vue` | Vue Router + NavSidebar navigation |
 
 ## CODE MAP
 
@@ -47,13 +47,14 @@ pnpm dev                   # → http://localhost:5173
 | Symbol | Type | Location | Role |
 |--------|------|----------|------|
 | `AgnesClient` | struct | `internal/service/agnes.go` | Raw HTTP to Agnes AI API |
-| `TaskManager` | struct | `internal/service/video_manager.go` | Goroutine polling + SSE subscriber pattern |
+| `TaskQueue` | struct | `internal/service/task_queue.go` | Goroutine worker pool + SSE subscriber pattern |
 | `GithubStorage` | struct | `internal/service/github_storage.go` | GitHub Contents API upload/download |
 | `VideoTask` | struct | `internal/service/video_manager.go` | Task state + subscriber channels |
 | `VideoHandler` | struct | `internal/handler/video.go` | Video HTTP handlers |
 | `ImageHandler` | struct | `internal/handler/image.go` | Image HTTP handlers |
-| `HistoryRepo` | struct | `internal/repository/history.go` | SQLite CRUD for history |
-| `StoryboardRepo` | struct | `internal/repository/storyboard.go` | SQLite CRUD for storyboard |
+| `HistoryRepository` | struct | `internal/repository/gorm/history.go` | GORM CRUD for history |
+| `StoryboardRepository` | struct | `internal/repository/gorm/storyboard.go` | GORM CRUD for storyboard |
+| `TaskRecord` | struct | `internal/model/types.go` | Unified task record type |
 | `VideoStatus/Event` | struct | `internal/model/types.go` | SSE event types |
 
 ### Frontend (Vue/TS) — key symbols
@@ -65,6 +66,9 @@ pnpm dev                   # → http://localhost:5173
 | `connectSSE` | function | `utils/sse.ts` | EventSource helper for video progress |
 | `ImageResult` | component | `components/ImageResult.vue` | Reusable image gallery |
 | `ShotCard` | component | `components/ShotCard.vue` | Storyboard shot display |
+| `AssetCard` | component | `components/AssetCard.vue` | Asset gallery card |
+| `TaskProgress` | component | `components/TaskProgress.vue` | SSE-driven progress bar |
+| `NavSidebar` | component | `components/NavSidebar.vue` | Left navigation sidebar |
 
 ## Project Structure
 
@@ -84,19 +88,29 @@ No legacy Python/Gradio code — everything goes through the B/S architecture.
 | `internal/config/config.go` | `.config.json` file I/O, env var fallback, default models |
 | `internal/model/types.go` | All shared types (request/response/SSE events) |
 | `internal/service/agnes.go` | `AgnesClient` — raw HTTP to Agnes AI API (image/video/chat/idea expansion) |
-| `internal/service/video_manager.go` | `TaskManager` — goroutine polling + subscriber pattern for SSE |
+| `internal/service/video_manager.go` | `TaskManager` — goroutine polling + subscriber pattern for SSE (legacy, replaced by TaskQueue) |
+| `internal/service/task_queue.go` | `TaskQueue` — worker pool + SSE subscriber pattern (replaces TaskManager for new features) |
 | `internal/service/github_storage.go` | `GithubStorage` — upload/download files via GitHub Contents API |
 | `internal/handler/image.go` | 3 handlers: text-to-image, image-to-image (multipart), batch |
 | `internal/handler/video.go` | 6 handlers: text-to-video, image-to-video, multi-image, script-gen, status, SSE stream |
 | `internal/handler/ideas.go` | `ExpandIdea` — AI enhancement for creative ideas via chat completions |
 | `internal/handler/comic.go` | `GeneratePrompts` — AI generation of comic panel prompts via chat completions |
 | `internal/handler/history.go` | History API (SQLite via repository) + file deletion |
-| `internal/handler/config_handler.go` | GET/PUT config |
 | `internal/handler/asset.go` | Asset gallery: list/favorite/batch-download/delete (uses HistoryRepo) |
+| `internal/handler/settings.go` | GET/PUT settings (storage target, paths) |
+| `internal/handler/task_handler.go` | List/Get/Stream/Cancel/Retry tasks |
+| `internal/handler/access_log.go` | List/Delete/Clear access logs |
+| `internal/handler/db_handler.go` | Export/restore database (JSON format) |
+| `internal/handler/github_handler.go` | Upload/fetch via GitHub |
 | `internal/handler/storyboard.go` | Storyboard CRUD: projects + shots (separate SQLite tables) |
 | `internal/middleware/cors.go` | Allow localhost:5173 / :4173 |
-| `internal/repository/history.go` | SQLite CRUD for history, migration from legacy JSON |
-| `internal/repository/storyboard.go` | SQLite CRUD for storyboard projects + shots (same `history.db`) |
+| `internal/repository/gorm/gorm.go` | GORM `OpenDB()` + AutoMigrate (7 models) |
+| `internal/repository/gorm/history.go` | GORM CRUD for history + favorites |
+| `internal/repository/gorm/storyboard.go` | GORM CRUD for storyboard projects + shots |
+| `internal/repository/gorm/settings.go` | GORM key-value settings persistence |
+| `internal/repository/gorm/access_log.go` | GORM access log CRUD + daily cleanup |
+| `internal/repository/gorm/task.go` | GORM task record CRUD + optimistic lock cancel |
+| `internal/repository/interfaces.go` | Repository interface definitions |
 | `scripts/recover_history.go` | Rebuild history records from `outputs/` filenames after data loss |
 
 ### Routes (all under `/api/v1`)
@@ -149,7 +163,7 @@ When `GITHUB_TOKEN` and `GITHUB_REPO` are set, generated images/videos are uploa
 
 | Path | Role |
 |---|---|
-| `src/views/` | 10 views: TextToImage, ImageToImage, BatchGen, ScriptGen, TextToVideo, ImageToVideo, MultiImageVideo, Ideas, History, Storyboard |
+| `src/views/` | 15 views: TextToImage, ImageToImage, BatchGen, ScriptGen, TextToVideo, ImageToVideo, MultiImageVideo, Ideas, History, Storyboard, Assets, AccessLogs, DBManage, TaskRecords, Settings + 3 wizard subdirs (comic/novel/image) |
 | `src/components/ImageResult.vue` | Image gallery with preview + download |
 | `src/api/client.ts` | Axios instance (baseURL: '', 120s timeout) |
 | `src/api/image.ts` | textToImage, imageToImage, batchGenerate |
@@ -157,13 +171,19 @@ When `GITHUB_TOKEN` and `GITHUB_REPO` are set, generated images/videos are uploa
 | `src/api/history.ts` | getHistory, clearHistory, deleteHistory, deleteRecord |
 | `src/api/ideas.ts` | expandIdea — AI idea enhancement |
 | `src/api/storyboard.ts` | Storyboard CRUD: projects + shots API client |
+| `src/api/history.ts` | getHistory, clearHistory, deleteHistory, deleteRecord |
+| `src/api/assets.ts` | getAssets, toggleFavorite, batchDownload, deleteAssets |
+| `src/api/settings.ts` | getSettings, updateSettings |
+| `src/api/github.ts` | uploadToGithub, proxyDownload |
+| `src/api/db.ts` | exportDB, restoreDB |
+| `src/api/access-logs.ts` | getLogs, deleteLog, clearLogs |
 | `src/stores/redo.ts` | Pinia store: cross-view "redo" data passing via custom event `redo-trigger` |
 | `src/utils/sse.ts` | `connectSSE()` — EventSource helper for video progress |
 | `src/types/index.ts` | TypeScript interfaces for all API request/response types |
 
 ### Stack
 
-Vue 3 (Composition API + `<script setup>`) · TypeScript 6 · Vite 8 · Element Plus · Pinia · Axios · Vue Router (registered but not used — nav is via `el-tabs`)
+Vue 3 (Composition API + `<script setup>`) · TypeScript 6 · Vite 8 · Element Plus · Pinia · Axios · Vue Router
 
 ### Build
 
@@ -189,14 +209,14 @@ pnpm dev        # dev server on :5173 with proxy to :8080
 - **Video frame count must satisfy `8n + 1`** — enforced in `BuildVideoPayload()`. See `maxFramesForResolution()`: 1080p=169, 720p=409, 480p=961.
 - **Video polling**: 5s interval, 30min timeout, max 10 concurrent tasks (semaphore channel), exponential backoff on errors (max 10 retries, 1s→30s).
 - **Video status API quirk**: status query URL strips `/v1` from baseURL, queries `{baseDomain}/agnesapi?video_id={id}`. Video download URL sometimes appears in `remixed_from_video_id` field.
-- **Image download**: saved to `outputs/` with timestamped filenames (`{prefix}_{timestamp}.png`). Video downloads stream in chunks to mp4 files.
+- **Image/video URLs**: generation flow stores raw API URLs directly — no auto-download to `outputs/`. On-demand save/transfer available in UI.
 - **Download path fallback**: tries `outputs/` (relative to backend/), then falls back to `../outputs/` (project root).
 
 ## SSE (Server-Sent Events)
 
 - Video progress pushed via `GET /api/v1/videos/stream/:taskId`.
 - Events: `progress` (status + percentage), `complete` (download URL + seconds), `error`.
-- Backend: `gin.Context.Stream()` with `text/event-stream` content type. Subscriber pattern via `TaskManager` channel.
+- Backend: `gin.Context.Stream()` with `text/event-stream` content type. Subscriber pattern via `TaskQueue` channel (replaces legacy `TaskManager`).
 - Frontend: `EventSource` with `addEventListener` in `src/utils/sse.ts`. Auto-closes on `complete` or `error`.
 - Max 10 buffered events per subscriber channel; drops overflow silently.
 
@@ -228,7 +248,7 @@ The `modeToTab` mapping in `src/stores/redo.ts` translates `text2image|image2ima
 - **Config & runtime data** (`.config.json`, `history.db`): all in `backend/`. Copy `backend/.env.example` to `backend/.env` for local dev.
 - **No auth middleware** — API is designed for local/dev use only. API key is sent to Agnes AI, not validated by the backend itself.
 - **Startup recovery**: on boot, scans SQLite for pending video tasks (images empty + extra has taskId) and checks their status, updating history records for completed ones.
-- **Frontend navigation**: uses `el-tabs` (Element Plus) in `App.vue` with 10 tabs — not Vue Router, even though `vue-router` is a dependency.
+- **Frontend navigation**: uses Vue Router + `NavSidebar` component in `App.vue` with 18 page states (15 views + 3 wizard subdirs). `activePage` ref drives conditional rendering via `v-if` chain.
 - **Frontend TypeScript 6**: `erasableSyntaxOnly` enabled in tsconfig — no enums or namespaces; use `as const` or union types.
 - **Axios error interceptor**: errors are caught and converted to a plain `Error` with the server message. Always use `.catch()` or try/catch; raw Axios errors are never exposed to views.
 
@@ -247,7 +267,7 @@ The `modeToTab` mapping in `src/stores/redo.ts` translates `text2image|image2ima
 - **Do NOT delete `history.db` or `outputs/`** — runtime data, irreversible loss
 - **Do NOT suppress TS errors** with `as any`, `@ts-ignore`, `@ts-expect-error`
 - **Do NOT use enums** (TypeScript 6 `erasableSyntaxOnly`)
-- **Do NOT use Vue Router for navigation** — `el-tabs` is the nav system (router is dependency only)
+- **Do NOT use Options API** — Composition API + `<script setup>` only
 - **Do NOT introduce auth middleware** — this is a local dev tool
 - **Do NOT refactor while fixing bugs** — minimal fixes only
 - **Do NOT modify `history.db` schema** without migration path

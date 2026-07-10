@@ -44,6 +44,10 @@ type StoryboardRepository interface {
 	UpdateShot(id int64, prompt, shotType, refImage string) error
 	DeleteShot(id int64) error
 	ReorderShots(ids []int64) error
+	GetShot(id int64) (*model.StoryboardShot, error)
+	UpdateShotStatus(id int64, status, taskID string, taskRecordID int64) error
+	UpdateShotResult(id int64, resultVideo string) error
+	BatchCreateShots(projectID int64, prompts []string, shotType string) ([]model.StoryboardShot, error)
 	Close() error
 }
 
@@ -95,6 +99,18 @@ type AccessLogRepository interface {
 	Delete(id int64) error
 	ClearAll() error
 	StartDailyCleanup(retentionDays int)
+}
+
+// ==================== Asset ====================
+
+type AssetRepository interface {
+	Insert(asset *model.Asset) (int64, error)
+	List(page, perPage int, assetType, search string, favoriteFilter bool) ([]model.Asset, int, error)
+	GetByIDs(ids []int64) ([]model.Asset, error)
+	ToggleFavorite(id int64, favorite bool) error
+	UpdateGithubURL(id int64, githubURL string) error
+	UpdateStoragePaths(id int64, localPath, githubURL string) error
+	Delete(ids []int64) error
 }
 
 // ==================== Task Queue ====================

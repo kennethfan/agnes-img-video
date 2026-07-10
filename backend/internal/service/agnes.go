@@ -133,56 +133,6 @@ func (c *AgnesClient) ImageToImage(imageValue, prompt, size string, n int, stren
 
 // ==================== 下载 ====================
 
-// DownloadAndSave 下载文件到 outputs/ 目录
-func (c *AgnesClient) DownloadAndSave(url, prefix string) (string, error) {
-	// 确定目标目录
-	outputDir := OutputDir
-	if _, err := os.Stat(outputDir); os.IsNotExist(err) {
-		outputDir = DownloadDir
-	}
-	if err := os.MkdirAll(outputDir, 0755); err != nil {
-		return "", fmt.Errorf("创建输出目录失败: %w", err)
-	}
-
-	timestamp := time.Now().Format("20060102_150405_000000")
-	filename := fmt.Sprintf("%s_%s.png", prefix, timestamp)
-	filepath := filepath.Join(outputDir, filename)
-
-	resp, err := http.Get(url)
-	if err != nil {
-		return "", fmt.Errorf("下载失败: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("下载返回非 200: %d", resp.StatusCode)
-	}
-
-	out, err := os.Create(filepath)
-	if err != nil {
-		return "", fmt.Errorf("创建文件失败: %w", err)
-	}
-	defer out.Close()
-
-	if _, err := io.Copy(out, resp.Body); err != nil {
-		return "", fmt.Errorf("写入文件失败: %w", err)
-	}
-
-	// 如果配置了 GitHub 存储，同步上传并返回 GitHub URL
-	if c.github != nil {
-		remotePath := fmt.Sprintf("images/%s", filename)
-		dlURL, err := c.github.UploadFile(filepath, remotePath)
-		if err != nil {
-			log.Printf("[GitHub] 上传图片失败: %v", err)
-		} else {
-			log.Printf("[GitHub] 图片已上传: %s", dlURL)
-			return dlURL, nil
-		}
-	}
-
-	return filepath, nil
-}
-
 // DownloadVideo 下载视频到本地
 func (c *AgnesClient) DownloadVideo(url, prefix string) (string, error) {
 	outputDir := OutputDir

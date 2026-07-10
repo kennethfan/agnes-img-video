@@ -786,6 +786,46 @@ func (tq *TaskQueue) recoverVideoTask(task *model.TaskRecord) {
 	}
 }
 
+// CreateTask 创建新的任务记录并设置 ID
+func (tq *TaskQueue) CreateTask(record *model.TaskRecord) error {
+	id, err := tq.repo.CreateTask(record.Type, record.Params)
+	if err != nil {
+		return err
+	}
+	record.ID = id
+	return nil
+}
+
+// EnqueuePolling 注册后台轮询任务，视频完成后执行 onComplete 回调
+func (tq *TaskQueue) EnqueuePolling(taskRecordID int64, videoID string, onComplete func(resultURL string)) error {
+	go func() {
+		opts := VideoOptions{
+			Duration:    5,
+			AspectRatio: "16:9",
+			FrameRate:   24,
+			RecordType:  "shot_video",
+		}
+		// 复用 pollVideoTask 的轮询逻辑（状态更新、订阅者通知等）
+		if err := tq.pollVideoTask(taskRecordID, videoID, "", opts); err != nil {
+			log.Printf("[TaskQueue] 轮询视频任务失败: task=%d err=%v", taskRecordID, err)
+			return
+		}
+		// 轮询成功后获取结果 URL 并执行回调
+		rec, err := tq.repo.GetTask(taskRecordID)
+		if err != nil || rec == nil || rec.Result == "" {
+			log.Printf("[TaskQueue] 获取任务结果失败: task=%d", taskRecordID)
+			return
+		}
+		var urls []string
+		if err := json.Unmarshal([]byte(rec.Result), &urls); err != nil || len(urls) == 0 {
+			log.Printf("[TaskQueue] 解析结果 URL 失败: task=%d", taskRecordID)
+			return
+		}
+		onComplete(urls[0])
+	}()
+	return nil
+}
+
 // ==================== 清理 ====================
 
 // cleanupLoop 定期清理过期任务
