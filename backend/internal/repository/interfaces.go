@@ -109,6 +109,7 @@ type AssetRepository interface {
 	GetByIDs(ids []int64) ([]model.Asset, error)
 	ToggleFavorite(id int64, favorite bool) error
 	UpdateGithubURL(id int64, githubURL string) error
+	UpdateStoragePaths(id int64, localPath, githubURL string) error
 	Delete(ids []int64) error
 }
 

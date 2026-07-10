@@ -44,6 +44,17 @@ func (r *AssetRepository) List(page, perPage int, assetType, search string, favo
 	return assets, int(total), nil
 }
 
+func (r *AssetRepository) UpdateStoragePaths(id int64, localPath, githubURL string) error {
+	if err := r.db.Model(&model.Asset{}).Where("id = ?", id).
+		Updates(map[string]interface{}{
+			"local_path": localPath,
+			"github_url": githubURL,
+		}).Error; err != nil {
+		return fmt.Errorf("更新存储路径失败: %w", err)
+	}
+	return nil
+}
+
 func (r *AssetRepository) GetByIDs(ids []int64) ([]model.Asset, error) {
 	var assets []model.Asset
 	if err := r.db.Where("id IN ?", ids).Find(&assets).Error; err != nil {
