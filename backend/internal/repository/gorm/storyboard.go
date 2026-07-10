@@ -102,20 +102,26 @@ func (r *StoryboardRepository) ListShots(projectID int64) ([]model.StoryboardSho
 	}
 	result := make([]model.StoryboardShot, len(shots))
 	for i, s := range shots {
-		result[i] = model.StoryboardShot{
-			ID:             s.ID,
-			ProjectID:      s.ProjectID,
-			Sequence:       s.Sequence,
-			Prompt:         s.Prompt,
-			Type:           s.Type,
-			ReferenceImage: s.ReferenceImage,
-			Status:         s.Status,
-			ResultVideo:    s.ResultVideo,
-			TaskID:         s.TaskID,
-			CreatedAt:      s.CreatedAt,
-		}
+		result[i] = *r.toShotModel(&s)
 	}
 	return result, nil
+}
+
+// toShotModel 将 GORM 模型转换为 API 模型
+func (r *StoryboardRepository) toShotModel(s *StoryboardShot) *model.StoryboardShot {
+	return &model.StoryboardShot{
+		ID:             s.ID,
+		ProjectID:      s.ProjectID,
+		Sequence:       s.Sequence,
+		Prompt:         s.Prompt,
+		Type:           s.Type,
+		ReferenceImage: s.ReferenceImage,
+		Status:         s.Status,
+		ResultVideo:    s.ResultVideo,
+		TaskID:         s.TaskID,
+		TaskRecordID:   s.TaskRecordID,
+		CreatedAt:      s.CreatedAt,
+	}
 }
 
 func (r *StoryboardRepository) CreateShot(projectID int64, seq int, prompt, shotType, refImage string) (int64, error) {
@@ -154,6 +160,53 @@ func (r *StoryboardRepository) ReorderShots(ids []int64) error {
 		}
 		return nil
 	})
+}
+
+func (r *StoryboardRepository) GetShot(id int64) (*model.StoryboardShot, error) {
+	var s StoryboardShot
+	if err := r.db.First(&s, id).Error; err != nil {
+		return nil, err
+	}
+	return r.toShotModel(&s), nil
+}
+
+func (r *StoryboardRepository) UpdateShotStatus(id int64, status, taskID string, taskRecordID int64) error {
+	return r.db.Model(&StoryboardShot{}).Where("id = ?", id).Updates(map[string]any{
+		"status":          status,
+		"task_id":         taskID,
+		"task_record_id":  taskRecordID,
+	}).Error
+}
+
+func (r *StoryboardRepository) UpdateShotResult(id int64, resultVideo string) error {
+	return r.db.Model(&StoryboardShot{}).Where("id = ?", id).Updates(map[string]any{
+		"status":       "completed",
+		"result_video": resultVideo,
+	}).Error
+}
+
+func (r *StoryboardRepository) BatchCreateShots(projectID int64, prompts []string, shotType string) ([]model.StoryboardShot, error) {
+	var maxSeq int64
+	r.db.Model(&StoryboardShot{}).Where("project_id = ?", projectID).Select("COALESCE(MAX(sequence), 0)").Scan(&maxSeq)
+
+	var gormShots []StoryboardShot
+	for i, prompt := range prompts {
+		gormShots = append(gormShots, StoryboardShot{
+			ProjectID: projectID,
+			Sequence:  int(maxSeq) + i + 1,
+			Prompt:    prompt,
+			Type:      shotType,
+			Status:    "pending",
+		})
+	}
+	if err := r.db.Create(&gormShots).Error; err != nil {
+		return nil, err
+	}
+	result := make([]model.StoryboardShot, len(gormShots))
+	for i, s := range gormShots {
+		result[i] = *r.toShotModel(&s)
+	}
+	return result, nil
 }
 
 func (r *StoryboardRepository) Close() error {

@@ -38,6 +38,7 @@ type StoryboardShot struct {
 	Status         string
 	ResultVideo    string `gorm:"column:result_video"`
 	TaskID         string `gorm:"column:task_id"`
+	TaskRecordID   int64  `gorm:"column:task_record_id"`
 	CreatedAt      string
 }
 

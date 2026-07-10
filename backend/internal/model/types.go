@@ -254,6 +254,7 @@ type StoryboardShot struct {
 	Status         string `json:"status"`
 	ResultVideo    string `json:"result_video"`
 	TaskID         string `json:"task_id"`
+	TaskRecordID   int64  `json:"task_record_id"`
 	CreatedAt      string `json:"created_at"`
 }
 

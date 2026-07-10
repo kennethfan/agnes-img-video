@@ -44,6 +44,10 @@ type StoryboardRepository interface {
 	UpdateShot(id int64, prompt, shotType, refImage string) error
 	DeleteShot(id int64) error
 	ReorderShots(ids []int64) error
+	GetShot(id int64) (*model.StoryboardShot, error)
+	UpdateShotStatus(id int64, status, taskID string, taskRecordID int64) error
+	UpdateShotResult(id int64, resultVideo string) error
+	BatchCreateShots(projectID int64, prompts []string, shotType string) ([]model.StoryboardShot, error)
 	Close() error
 }
 
