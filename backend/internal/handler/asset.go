@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -38,6 +39,7 @@ func (h *AssetHandler) SaveAsset(c *gin.Context) {
 		return
 	}
 	if req.ImageURL == "" || req.Prompt == "" || req.Mode == "" {
+		log.Printf("[Asset] 保存参数不完整: image_url=%q prompt=%q mode=%q", req.ImageURL, req.Prompt, req.Mode)
 		c.JSON(http.StatusBadRequest, gin.H{"error": "参数不完整"})
 		return
 	}
@@ -53,8 +55,9 @@ func (h *AssetHandler) SaveAsset(c *gin.Context) {
 		assetType = "video"
 	}
 
-	// 解析本地路径
+	// 解析本地路径 — 本地路径直接引用，远程 URL 则下载到本地
 	var localPath string
+	var githubURL string
 	if !strings.HasPrefix(req.ImageURL, "http://") && !strings.HasPrefix(req.ImageURL, "https://") {
 		// 本地路径：尝试 outputs/ 和 backend/outputs/
 		candidates := []string{
@@ -71,6 +74,59 @@ func (h *AssetHandler) SaveAsset(c *gin.Context) {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "图片文件不存在"})
 			return
 		}
+	} else {
+		// 远程 URL：下载到本地 outputs/ 目录
+		outputDir := "outputs"
+		os.MkdirAll(outputDir, 0755)
+
+		ext := filepath.Ext(req.ImageURL)
+		if ext == "" {
+			ext = ".png"
+			if assetType == "video" {
+				ext = ".mp4"
+			}
+		}
+
+		timestamp := time.Now().Format("20060102_150405_000000")
+		filename := fmt.Sprintf("asset_%s%s", timestamp, ext)
+		filePath := filepath.Join(outputDir, filename)
+
+		resp, err := http.Get(req.ImageURL)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "下载文件失败: " + err.Error()})
+			return
+		}
+		defer resp.Body.Close()
+
+		if resp.StatusCode != http.StatusOK {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "下载文件失败: 上游返回 " + http.StatusText(resp.StatusCode)})
+			return
+		}
+
+		out, err := os.Create(filePath)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "创建文件失败: " + err.Error()})
+			return
+		}
+		defer out.Close()
+
+		if _, err := io.Copy(out, resp.Body); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "写入文件失败: " + err.Error()})
+			return
+		}
+
+		localPath = filePath
+
+		// 如果配置了 GitHub 存储，同步上传
+		if githubStorage != nil {
+			remotePath := fmt.Sprintf("images/%s", filename)
+			uploadedURL, err := githubStorage.UploadFile(filePath, remotePath)
+			if err != nil {
+				log.Printf("[Asset] 上传到 GitHub 失败: %v", err)
+			} else {
+				githubURL = uploadedURL
+			}
+		}
 	}
 
 	asset := &model.Asset{
@@ -81,6 +137,7 @@ func (h *AssetHandler) SaveAsset(c *gin.Context) {
 		Favorite:    false,
 		OriginalURL: req.ImageURL,
 		LocalPath:   localPath,
+		GitHubURL:   githubURL,
 	}
 
 	id, err := h.repo.Insert(asset)
