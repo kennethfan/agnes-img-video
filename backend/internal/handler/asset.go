@@ -116,17 +116,8 @@ func (h *AssetHandler) SaveAsset(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"id": id})
 }
 
-// storeFile 下载远程文件并根据 storage_target 处理存储
-// 返回 (localPath, githubURL, error)
-func (h *AssetHandler) storeFile(imageURL string, assetType string) (string, string, error) {
-	storageTarget := "local"
-	if s, err := h.settingsRepo.GetSettings(); err == nil {
-		storageTarget = s.StorageTarget
-	}
-	if storageTarget == "" {
-		return "", "", fmt.Errorf("存储目标未配置，请在设置中至少选择一种存储方式（本地/GitHub）")
-	}
-
+// downloadToFile 从 URL 下载文件到 outputs/，返回本地文件路径
+func (h *AssetHandler) downloadToFile(imageURL string, assetType string) (string, error) {
 	outputDir := "outputs"
 	os.MkdirAll(outputDir, 0755)
 
@@ -144,22 +135,41 @@ func (h *AssetHandler) storeFile(imageURL string, assetType string) (string, str
 
 	resp, err := http.Get(imageURL)
 	if err != nil {
-		return "", "", fmt.Errorf("下载文件失败: %w", err)
+		return "", fmt.Errorf("下载文件失败: %w", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return "", "", fmt.Errorf("下载文件失败: 上游返回 %s", http.StatusText(resp.StatusCode))
+		return "", fmt.Errorf("下载文件失败: 上游返回 %s", http.StatusText(resp.StatusCode))
 	}
 
 	out, err := os.Create(filePath)
 	if err != nil {
-		return "", "", fmt.Errorf("创建文件失败: %w", err)
+		return "", fmt.Errorf("创建文件失败: %w", err)
 	}
 	defer out.Close()
 
 	if _, err := io.Copy(out, resp.Body); err != nil {
-		return "", "", fmt.Errorf("写入文件失败: %w", err)
+		return "", fmt.Errorf("写入文件失败: %w", err)
+	}
+
+	return filePath, nil
+}
+
+// storeFile 下载远程文件并根据 storage_target 处理存储
+// 返回 (localPath, githubURL, error)
+func (h *AssetHandler) storeFile(imageURL string, assetType string) (string, string, error) {
+	storageTarget := "local"
+	if s, err := h.settingsRepo.GetSettings(); err == nil {
+		storageTarget = s.StorageTarget
+	}
+	if storageTarget == "" {
+		return "", "", fmt.Errorf("存储目标未配置，请在设置中至少选择一种存储方式（本地/GitHub）")
+	}
+
+	filePath, err := h.downloadToFile(imageURL, assetType)
+	if err != nil {
+		return "", "", err
 	}
 
 	var localPath string
@@ -173,7 +183,7 @@ func (h *AssetHandler) storeFile(imageURL string, assetType string) (string, str
 	}
 
 	if uploadGithub {
-		remotePath := fmt.Sprintf("images/%s", filename)
+		remotePath := fmt.Sprintf("images/%s", filepath.Base(filePath))
 		uploadedURL, err := githubStorage.UploadFile(filePath, remotePath)
 		if err != nil {
 			log.Printf("[Asset] 上传到 GitHub 失败: %v", err)
@@ -203,6 +213,7 @@ func (h *AssetHandler) processAssetStorage(id int64, imageURL string, assetType 
 }
 
 // TransferAsset 转存 — 对已入库 asset 补全 local_path / github_url
+// 按当前存储目标缺啥补啥，不重复下载已就绪的部分
 func (h *AssetHandler) TransferAsset(c *gin.Context) {
 	idStr := c.Param("id")
 	id, err := strconv.ParseInt(idStr, 10, 64)
@@ -222,26 +233,83 @@ func (h *AssetHandler) TransferAsset(c *gin.Context) {
 	}
 	asset := assets[0]
 
-	// 本地路径（非远程 URL）直接返回
+	// 本地路径无需转存
 	if !strings.HasPrefix(asset.OriginalURL, "http://") && !strings.HasPrefix(asset.OriginalURL, "https://") {
 		c.JSON(http.StatusOK, gin.H{"message": "本地文件无需转存", "asset": asset})
 		return
 	}
 
-	// 下载远程文件并根据 storage_target 处理
-	localPath, githubURL, err := h.storeFile(asset.OriginalURL, asset.Type)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+	// 读取当前存储目标
+	storageTarget := "local"
+	if s, err := h.settingsRepo.GetSettings(); err == nil {
+		storageTarget = s.StorageTarget
+	}
+	if storageTarget == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "未配置存储目标，请在设置中至少选择一种存储方式（本地/GitHub）"})
 		return
 	}
 
-	// 更新 asset 记录
+	// 判断缺什么
+	needLocal := (storageTarget == "local" || storageTarget == "both") && asset.LocalPath == ""
+	needGithub := (storageTarget == "github" || storageTarget == "both") && asset.GitHubURL == ""
+
+	if !needLocal && !needGithub {
+		c.JSON(http.StatusOK, gin.H{"message": "当前存储目标均已就绪", "asset": asset})
+		return
+	}
+
+	// 决定下载源：githubURL > localPath > originalURL
+	downloadURL := asset.OriginalURL
+	if asset.GitHubURL != "" {
+		downloadURL = asset.GitHubURL
+	} else if asset.LocalPath != "" {
+		downloadURL = asset.LocalPath
+	}
+
+	// 下载文件（仅当需要且本地无现成文件时）
+	filePath := ""
+	downloaded := false
+	if needLocal || (needGithub && asset.LocalPath == "") {
+		filePath, err = h.downloadToFile(downloadURL, asset.Type)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+		downloaded = true
+	} else if needGithub && asset.LocalPath != "" {
+		// 已有本地文件，直接用来上传 GitHub
+		filePath = asset.LocalPath
+	}
+
+	// 合并路径：新增的部分 + 已有的部分
+	localPath := asset.LocalPath
+	githubURL := asset.GitHubURL
+
+	if needLocal && filePath != "" {
+		localPath = filePath
+	}
+	if needGithub && filePath != "" && githubStorage != nil {
+		remotePath := fmt.Sprintf("images/%s", filepath.Base(filePath))
+		uploadedURL, uErr := githubStorage.UploadFile(filePath, remotePath)
+		if uErr != nil {
+			log.Printf("[Asset] 上传到 GitHub 失败: %v", uErr)
+		} else {
+			githubURL = uploadedURL
+		}
+	}
+
+	// 仅 GitHub 模式且是刚下载的文件：上传后删除本地临时文件
+	if storageTarget == "github" && downloaded && githubURL != "" {
+		os.Remove(filePath)
+	}
+
+	// 更新 DB
 	if err := h.repo.UpdateStoragePaths(id, localPath, githubURL); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "更新存储路径失败: " + err.Error()})
 		return
 	}
 
-	// 重新查询返回最新数据
+	// 返回最新数据
 	updated, _ := h.repo.GetByIDs([]int64{id})
 	if len(updated) > 0 {
 		c.JSON(http.StatusOK, gin.H{"asset": updated[0]})
