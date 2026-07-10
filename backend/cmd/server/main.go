@@ -95,7 +95,8 @@ func main() {
 	ideasHandler := handler.NewIdeasHandler(svc)
 	comicHandler := handler.NewComicHandler(svc)
 	accessLogHandler := handler.NewAccessLogHandler(accessLogRepo)
-	assetHandler := handler.NewAssetHandler(histRepo)
+	assetRepo := gormrepo.NewAssetRepository(gormDB)
+	assetHandler := handler.NewAssetHandler(assetRepo)
 
 	storyboardRepo := gormrepo.NewStoryboardRepository(gormDB)
 	storyboardHandler := handler.NewStoryboardHandler(storyboardRepo)
@@ -143,6 +144,7 @@ func main() {
 		api.PUT("/settings", settingsHandler.UpdateSettings)
 
 		api.GET("/assets", assetHandler.ListAssets)
+		api.POST("/assets", assetHandler.SaveAsset)
 		api.POST("/assets/favorite", assetHandler.ToggleFavorite)
 		api.POST("/assets/batch-download", assetHandler.BatchDownload)
 		api.DELETE("/assets", assetHandler.DeleteAssets)
