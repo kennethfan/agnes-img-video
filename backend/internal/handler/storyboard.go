@@ -253,6 +253,41 @@ func (h *StoryboardHandler) ReorderShots(c *gin.Context) {
 	_ = projectID
 }
 
+func (h *StoryboardHandler) BatchCreateShots(c *gin.Context) {
+	projectID, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "无效的项目ID"})
+		return
+	}
+
+	var req struct {
+		Prompts []string `json:"prompts"`
+		Type    string   `json:"type"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "参数错误: " + err.Error()})
+		return
+	}
+
+	if len(req.Prompts) == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "请提供至少一个提示词"})
+		return
+	}
+
+	if req.Type == "" {
+		req.Type = "text2video"
+	}
+
+	shots, err := h.repo.BatchCreateShots(projectID, req.Prompts, req.Type)
+	if err != nil {
+		log.Printf("[Storyboard] 批量创建镜头失败: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "批量创建镜头失败: " + err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusCreated, gin.H{"shots": shots})
+}
+
 func (h *StoryboardHandler) GenerateShots(c *gin.Context) {
 	projectID, err := strconv.ParseInt(c.Param("id"), 10, 64)
 	if err != nil {

@@ -159,6 +159,7 @@ func main() {
 			storyboard.DELETE("/projects/:id", storyboardHandler.DeleteProject)
 			storyboard.POST("/projects/:id/duplicate", storyboardHandler.DuplicateProject)
 			storyboard.POST("/projects/:id/shots", storyboardHandler.CreateShot)
+			storyboard.POST("/projects/:id/shots/batch", storyboardHandler.BatchCreateShots)
 			storyboard.PUT("/projects/:id/shots/reorder", storyboardHandler.ReorderShots)
 			storyboard.PUT("/shots/:id", storyboardHandler.UpdateShot)
 			storyboard.DELETE("/shots/:id", storyboardHandler.DeleteShot)
