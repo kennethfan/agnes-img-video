@@ -2,6 +2,7 @@
 import { ref, watch, onUnmounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { submitMultiImageVideo } from '../api/video'
+import { saveAsset } from '../api/assets'
 import { connectTaskSSE } from '../utils/sse'
 import TaskProgress from '../components/TaskProgress.vue'
 import { useRedoStore } from '../stores/redo'
@@ -17,8 +18,27 @@ const errorMsg = ref('')
 const resultVideos = ref<string[]>([])
 const showProgress = ref(false)
 const taskId = ref<number | string>('')
+const savingUrls = ref<Set<string>>(new Set())
 const redoStore = useRedoStore()
 let cleanupSSE: (() => void) | null = null
+
+function downloadVideo(url: string) {
+  window.open('/api/v1/download?url=' + encodeURIComponent(url), '_blank')
+}
+
+async function handleSaveToGallery(url: string) {
+  savingUrls.value = new Set([...savingUrls.value, url])
+  try {
+    await saveAsset({ image_url: url, prompt: prompt.value, mode: 'multi_image_video' })
+    ElMessage.success('已保存到作品库')
+  } catch (e: any) {
+    ElMessage.error(e.message || '保存到作品库失败')
+  } finally {
+    const next = new Set(savingUrls.value)
+    next.delete(url)
+    savingUrls.value = next
+  }
+}
 
 onUnmounted(() => {
   cleanupSSE?.()
@@ -153,13 +173,27 @@ async function handleGenerate() {
       </div>
       <TaskProgress v-else-if="showProgress && taskId" :task-id="taskId" />
       <div v-else-if="resultVideos.length > 0" style="padding: 20px">
-        <video
-          v-for="(video, idx) in resultVideos"
-          :key="idx"
-          :src="video"
-          controls
-          style="width: 100%; max-height: 400px; border-radius: var(--radius-sm); margin-bottom: 12px"
-        />
+        <div v-for="(video, idx) in resultVideos" :key="idx" style="margin-bottom: 12px">
+          <video
+            :src="video"
+            controls
+            style="width: 100%; max-height: 400px; border-radius: var(--radius-sm)"
+          />
+          <div style="display: flex; gap: 8px; margin-top: 8px">
+            <el-button size="small" type="primary" @click="downloadVideo(video)">
+              下载
+            </el-button>
+            <el-button
+              size="small"
+              type="success"
+              :loading="savingUrls.has(video)"
+              :disabled="savingUrls.has(video)"
+              @click="handleSaveToGallery(video)"
+            >
+              保存到作品库
+            </el-button>
+          </div>
+        </div>
       </div>
       <div v-else style="padding: 20px; text-align: center; color: var(--text-muted); font-size: 14px">
         输入图片 URL 并填写提示词，视频结果将出现在这里
