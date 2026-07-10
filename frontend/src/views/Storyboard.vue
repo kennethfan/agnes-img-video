@@ -110,6 +110,32 @@ async function duplicateCurrentProject() {
   }
 }
 
+async function duplicateProjectById(id: number) {
+  try {
+    await duplicateProject(id)
+    ElMessage.success('复制成功')
+    await loadProjects()
+  } catch (e: any) {
+    ElMessage.error('复制失败: ' + (e.message || ''))
+  }
+}
+
+async function deleteProjectById(id: number) {
+  try {
+    await deleteProject(id)
+    ElMessage.success('删除成功')
+    await loadProjects()
+  } catch (e: any) {
+    ElMessage.error('删除失败: ' + (e.message || ''))
+  }
+}
+
+function editProjectByObj(project: StoryboardProject) {
+  isEditingProject.value = true
+  projectForm.value = { title: project.title, script: project.script }
+  showProjectDialog.value = true
+}
+
 function openNewShot() {
   editingShot.value = null
   shotForm.value = { prompt: '', type: 'text2video', reference_image: '' }
@@ -284,52 +310,67 @@ function previewVideo(url: string) {
 <template>
   <div>
     <template v-if="view === 'list'">
-      <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px">
-        <h3 style="margin: 0">分镜项目</h3>
-        <el-button type="primary" size="small" :icon="Plus" @click="openNewProject">新建项目</el-button>
+      <div class="storyboard-header">
+        <h3>分镜项目</h3>
+        <el-button type="primary" :icon="Plus" @click="openNewProject">新建项目</el-button>
       </div>
 
       <div v-loading="loading">
-        <div v-if="projects.length === 0 && !loading" style="text-align: center; padding: 60px; color: #c0c4cc">
+        <div v-if="projects.length === 0 && !loading" class="empty-state">
           <el-icon :size="48"><VideoPlay /></el-icon>
-          <p style="margin-top: 12px">暂无分镜项目</p>
-          <el-button type="primary" size="small" @click="openNewProject">创建第一个项目</el-button>
+          <p>暂无分镜项目</p>
+          <el-button type="primary" @click="openNewProject">创建第一个项目</el-button>
         </div>
 
-        <div v-else style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px">
-          <div v-for="project in projects" :key="project.id" class="project-card" @click="openProject(project)">
-            <div style="font-weight: 600; font-size: 15px; color: #303133; margin-bottom: 8px">
-              {{ project.title || '未命名项目' }}
-            </div>
-            <div style="font-size: 12px; color: #909399">
-              {{ project.shot_count }} 个镜头 · {{ project.updated_at?.slice(0, 10) }}
-            </div>
-          </div>
-        </div>
+        <el-row :gutter="16" v-else>
+          <el-col
+            v-for="project in projects"
+            :key="project.id"
+            :xs="24" :sm="12" :md="8" :lg="6"
+            class="mb-4"
+          >
+            <el-card shadow="hover" class="project-card" @click="openProject(project)">
+              <div class="project-card-header">
+                <h3>{{ project.title || '未命名项目' }}</h3>
+                <div class="project-card-actions" @click.stop>
+                  <el-button text @click="editProjectByObj(project)"><el-icon><Edit /></el-icon></el-button>
+                  <el-button text @click="duplicateProjectById(project.id)"><el-icon><CopyDocument /></el-icon></el-button>
+                  <el-button text type="danger" @click="deleteProjectById(project.id)"><el-icon><Delete /></el-icon></el-button>
+                </div>
+              </div>
+              <div class="project-card-meta">
+                <span>{{ project.shot_count }} 个镜头</span>
+                <span>{{ project.updated_at?.slice(0, 10) }}</span>
+              </div>
+            </el-card>
+          </el-col>
+        </el-row>
       </div>
     </template>
 
     <template v-else-if="view === 'detail' && currentProject">
-      <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px; flex-wrap: wrap">
+      <div class="detail-header">
         <el-button text @click="backToList">&lt; 返回</el-button>
-        <h3 style="margin: 0; flex: 1">{{ currentProject.title || '未命名项目' }}</h3>
-        <el-button size="small" :icon="Document" @click="showImportDialog = true">从脚本导入</el-button>
-        <el-button size="small" :icon="Edit" @click="editProject">编辑</el-button>
-        <el-button size="small" :icon="CopyDocument" @click="duplicateCurrentProject">复制</el-button>
-        <el-button size="small" type="danger" :icon="Delete" @click="deleteCurrentProject">删除</el-button>
-        <el-button
-          v-if="shots.some(s => s.status === 'pending')"
-          type="primary"
-          size="small"
-          :loading="generating"
-          @click="handleGenerateShots"
-          :disabled="shots.filter(s => s.status === 'pending').length === 0"
-        >
-          {{ generating ? '生成中...' : `批量生成 (${shots.filter(s => s.status === 'pending').length})` }}
-        </el-button>
+        <h3>{{ currentProject.title || '未命名项目' }}</h3>
+        <div class="detail-actions">
+          <el-button size="small" :icon="Document" @click="showImportDialog = true">从脚本导入</el-button>
+          <el-button size="small" :icon="Edit" @click="editProject">编辑</el-button>
+          <el-button size="small" :icon="CopyDocument" @click="duplicateCurrentProject">复制</el-button>
+          <el-button size="small" type="danger" :icon="Delete" @click="deleteCurrentProject">删除</el-button>
+          <el-button
+            v-if="shots.some(s => s.status === 'pending')"
+            type="primary"
+            size="small"
+            :loading="generating"
+            @click="handleGenerateShots"
+            :disabled="shots.filter(s => s.status === 'pending').length === 0"
+          >
+            {{ generating ? '生成中...' : `批量生成 (${shots.filter(s => s.status === 'pending').length})` }}
+          </el-button>
+        </div>
       </div>
 
-      <div v-if="generateResult" style="margin-bottom: 16px">
+      <div v-if="generateResult" class="generate-result">
         <el-alert
           :title="`已提交 ${generateResult.submitted}/${generateResult.total} 个镜头生成任务`"
           :type="generateResult.failed > 0 ? 'warning' : 'success'"
@@ -338,24 +379,31 @@ function previewVideo(url: string) {
         />
       </div>
 
+      <div v-if="currentProject.script" class="script-preview">
+        <h3>脚本</h3>
+        <p>{{ currentProject.script }}</p>
+      </div>
+
       <div v-loading="loading">
         <div v-if="shots.length === 0 && !loading" style="text-align: center; padding: 40px; color: #c0c4cc">
           <p>暂无镜头，添加第一个镜头开始策划</p>
         </div>
 
-        <ShotCard
-          v-for="(shot, index) in shots"
-          :key="shot.id"
-          :shot="shot"
-          :index="index"
-          @edit="editShot(shot)"
-          @delete="deleteShotById(shot.id)"
-          @generate="generateSingleShot"
-          @preview="shot.result_video ? previewVideo(shot.result_video) : undefined"
-          @drop="onShotDrop"
-        />
+        <div v-else class="shots-grid">
+          <ShotCard
+            v-for="(shot, index) in shots"
+            :key="shot.id"
+            :shot="shot"
+            :index="index"
+            @edit="editShot(shot)"
+            @delete="deleteShotById(shot.id)"
+            @generate="generateSingleShot"
+            @preview="shot.result_video ? previewVideo(shot.result_video) : undefined"
+            @drop="onShotDrop"
+          />
+        </div>
 
-        <div style="text-align: center; margin-top: 16px">
+        <div class="add-shot">
           <el-button type="primary" plain :icon="Plus" @click="openNewShot">添加镜头</el-button>
         </div>
       </div>
@@ -453,16 +501,94 @@ function previewVideo(url: string) {
 </template>
 
 <style scoped>
+.storyboard-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--spacing-md, 20px);
+}
+.empty-state {
+  text-align: center;
+  padding: 60px 0;
+  color: #c0c4cc;
+}
+.empty-state p {
+  margin-top: 12px;
+}
 .project-card {
-  border: 1px solid #ebeef5;
-  border-radius: 8px;
-  padding: 16px;
   cursor: pointer;
-  transition: box-shadow 0.2s, border-color 0.2s;
-  background: #fff;
+  transition: transform 0.2s;
 }
 .project-card:hover {
-  box-shadow: 0 2px 12px rgba(0,0,0,0.08);
-  border-color: #409eff;
+  transform: translateY(-2px);
+}
+.project-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+.project-card-header h3 {
+  margin: 0;
+  font-size: 16px;
+}
+.project-card-meta {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 12px;
+  color: #909399;
+  font-size: 13px;
+}
+.project-card-actions {
+  display: flex;
+  gap: 2px;
+}
+.detail-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+.detail-header h3 {
+  flex: 1;
+  margin: 0;
+}
+.detail-actions {
+  display: flex;
+  gap: 8px;
+}
+.shots-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 16px;
+  margin-top: 16px;
+}
+.generate-result {
+  margin-bottom: 16px;
+}
+.script-preview {
+  background: #f5f7fa;
+  padding: 12px 16px;
+  border-radius: 8px;
+  margin-bottom: 16px;
+}
+.script-preview h3 {
+  margin: 0 0 8px;
+  font-size: 14px;
+  color: #606266;
+}
+.script-preview p {
+  margin: 0;
+  white-space: pre-wrap;
+  color: #303133;
+  font-size: 14px;
+  line-height: 1.6;
+}
+.add-shot {
+  margin-top: 24px;
+  text-align: center;
+}
+.mb-4 {
+  margin-bottom: 16px;
 }
 </style>
