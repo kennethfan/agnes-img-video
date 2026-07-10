@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Edit, Delete, CopyDocument, VideoPlay } from '@element-plus/icons-vue'
 import { listProjects, getProject, createProject, updateProject, deleteProject, duplicateProject, createShot, updateShot, deleteShot, generateShots } from '../api/storyboard'
-import type { StoryboardProject, StoryboardShot } from '../types'
+import type { StoryboardProject, StoryboardShot, GenerateShotsResponse } from '../types'
 import ShotCard from '../components/ShotCard.vue'
 
 const view = ref<'list' | 'detail'>('list')
@@ -171,17 +171,51 @@ async function deleteShotById(id: number) {
   }
 }
 
+const generating = ref(false)
+const generateResult = ref<GenerateShotsResponse | null>(null)
+
 async function handleGenerateShots() {
   if (!currentProject.value) return
+  generating.value = true
+  generateResult.value = null
   try {
-    await generateShots(currentProject.value.id)
-    ElMessage.success('批量生成已触发')
-    const data = await getProject(currentProject.value.id)
-    shots.value = data.shots
+    const result = await generateShots(currentProject.value.id)
+    generateResult.value = result
+    ElMessage.success(`已提交 ${result.submitted} 个镜头生成任务`)
+    if (result.submitted > 0) {
+      startPollingShots(currentProject.value.id)
+    }
   } catch (e: any) {
-    ElMessage.error('批量生成失败')
+    ElMessage.error('批量生成失败: ' + (e.message || ''))
+  } finally {
+    generating.value = false
   }
 }
+
+let pollTimer: ReturnType<typeof setInterval> | null = null
+
+function startPollingShots(projectId: number) {
+  pollTimer = setInterval(async () => {
+    try {
+      const resp = await getProject(projectId)
+      shots.value = resp.shots
+      const hasGenerating = resp.shots.some(s => s.status === 'generating')
+      if (!hasGenerating) {
+        if (pollTimer) {
+          clearInterval(pollTimer)
+          pollTimer = null
+        }
+        ElMessage.success('所有镜头生成完毕')
+      }
+    } catch {
+      // 忽略轮询错误
+    }
+  }, 3000)
+}
+
+onUnmounted(() => {
+  if (pollTimer) clearInterval(pollTimer)
+})
 
 const previewUrl = ref('')
 const showPreview = ref(false)
@@ -227,9 +261,25 @@ function previewVideo(url: string) {
         <el-button size="small" :icon="Edit" @click="editProject">编辑</el-button>
         <el-button size="small" :icon="CopyDocument" @click="duplicateCurrentProject">复制</el-button>
         <el-button size="small" type="danger" :icon="Delete" @click="deleteCurrentProject">删除</el-button>
-        <el-button v-if="shots.some(s => s.status === 'pending')" type="primary" size="small" @click="handleGenerateShots">
-          批量生成 ({{ shots.filter(s => s.status === 'pending').length }})
+        <el-button
+          v-if="shots.some(s => s.status === 'pending')"
+          type="primary"
+          size="small"
+          :loading="generating"
+          @click="handleGenerateShots"
+          :disabled="shots.filter(s => s.status === 'pending').length === 0"
+        >
+          {{ generating ? '生成中...' : `批量生成 (${shots.filter(s => s.status === 'pending').length})` }}
         </el-button>
+      </div>
+
+      <div v-if="generateResult" style="margin-bottom: 16px">
+        <el-alert
+          :title="`已提交 ${generateResult.submitted}/${generateResult.total} 个镜头生成任务`"
+          :type="generateResult.failed > 0 ? 'warning' : 'success'"
+          show-icon
+          closable
+        />
       </div>
 
       <div v-loading="loading">

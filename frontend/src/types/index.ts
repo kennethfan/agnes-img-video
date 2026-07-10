@@ -127,6 +127,12 @@ export interface StoryboardProject {
   shot_count: number
 }
 
+export interface GenerateShotsResponse {
+  submitted: number
+  total: number
+  failed: number
+}
+
 export interface StoryboardShot {
   id: number
   project_id: number
