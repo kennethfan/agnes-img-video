@@ -235,6 +235,7 @@ async function handleGenerateShots() {
 let pollTimer: ReturnType<typeof setInterval> | null = null
 
 function startPollingShots(projectId: number) {
+  if (pollTimer) clearInterval(pollTimer)
   pollTimer = setInterval(async () => {
     try {
       const resp = await getProject(projectId)
@@ -247,8 +248,8 @@ function startPollingShots(projectId: number) {
         }
         ElMessage.success('所有镜头生成完毕')
       }
-    } catch {
-      // 忽略轮询错误
+    } catch (e: any) {
+      console.warn('[Storyboard] 轮询镜头状态失败:', e)
     }
   }, 3000)
 }
@@ -258,6 +259,7 @@ onUnmounted(() => {
 })
 
 const showImportDialog = ref(false)
+const importing = ref(false)
 const importScript = ref('')
 const splitMode = ref<'line' | 'paragraph'>('paragraph')
 
@@ -271,6 +273,7 @@ const previewCount = computed(() => {
 
 async function doImport() {
   if (!currentProject.value) return
+  if (importing.value) return
   const text = importScript.value.trim()
   if (!text) {
     ElMessage.warning('请输入脚本内容')
@@ -286,6 +289,7 @@ async function doImport() {
     return
   }
 
+  importing.value = true
   try {
     const resp = await batchCreateShots(currentProject.value.id, prompts)
     const projectResp = await getProject(currentProject.value.id)
@@ -295,6 +299,8 @@ async function doImport() {
     ElMessage.success(`成功导入 ${resp.shots.length} 个镜头`)
   } catch (e: any) {
     ElMessage.error('导入失败: ' + (e.message || ''))
+  } finally {
+    importing.value = false
   }
 }
 
@@ -488,7 +494,7 @@ function previewVideo(url: string) {
       </div>
       <template #footer>
         <el-button @click="showImportDialog = false">取消</el-button>
-        <el-button type="primary" @click="doImport" :disabled="previewCount === 0">
+        <el-button type="primary" @click="doImport" :disabled="previewCount === 0" :loading="importing">
           导入并创建 {{ previewCount }} 个镜头
         </el-button>
       </template>

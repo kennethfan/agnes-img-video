@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"sync"
+	"sync/atomic"
 
 	"github.com/agnes-image-tool/backend/internal/model"
 	"github.com/agnes-image-tool/backend/internal/repository"
@@ -52,6 +53,7 @@ func (g *StoryboardGenerator) GenerateAll(ctx context.Context, projectID int64) 
 
 	var wg sync.WaitGroup
 	errCh := make(chan error, len(shots))
+	var submitted atomic.Int32
 
 	for i := range shots {
 		if shots[i].Status != "pending" {
@@ -70,7 +72,7 @@ func (g *StoryboardGenerator) GenerateAll(ctx context.Context, projectID int64) 
 				errCh <- err
 				return
 			}
-			result.Submitted++
+			submitted.Add(1)
 		}(shots[i])
 	}
 
@@ -80,6 +82,7 @@ func (g *StoryboardGenerator) GenerateAll(ctx context.Context, projectID int64) 
 	for range errCh {
 		result.Failed++
 	}
+	result.Submitted = int(submitted.Load())
 
 	return result, nil
 }

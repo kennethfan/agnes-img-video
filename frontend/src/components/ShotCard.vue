@@ -22,12 +22,12 @@ function onDragStart(event: DragEvent) {
   if (!event.dataTransfer) return
   event.dataTransfer.effectAllowed = 'move'
   event.dataTransfer.setData('text/plain', String(props.index))
-  const el = event.target as HTMLElement
+  const el = event.currentTarget as HTMLElement
   el.classList.add('dragging')
 }
 
 function onDragEnd(event: DragEvent) {
-  (event.target as HTMLElement).classList.remove('dragging')
+  (event.currentTarget as HTMLElement).classList.remove('dragging')
 }
 
 function onDragOver(event: DragEvent) {
