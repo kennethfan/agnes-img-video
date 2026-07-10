@@ -69,7 +69,6 @@ export interface HistoryRecord {
 
 export interface DeleteHistoryRequest {
   ids: number[]
-  delete_files?: boolean
 }
 
 export interface ScriptGenRequest {
