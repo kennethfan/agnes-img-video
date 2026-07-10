@@ -106,6 +106,31 @@ async function handleTransfer() {
   }
 }
 
+function handleCopyLink() {
+  if (!detailAsset.value) return
+  const url = assetSrc(detailAsset.value)
+  if (!url) {
+    ElMessage.warning('无可用的链接')
+    return
+  }
+  navigator.clipboard.writeText(url)
+  ElMessage.success('链接已复制')
+}
+
+function handleDownload() {
+  if (!detailAsset.value) return
+  const url = assetSrc(detailAsset.value)
+  if (!url) {
+    ElMessage.warning('无可用的下载地址')
+    return
+  }
+  const a = document.createElement('a')
+  a.href = url
+  a.download = url.split('/').pop() || `asset_${detailAsset.value.id}`
+  a.target = '_blank'
+  a.click()
+}
+
 async function handleBatchDownload() {
   if (selectedIds.value.size === 0) return
   try {
@@ -260,6 +285,8 @@ onMounted(loadAssets)
           >
             转存
           </el-button>
+          <el-button @click="handleCopyLink">复制链接</el-button>
+          <el-button @click="handleDownload">下载</el-button>
           <el-button @click="drawerVisible = false">关闭</el-button>
         </div>
       </template>
