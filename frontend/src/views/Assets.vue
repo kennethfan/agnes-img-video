@@ -67,7 +67,7 @@ function toggleSelectionMode() {
 }
 
 function handleToggleFavorite(item: AssetItem) {
-  toggleFavorite({ history_id: item.id, favorite: !item.favorite })
+  toggleFavorite({ asset_id: item.id, favorite: !item.favorite })
   item.favorite = !item.favorite
 }
 
@@ -217,13 +217,13 @@ onMounted(loadAssets)
         <div class="detail-preview">
           <el-image
             v-if="detailAsset.type === 'image'"
-            :src="detailAsset.thumbnail || detailAsset.files[0]"
+            :src="detailAsset.thumbnail || detailAsset.original_url"
             fit="contain"
             style="width: 100%; max-height: 400px"
           />
           <video
             v-else
-            :src="detailAsset.files[0]"
+            :src="detailAsset.original_url"
             controls
             style="width: 100%; max-height: 400px"
           />
@@ -244,8 +244,8 @@ onMounted(loadAssets)
             {{ detailAsset.favorite ? '已收藏' : '收藏' }}
           </el-button>
           <el-button
-            :loading="uploadingUrl === (detailAsset.files[0] || '')"
-            @click="handleUploadToGitHub(detailAsset.files[0])"
+            :loading="uploadingUrl === (detailAsset.original_url || '')"
+            @click="handleUploadToGitHub(detailAsset.original_url)"
           >
             转存
           </el-button>
