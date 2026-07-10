@@ -1,6 +1,11 @@
 import client from './client'
 import type { AssetListResponse, AssetFavoriteRequest, AssetDeleteRequest } from '../types'
 
+export async function saveAsset(data: { image_url: string; prompt: string; mode: string }): Promise<{ id: number }> {
+  const res = await client.post('/api/v1/assets', data)
+  return res.data
+}
+
 export interface AssetQuery {
   page?: number
   per_page?: number

@@ -93,11 +93,13 @@ export interface AssetItem {
   id: number
   mode: string
   prompt: string
-  files: string[]
-  thumbnail: string
-  type: 'image' | 'video'
+  type: string
   time: string
   favorite: boolean
+  original_url: string
+  local_path: string
+  github_url: string
+  thumbnail: string
 }
 
 export interface AssetListResponse {
@@ -107,7 +109,7 @@ export interface AssetListResponse {
 }
 
 export interface AssetFavoriteRequest {
-  history_id: number
+  asset_id: number
   favorite: boolean
 }
 
