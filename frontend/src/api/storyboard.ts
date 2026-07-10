@@ -9,6 +9,11 @@ import type {
   GenerateShotsResponse,
 } from '../types'
 
+export async function batchCreateShots(projectId: number, prompts: string[], type = 'text2video'): Promise<{ shots: StoryboardShot[] }> {
+  const res = await client.post(`/api/v1/storyboard/projects/${projectId}/shots/batch`, { prompts, type })
+  return res.data
+}
+
 export async function listProjects(): Promise<StoryboardProject[]> {
   const res = await client.get('/api/v1/storyboard/projects')
   return res.data.projects

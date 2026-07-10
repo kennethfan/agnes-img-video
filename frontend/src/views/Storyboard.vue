@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Plus, Edit, Delete, CopyDocument, VideoPlay } from '@element-plus/icons-vue'
-import { listProjects, getProject, createProject, updateProject, deleteProject, duplicateProject, createShot, updateShot, deleteShot, generateShots, reorderShots } from '../api/storyboard'
+import { Plus, Edit, Delete, CopyDocument, VideoPlay, Document } from '@element-plus/icons-vue'
+import { listProjects, getProject, createProject, updateProject, deleteProject, duplicateProject, createShot, updateShot, deleteShot, generateShots, reorderShots, batchCreateShots } from '../api/storyboard'
 import type { StoryboardProject, StoryboardShot, GenerateShotsResponse } from '../types'
 import ShotCard from '../components/ShotCard.vue'
 
@@ -231,6 +231,47 @@ onUnmounted(() => {
   if (pollTimer) clearInterval(pollTimer)
 })
 
+const showImportDialog = ref(false)
+const importScript = ref('')
+const splitMode = ref<'line' | 'paragraph'>('paragraph')
+
+const previewCount = computed(() => {
+  if (!importScript.value.trim()) return 0
+  if (splitMode.value === 'line') {
+    return importScript.value.split('\n').filter(l => l.trim()).length
+  }
+  return importScript.value.split(/\n\n+/).filter(p => p.trim()).length
+})
+
+async function doImport() {
+  if (!currentProject.value) return
+  const text = importScript.value.trim()
+  if (!text) {
+    ElMessage.warning('请输入脚本内容')
+    return
+  }
+
+  const prompts = splitMode.value === 'line'
+    ? text.split('\n').filter(l => l.trim()).map(l => l.trim())
+    : text.split(/\n\n+/).filter(p => p.trim()).map(p => p.trim())
+
+  if (prompts.length === 0) {
+    ElMessage.warning('未能解析出镜头内容')
+    return
+  }
+
+  try {
+    const resp = await batchCreateShots(currentProject.value.id, prompts)
+    const projectResp = await getProject(currentProject.value.id)
+    shots.value = projectResp.shots
+    showImportDialog.value = false
+    importScript.value = ''
+    ElMessage.success(`成功导入 ${resp.shots.length} 个镜头`)
+  } catch (e: any) {
+    ElMessage.error('导入失败: ' + (e.message || ''))
+  }
+}
+
 const previewUrl = ref('')
 const showPreview = ref(false)
 
@@ -272,6 +313,7 @@ function previewVideo(url: string) {
       <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px; flex-wrap: wrap">
         <el-button text @click="backToList">&lt; 返回</el-button>
         <h3 style="margin: 0; flex: 1">{{ currentProject.title || '未命名项目' }}</h3>
+        <el-button size="small" :icon="Document" @click="showImportDialog = true">从脚本导入</el-button>
         <el-button size="small" :icon="Edit" @click="editProject">编辑</el-button>
         <el-button size="small" :icon="CopyDocument" @click="duplicateCurrentProject">复制</el-button>
         <el-button size="small" type="danger" :icon="Delete" @click="deleteCurrentProject">删除</el-button>
@@ -370,6 +412,37 @@ function previewVideo(url: string) {
       <template #footer>
         <el-button @click="showShotDialog = false">取消</el-button>
         <el-button type="primary" @click="saveShotEdit">{{ editingShot ? '保存' : '添加' }}</el-button>
+      </template>
+    </el-dialog>
+
+    <el-dialog v-model="showImportDialog" title="从脚本导入镜头" width="600px">
+      <el-alert
+        title="每段文字将生成一个镜头，支持按段落或按行分割"
+        type="info"
+        show-icon
+        :closable="false"
+        class="mb-4"
+      />
+      <el-input
+        v-model="importScript"
+        type="textarea"
+        :rows="10"
+        placeholder="在此输入完整的脚本内容..."
+      />
+      <div class="mt-3" style="display: flex; align-items: center">
+        <el-radio-group v-model="splitMode">
+          <el-radio value="paragraph">按段落分割</el-radio>
+          <el-radio value="line">按行分割</el-radio>
+        </el-radio-group>
+        <span style="font-size: 13px; color: #c0c4cc; margin-left: 12px">
+          将生成 {{ previewCount }} 个镜头
+        </span>
+      </div>
+      <template #footer>
+        <el-button @click="showImportDialog = false">取消</el-button>
+        <el-button type="primary" @click="doImport" :disabled="previewCount === 0">
+          导入并创建 {{ previewCount }} 个镜头
+        </el-button>
       </template>
     </el-dialog>
 
