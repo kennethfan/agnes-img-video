@@ -148,8 +148,9 @@ func main() {
 		api.GET("/assets", assetHandler.ListAssets)
 		api.POST("/assets", assetHandler.SaveAsset)
 		api.POST("/assets/favorite", assetHandler.ToggleFavorite)
-		api.POST("/assets/batch-download", assetHandler.BatchDownload)
-		api.DELETE("/assets", assetHandler.DeleteAssets)
+	api.POST("/assets/batch-download", assetHandler.BatchDownload)
+	api.POST("/assets/:id/transfer", assetHandler.TransferAsset)
+	api.DELETE("/assets", assetHandler.DeleteAssets)
 
 		storyboard := api.Group("/storyboard")
 		{
