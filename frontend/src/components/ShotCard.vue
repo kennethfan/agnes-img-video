@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { VideoCameraFilled, PictureFilled } from '@element-plus/icons-vue'
 import type { StoryboardShot } from '../types'
 
 const props = defineProps<{
   shot: StoryboardShot
+  index: number
 }>()
 
 const emit = defineEmits<{
@@ -12,7 +13,43 @@ const emit = defineEmits<{
   delete: [shot: StoryboardShot]
   generate: [shot: StoryboardShot]
   preview: [shot: StoryboardShot]
+  drop: [fromIndex: number, toIndex: number]
 }>()
+
+const isDragOver = ref(false)
+
+function onDragStart(event: DragEvent) {
+  if (!event.dataTransfer) return
+  event.dataTransfer.effectAllowed = 'move'
+  event.dataTransfer.setData('text/plain', String(props.index))
+  const el = event.target as HTMLElement
+  el.classList.add('dragging')
+}
+
+function onDragEnd(event: DragEvent) {
+  (event.target as HTMLElement).classList.remove('dragging')
+}
+
+function onDragOver(event: DragEvent) {
+  event.preventDefault()
+  if (event.dataTransfer) {
+    event.dataTransfer.dropEffect = 'move'
+  }
+  isDragOver.value = true
+}
+
+function onDragLeave() {
+  isDragOver.value = false
+}
+
+function onDrop(event: DragEvent) {
+  event.preventDefault()
+  isDragOver.value = false
+  const fromIndex = parseInt(event.dataTransfer?.getData('text/plain') || '', 10)
+  if (!isNaN(fromIndex) && fromIndex !== props.index) {
+    emit('drop', fromIndex, props.index)
+  }
+}
 
 const statusConfig: Record<string, { type: string; label: string }> = {
   pending: { type: 'info', label: '待生成' },
@@ -39,7 +76,16 @@ const hasResult = computed(() => !!props.shot.result_video)
 </script>
 
 <template>
-  <div class="shot-card" :class="`shot-card--${shot.status}`">
+  <div
+    class="shot-card"
+    :class="[`shot-card--${shot.status}`, { 'drag-over': isDragOver }]"
+    draggable="true"
+    @dragstart="onDragStart"
+    @dragend="onDragEnd"
+    @dragover="onDragOver"
+    @dragleave="onDragLeave"
+    @drop="onDrop"
+  >
     <div class="shot-card__header">
       <span class="shot-card__seq">#{{ shot.sequence }}</span>
       <el-tag :type="statusInfo.type as any" size="small" effect="dark">
@@ -118,6 +164,19 @@ const hasResult = computed(() => !!props.shot.result_video)
   border-radius: var(--radius-card);
   overflow: hidden;
   transition: border-color 0.2s, background 0.2s;
+  cursor: grab;
+  user-select: none;
+}
+.shot-card:active {
+  cursor: grabbing;
+}
+.shot-card.dragging {
+  opacity: 0.5;
+}
+.shot-card.drag-over {
+  border-color: #409eff;
+  border-style: dashed;
+  background: #ecf5ff;
 }
 
 .shot-card:hover {

@@ -2,7 +2,7 @@
 import { ref, onMounted, onUnmounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Edit, Delete, CopyDocument, VideoPlay } from '@element-plus/icons-vue'
-import { listProjects, getProject, createProject, updateProject, deleteProject, duplicateProject, createShot, updateShot, deleteShot, generateShots } from '../api/storyboard'
+import { listProjects, getProject, createProject, updateProject, deleteProject, duplicateProject, createShot, updateShot, deleteShot, generateShots, reorderShots } from '../api/storyboard'
 import type { StoryboardProject, StoryboardShot, GenerateShotsResponse } from '../types'
 import ShotCard from '../components/ShotCard.vue'
 
@@ -171,6 +171,20 @@ async function deleteShotById(id: number) {
   }
 }
 
+async function onShotDrop(fromIndex: number, toIndex: number) {
+  if (!currentProject.value) return
+  const arr = [...shots.value]
+  const [moved] = arr.splice(fromIndex, 1)
+  arr.splice(toIndex, 0, moved)
+  arr.forEach((s, i) => { s.sequence = i + 1 })
+  shots.value = arr
+  try {
+    await reorderShots(currentProject.value.id, arr.map(s => s.id))
+  } catch (e: any) {
+    ElMessage.error('排序保存失败: ' + (e.message || ''))
+  }
+}
+
 const generating = ref(false)
 const generateResult = ref<GenerateShotsResponse | null>(null)
 
@@ -288,13 +302,15 @@ function previewVideo(url: string) {
         </div>
 
         <ShotCard
-          v-for="shot in shots"
+          v-for="(shot, index) in shots"
           :key="shot.id"
           :shot="shot"
+          :index="index"
           @edit="editShot(shot)"
           @delete="deleteShotById(shot.id)"
           @generate="generateSingleShot"
           @preview="shot.result_video ? previewVideo(shot.result_video) : undefined"
+          @drop="onShotDrop"
         />
 
         <div style="text-align: center; margin-top: 16px">
