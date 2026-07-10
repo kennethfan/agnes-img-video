@@ -1,8 +1,10 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
 import { ElMessage } from 'element-plus'
-import { UploadFilled, Link } from '@element-plus/icons-vue'
+import { UploadFilled, Link, Picture } from '@element-plus/icons-vue'
 import { submitImageToImage } from '../api/image'
+import { getAssets } from '../api/assets'
+import type { AssetItem } from '../types'
 import { connectTaskSSE } from '../utils/sse'
 import ImageResult from '../components/ImageResult.vue'
 import TaskProgress from '../components/TaskProgress.vue'
@@ -21,6 +23,9 @@ const errorMsg = ref('')
 const file = ref<File | null>(null)
 const imageUrl = ref('')
 const filePreviewUrl = ref('')
+const galleryDialogVisible = ref(false)
+const assetList = ref<AssetItem[]>([])
+const assetLoading = ref(false)
 const redoStore = useRedoStore()
 
 const sizeOptions = [
@@ -69,6 +74,32 @@ watch(inputMode, () => {
     filePreviewUrl.value = ''
   }
 })
+
+async function openGallery() {
+  galleryDialogVisible.value = true
+  if (assetList.value.length > 0) return // 已有缓存不重复加载
+  assetLoading.value = true
+  try {
+    const res = await getAssets({ type: 'image', per_page: 50 })
+    assetList.value = res.items || []
+  } catch (e: any) {
+    ElMessage.error('加载作品库失败: ' + (e.message || '未知错误'))
+  } finally {
+    assetLoading.value = false
+  }
+}
+
+function selectAsset(item: AssetItem) {
+  const url = item.local_path || item.github_url || item.original_url
+  if (!url) {
+    ElMessage.warning('该图片没有可用的 URL')
+    return
+  }
+  imageUrl.value = url
+  inputMode.value = 'url'
+  galleryDialogVisible.value = false
+  ElMessage.success('已选择图片')
+}
 
 async function handleGenerate() {
   const source = inputMode.value === 'upload' ? file.value : imageUrl.value.trim()
@@ -136,6 +167,11 @@ async function handleGenerate() {
               <span style="vertical-align: middle">图片 URL</span>
             </el-radio-button>
           </el-radio-group>
+        </el-form-item>
+        <el-form-item label=" ">
+          <el-button @click="openGallery" :icon="Picture" size="small">
+            从作品库选择
+          </el-button>
         </el-form-item>
 
         <el-form-item v-if="inputMode === 'upload'" label="上传图片">
@@ -206,6 +242,36 @@ async function handleGenerate() {
       <el-alert v-if="errorMsg" type="error" :description="errorMsg" show-icon closable class="error-alert" />
       <ImageResult :images="images" :loading="loading && !showProgress" :prompt="prompt" mode="image2image" />
     </div>
+
+    <el-dialog
+      v-model="galleryDialogVisible"
+      title="从作品库选择图片"
+      width="700px"
+      :close-on-click-modal="false"
+    >
+      <div v-loading="assetLoading" style="min-height: 200px">
+        <div v-if="assetList.length === 0 && !assetLoading" style="text-align: center; padding: 40px; color: #909399">
+          作品库暂无图片
+        </div>
+        <div v-else style="display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 12px;">
+          <div
+            v-for="item in assetList"
+            :key="item.id"
+            style="cursor: pointer; border: 2px solid transparent; border-radius: 8px; overflow: hidden; transition: border-color 0.2s;"
+            @click="selectAsset(item)"
+          >
+            <el-image
+              :src="item.thumbnail || item.local_path || item.original_url"
+              fit="cover"
+              style="width: 100%; height: 140px; display: block;"
+            />
+            <div style="padding: 4px 6px; font-size: 12px; color: #666; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+              {{ item.prompt || '无描述' }}
+            </div>
+          </div>
+        </div>
+      </div>
+    </el-dialog>
   </div>
 </template>
 
