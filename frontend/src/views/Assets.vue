@@ -84,9 +84,11 @@ function handleCardClick(item: AssetItem) {
 }
 
 async function handleUploadToGitHub(url: string) {
+  if (!detailAsset.value) return
   uploadingUrl.value = url
   try {
-    const githubUrl = await uploadToGitHub(url)
+    const githubUrl = await uploadToGitHub(url, undefined, detailAsset.value.id)
+    if (detailAsset.value) detailAsset.value.github_url = githubUrl
     ElMessage.success(`已上传到 GitHub: ${githubUrl}`)
   } catch (e: any) {
     ElMessage.error(e.message || '上传到 GitHub 失败')

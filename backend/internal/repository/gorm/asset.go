@@ -59,6 +59,13 @@ func (r *AssetRepository) ToggleFavorite(id int64, favorite bool) error {
 	return nil
 }
 
+func (r *AssetRepository) UpdateGithubURL(id int64, githubURL string) error {
+	if err := r.db.Model(&model.Asset{}).Where("id = ?", id).Update("github_url", githubURL).Error; err != nil {
+		return fmt.Errorf("更新 GitHub URL 失败: %w", err)
+	}
+	return nil
+}
+
 func (r *AssetRepository) Delete(ids []int64) error {
 	if err := r.db.Where("id IN ?", ids).Delete(&model.Asset{}).Error; err != nil {
 		return fmt.Errorf("删除资产失败: %w", err)

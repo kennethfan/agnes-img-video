@@ -16,6 +16,7 @@ import (
 
 var historyRepo repository.HistoryRepository
 var githubStorage *service.GithubStorage
+var assetRepo repository.AssetRepository
 
 func SetHistoryRepo(repo repository.HistoryRepository) {
 	historyRepo = repo
@@ -23,6 +24,10 @@ func SetHistoryRepo(repo repository.HistoryRepository) {
 
 func SetGithubStorage(gs *service.GithubStorage) {
 	githubStorage = gs
+}
+
+func SetAssetRepo(repo repository.AssetRepository) {
+	assetRepo = repo
 }
 
 type HistoryHandler struct {

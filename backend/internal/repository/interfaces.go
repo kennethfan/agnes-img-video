@@ -108,6 +108,7 @@ type AssetRepository interface {
 	List(page, perPage int, assetType, search string, favoriteFilter bool) ([]model.Asset, int, error)
 	GetByIDs(ids []int64) ([]model.Asset, error)
 	ToggleFavorite(id int64, favorite bool) error
+	UpdateGithubURL(id int64, githubURL string) error
 	Delete(ids []int64) error
 }
 

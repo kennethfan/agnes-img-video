@@ -96,6 +96,7 @@ func main() {
 	comicHandler := handler.NewComicHandler(svc)
 	accessLogHandler := handler.NewAccessLogHandler(accessLogRepo)
 	assetRepo := gormrepo.NewAssetRepository(gormDB)
+	handler.SetAssetRepo(assetRepo)
 	assetHandler := handler.NewAssetHandler(assetRepo)
 
 	storyboardRepo := gormrepo.NewStoryboardRepository(gormDB)
