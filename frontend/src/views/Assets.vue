@@ -113,7 +113,8 @@ function handleCopyLink() {
     ElMessage.warning('无可用的链接')
     return
   }
-  navigator.clipboard.writeText(url)
+  const fullUrl = url.startsWith('/') ? window.location.origin + url : url
+  navigator.clipboard.writeText(fullUrl)
   ElMessage.success('链接已复制')
 }
 
@@ -124,11 +125,15 @@ function handleDownload() {
     ElMessage.warning('无可用的下载地址')
     return
   }
-  const a = document.createElement('a')
-  a.href = url
-  a.download = url.split('/').pop() || `asset_${detailAsset.value.id}`
-  a.target = '_blank'
-  a.click()
+  // 本地地址直接下载，跨域地址走后端代理
+  if (url.startsWith('/outputs/') || url.startsWith('outputs/')) {
+    const a = document.createElement('a')
+    a.href = url
+    a.download = url.split('/').pop() || `asset_${detailAsset.value.id}`
+    a.click()
+  } else {
+    window.open('/api/v1/download?url=' + encodeURIComponent(url), '_blank')
+  }
 }
 
 async function handleBatchDownload() {
