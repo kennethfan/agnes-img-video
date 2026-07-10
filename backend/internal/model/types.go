@@ -63,8 +63,7 @@ type HistoryRecord struct {
 }
 
 type BatchDeleteRequest struct {
-	IDs         []int64 `json:"ids" binding:"required"`
-	DeleteFiles bool    `json:"delete_files"`
+	IDs []int64 `json:"ids" binding:"required"`
 }
 
 // ==================== 视频 ====================
