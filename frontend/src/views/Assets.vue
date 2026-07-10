@@ -220,13 +220,13 @@ onMounted(loadAssets)
         <div class="detail-preview">
           <el-image
             v-if="detailAsset.type === 'image'"
-            :src="detailAsset.thumbnail || detailAsset.original_url"
+            :src="detailAsset.thumbnail"
             fit="contain"
             style="width: 100%; max-height: 400px"
           />
           <video
             v-else
-            :src="detailAsset.original_url"
+            :src="detailAsset.local_path || detailAsset.github_url || detailAsset.original_url"
             controls
             style="width: 100%; max-height: 400px"
           />

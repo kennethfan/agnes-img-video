@@ -341,9 +341,12 @@ func (h *AssetHandler) ListAssets(c *gin.Context) {
 
 	items := make([]model.AssetItem, 0, len(assets))
 	for _, a := range assets {
-		thumbnail := a.OriginalURL
+		thumbnail := a.LocalPath
 		if thumbnail == "" {
-			thumbnail = a.LocalPath
+			thumbnail = a.GitHubURL
+		}
+		if thumbnail == "" {
+			thumbnail = a.OriginalURL
 		}
 		items = append(items, model.AssetItem{
 			ID:          a.ID,
