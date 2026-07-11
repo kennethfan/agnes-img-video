@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
-import { Edit } from '@element-plus/icons-vue'
+import { Edit, Picture } from '@element-plus/icons-vue'
 import { imageToImage } from '../api/image'
 import ImageResult from './ImageResult.vue'
+import AssetPickerDialog from './AssetPickerDialog.vue'
 import type { Project } from '../types'
 
 const props = defineProps<{
@@ -13,6 +14,11 @@ const props = defineProps<{
 
 const sourceImage = ref('')
 const prompt = ref('')
+const showAssetPicker = ref(false)
+
+function onAssetSelected(url: string) {
+  sourceImage.value = url
+}
 
 watch(() => props.defaultImageUrl, (url) => {
   if (url) {
@@ -57,10 +63,14 @@ async function refine() {
     </div>
 
     <div class="refine-form">
-      <el-input
-        v-model="sourceImage"
-        placeholder="源图片 URL（从生成结果复制或输入）"
-      />
+      <div style="display: flex; gap: 8px; align-items: center">
+        <el-input
+          v-model="sourceImage"
+          placeholder="源图片 URL（从生成结果复制或输入）"
+          style="flex: 1"
+        />
+        <el-button @click="showAssetPicker = true" :icon="Picture">从作品库</el-button>
+      </div>
 
       <el-input
         v-model="prompt"
@@ -98,6 +108,11 @@ async function refine() {
       <ImageResult :images="resultUrls" :loading="false" prompt="" mode="" />
     </div>
   </div>
+
+  <AssetPickerDialog
+    v-model:visible="showAssetPicker"
+    @selected="onAssetSelected"
+  />
 </template>
 
 <style scoped>

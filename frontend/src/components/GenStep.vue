@@ -4,6 +4,7 @@ import { ElMessage } from 'element-plus'
 import { Picture, VideoCamera } from '@element-plus/icons-vue'
 import { textToImage, imageToImage } from '../api/image'
 import ImageResult from './ImageResult.vue'
+import AssetPickerDialog from './AssetPickerDialog.vue'
 import type { Project } from '../types'
 
 const props = defineProps<{ project: Project | null }>()
@@ -16,6 +17,11 @@ const mode = ref<'text2image' | 'image2image'>('text2image')
 const imageUrl = ref('')
 const size = ref('1024x1024')
 const strength = ref(0.75)
+const showAssetPicker = ref(false)
+
+function onAssetSelected(url: string) {
+  imageUrl.value = url
+}
 
 const generating = ref(false)
 const resultUrls = ref<string[]>([])
@@ -80,6 +86,7 @@ async function generate() {
 
       <div v-if="mode === 'image2image'" class="form-row">
         <el-input v-model="imageUrl" placeholder="参考图片 URL" />
+        <el-button @click="showAssetPicker = true" :icon="Picture">从作品库</el-button>
         <div class="form-row-inner">
           <el-select v-model="size" style="width: 140px">
             <el-option label="1024x1024" value="1024x1024" />
@@ -115,6 +122,11 @@ async function generate() {
       <ImageResult :images="resultUrls" :loading="false" prompt="" mode="" />
     </div>
   </div>
+
+  <AssetPickerDialog
+    v-model:visible="showAssetPicker"
+    @selected="onAssetSelected"
+  />
 </template>
 
 <style scoped>
