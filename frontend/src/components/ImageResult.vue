@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { saveAsset } from '../api/assets'
 import { useRedoStore } from '../stores/redo'
@@ -12,6 +12,24 @@ const props = defineProps<{
 
 const savingUrls = ref<Set<string>>(new Set())
 const redoStore = useRedoStore()
+
+// 自动保存开关（默认开启，通过 localStorage 持久化）
+const autoSaveEnabled = ref(localStorage.getItem('autoSaveToGallery') !== 'false')
+// 已自动保存的图片 URL 集合（避免重复保存）
+const autoSavedUrls = ref<Set<string>>(new Set())
+
+// images 变化时自动静默保存
+watch(() => props.images, (newImages) => {
+  if (!autoSaveEnabled.value) return
+  newImages.forEach(img => {
+    if (!autoSavedUrls.value.has(img)) {
+      autoSavedUrls.value = new Set([...autoSavedUrls.value, img])
+      saveAsset({ image_url: img, prompt: props.prompt, mode: props.mode }).catch(() => {
+        // 静默失败，不影响用户体验
+      })
+    }
+  })
+}, { immediate: true })
 
 function handleRefine(img: string) {
   redoStore.setRedoData({
@@ -60,6 +78,15 @@ async function handleSaveToGallery(url: string) {
           下载
         </el-button>
         <el-button
+          v-if="autoSaveEnabled && autoSavedUrls.has(img)"
+          size="small"
+          type="info"
+          disabled
+        >
+          已保存
+        </el-button>
+        <el-button
+          v-else
           size="small"
           type="success"
           :loading="savingUrls.has(img)"
