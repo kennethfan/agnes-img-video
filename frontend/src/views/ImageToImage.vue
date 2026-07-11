@@ -3,7 +3,7 @@ import { ref, computed, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { UploadFilled, Link, Picture } from '@element-plus/icons-vue'
 import { submitImageToImage } from '../api/image'
-import { getAssets } from '../api/assets'
+import { getAssets, saveAsset } from '../api/assets'
 import type { AssetItem } from '../types'
 import { connectTaskSSE } from '../utils/sse'
 import ImageResult from '../components/ImageResult.vue'
@@ -26,6 +26,7 @@ const filePreviewUrl = ref('')
 const galleryDialogVisible = ref(false)
 const assetList = ref<AssetItem[]>([])
 const assetLoading = ref(false)
+const savingInput = ref(false)
 const redoStore = useRedoStore()
 
 const sizeOptions = [
@@ -99,6 +100,20 @@ function selectAsset(item: AssetItem) {
   inputMode.value = 'url'
   galleryDialogVisible.value = false
   ElMessage.success('已选择图片')
+}
+
+async function saveInputImage() {
+  const url = imageUrl.value.trim() || (inputMode.value === 'upload' && filePreviewUrl.value ? filePreviewUrl.value : '')
+  if (!url) return
+  savingInput.value = true
+  try {
+    await saveAsset({ image_url: url, prompt: prompt.value, mode: 'image2image' })
+    ElMessage.success('已保存到作品库')
+  } catch (e: any) {
+    ElMessage.error(e.message || '保存失败')
+  } finally {
+    savingInput.value = false
+  }
 }
 
 async function handleGenerate() {
@@ -198,12 +213,17 @@ async function handleGenerate() {
         </el-form-item>
 
         <el-form-item v-if="previewUrl" label="预览">
-          <el-image
-            :src="previewUrl"
-            fit="contain"
-            style="max-width: 100%; max-height: 200px; border-radius: var(--radius-sm); border: 1px solid var(--border-default)"
-            :preview-src-list="[previewUrl]"
-          />
+          <div style="display: flex; flex-direction: column; align-items: center; gap: 8px; width: 100%;">
+            <el-image
+              :src="previewUrl"
+              fit="contain"
+              style="max-width: 100%; max-height: 200px; border-radius: var(--radius-sm); border: 1px solid var(--border-default)"
+              :preview-src-list="[previewUrl]"
+            />
+            <el-button size="small" type="success" :loading="savingInput" :disabled="savingInput" @click="saveInputImage">
+              保存到作品库
+            </el-button>
+          </div>
         </el-form-item>
         <el-form-item label="风格描述">
           <el-input
