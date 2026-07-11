@@ -3,7 +3,8 @@ import { ref, onMounted, computed } from 'vue'
 import { ElMessage, ElMessageBox, ElInput } from 'element-plus'
 import { Search, Star, StarFilled, Download, Delete, PictureFilled } from '@element-plus/icons-vue'
 import { getAssets, toggleFavorite, batchDownload, deleteAssets, transferAsset } from '../api/assets'
-import { getCollections, createCollection, type Collection } from '../api/collections'
+import { getCollections, createCollection, addAssetsToCollection, type Collection } from '../api/collections'
+import { useRedoStore } from '../stores/redo'
 import type { AssetItem } from '../types'
 import AssetCard from '../components/AssetCard.vue'
 
@@ -18,6 +19,10 @@ const showFavorites = ref(false)
 const selectionMode = ref(false)
 const selectedIds = ref<Set<number>>(new Set())
 const deleteFiles = ref(false)
+const redoStore = useRedoStore()
+const isMultiSelect = computed(() => selectedIds.value.size > 0)
+const showCollectionPicker = ref(false)
+const targetCollectionId = ref<number | null>(null)
 const drawerVisible = ref(false)
 const detailAsset = ref<AssetItem | null>(null)
 const uploadingUrl = ref('')
@@ -99,6 +104,51 @@ function handleToggleSelect(item: AssetItem) {
   if (next.has(item.id)) next.delete(item.id)
   else next.add(item.id)
   selectedIds.value = next
+}
+
+function handleRefine(item: AssetItem) {
+  const url = assetSrc(item)
+  if (!url) {
+    ElMessage.warning('该资产没有可用的图片 URL')
+    return
+  }
+  redoStore.setRedoData({
+    mode: 'image2image',
+    imageUrl: url,
+    prompt: item.prompt || '',
+    inputMode: 'url',
+  })
+}
+
+function handleBatchRefine() {
+  const first = items.value.find(item => selectedIds.value.has(item.id))
+  if (!first) return
+  const url = assetSrc(first)
+  if (!url) return
+  redoStore.setRedoData({
+    mode: 'batch',
+    imageUrl: url,
+    prompt: first.prompt || '',
+    inputMode: 'url',
+  })
+  selectedIds.value = new Set()
+}
+
+function handleBatchMoveToCollection() {
+  showCollectionPicker.value = true
+}
+
+async function handleConfirmMoveToCollection() {
+  if (!targetCollectionId.value || selectedIds.value.size === 0) return
+  try {
+    await addAssetsToCollection(targetCollectionId.value, Array.from(selectedIds.value))
+    ElMessage.success('已移至集合')
+    showCollectionPicker.value = false
+    targetCollectionId.value = null
+    selectedIds.value = new Set()
+  } catch (e: any) {
+    ElMessage.error(e.message || '移动失败')
+  }
 }
 
 function handleCardClick(item: AssetItem) {
@@ -261,16 +311,17 @@ onMounted(() => {
       </el-button>
     </div>
 
-    <div v-if="selectionMode && selectedIds.size > 0" class="batch-bar">
-      <span class="batch-count">已选 {{ selectedIds.size }} 项</span>
-      <el-button type="primary" :icon="Download" @click="handleBatchDownload">
-        下载 ({{ selectedIds.size }})
-      </el-button>
-      <el-checkbox v-model="deleteFiles" style="margin: 0 8px">删除文件</el-checkbox>
-      <el-button type="danger" :icon="Delete" @click="handleBatchDelete">
-        删除 ({{ selectedIds.size }})
-      </el-button>
-    </div>
+    <el-affix v-if="isMultiSelect" position="bottom" :offset="0">
+      <div class="batch-bar-bottom">
+        <span class="batch-count">已选择 {{ selectedIds.size }} 项</span>
+        <el-button type="primary" @click="handleBatchRefine">批量精修</el-button>
+        <el-button :icon="Download" @click="handleBatchDownload">批量下载</el-button>
+        <el-button @click="handleBatchMoveToCollection">移至集合</el-button>
+        <el-checkbox v-model="deleteFiles" style="margin: 0 8px">删除文件</el-checkbox>
+        <el-button type="danger" :icon="Delete" @click="handleBatchDelete">批量删除</el-button>
+        <el-button @click="selectedIds = new Set()">取消选择</el-button>
+      </div>
+    </el-affix>
 
     <div v-loading="loading" class="grid-wrap">
       <div v-if="displayAssets.length > 0" class="asset-grid">
@@ -281,6 +332,7 @@ onMounted(() => {
           :selected="selectedIds.has(item.id)"
           @toggle-favorite="handleToggleFavorite(item)"
           @toggle-select="handleToggleSelect(item)"
+          @refine="handleRefine(item)"
           @click="selectionMode ? handleToggleSelect(item) : handleCardClick(item)"
         />
       </div>
@@ -356,6 +408,18 @@ onMounted(() => {
         <el-button type="primary" @click="handleCreateCollection">确定</el-button>
       </template>
     </el-dialog>
+
+    <el-dialog v-model="showCollectionPicker" title="选择集合" width="400px">
+      <el-radio-group v-model="targetCollectionId" direction="vertical" style="width: 100%;">
+        <el-radio v-for="c in collections" :key="c.id" :value="c.id" style="margin-bottom: 8px;">
+          {{ c.name }}
+        </el-radio>
+      </el-radio-group>
+      <template #footer>
+        <el-button @click="showCollectionPicker = false">取消</el-button>
+        <el-button type="primary" @click="handleConfirmMoveToCollection">确定</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -395,6 +459,17 @@ onMounted(() => {
   font-size: 14px;
   font-weight: 500;
   color: #409eff;
+}
+
+.batch-bar-bottom {
+  background: #fff;
+  padding: 12px 24px;
+  border-top: 1px solid #e0e0e0;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  justify-content: center;
+  box-shadow: 0 -2px 8px rgba(0,0,0,0.1);
 }
 
 .grid-wrap {

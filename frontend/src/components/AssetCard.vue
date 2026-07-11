@@ -11,6 +11,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   'toggle-favorite': []
   'toggle-select': []
+  'refine': []
   click: []
 }>()
 
@@ -91,6 +92,9 @@ const formattedTime = computed(() => props.asset.time.slice(5, 16))
 
     <div class="asset-card__time">
       {{ formattedTime }}
+    </div>
+    <div class="asset-card__actions" @click.stop>
+      <el-button size="small" type="primary" @click="emit('refine')">精修</el-button>
     </div>
   </div>
 </template>
@@ -180,8 +184,12 @@ const formattedTime = computed(() => props.asset.time.slice(5, 16))
 }
 
 .asset-card__time {
-  padding: 0 10px 8px;
+  padding: 0 10px 4px;
   font-size: 12px;
   color: #909399;
+}
+
+.asset-card__actions {
+  padding: 0 10px 8px;
 }
 </style>
