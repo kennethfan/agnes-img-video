@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { ref, onMounted, computed } from 'vue'
+import { ElMessage, ElMessageBox, ElInput } from 'element-plus'
 import { Search, Star, StarFilled, Download, Delete, PictureFilled } from '@element-plus/icons-vue'
 import { getAssets, toggleFavorite, batchDownload, deleteAssets, transferAsset } from '../api/assets'
+import { getCollections, createCollection, type Collection } from '../api/collections'
 import type { AssetItem } from '../types'
 import AssetCard from '../components/AssetCard.vue'
 
@@ -20,6 +21,21 @@ const deleteFiles = ref(false)
 const drawerVisible = ref(false)
 const detailAsset = ref<AssetItem | null>(null)
 const uploadingUrl = ref('')
+const collections = ref<Collection[]>([])
+const selectedCollectionId = ref<number | undefined>(undefined)
+const showCreateCollectionDialog = ref(false)
+const newCollectionName = ref('')
+
+const collectionAssetIds = computed(() => {
+  if (!selectedCollectionId.value) return null
+  const c = collections.value.find(c => c.id === selectedCollectionId.value)
+  return new Set(c?.assets?.map(a => a.id) || [])
+})
+
+const displayAssets = computed(() => {
+  if (!collectionAssetIds.value) return items.value
+  return items.value.filter(item => collectionAssetIds.value!.has(item.id))
+})
 
 // assetSrc 按 localPath > originalURL > githubURL 返回可展示的 URL，并修正本地路径为 HTTP 路径
 function assetSrc(item: AssetItem): string {
@@ -151,6 +167,18 @@ async function handleBatchDownload() {
   }
 }
 
+async function loadCollections() {
+  collections.value = await getCollections()
+}
+
+async function handleCreateCollection() {
+  if (!newCollectionName.value.trim()) return
+  await createCollection(newCollectionName.value.trim())
+  newCollectionName.value = ''
+  showCreateCollectionDialog.value = false
+  await loadCollections()
+}
+
 async function handleBatchDelete() {
   if (selectedIds.value.size === 0) return
   try {
@@ -170,7 +198,10 @@ async function handleBatchDelete() {
   } catch { /* cancelled */ }
 }
 
-onMounted(loadAssets)
+onMounted(() => {
+  loadAssets()
+  loadCollections()
+})
 </script>
 
 <template>
@@ -208,6 +239,28 @@ onMounted(loadAssets)
       </div>
     </div>
 
+    <div style="margin-bottom: 16px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+      <el-tag
+        :type="selectedCollectionId === undefined ? 'primary' : 'info'"
+        style="cursor: pointer"
+        @click="selectedCollectionId = undefined"
+      >
+        全部
+      </el-tag>
+      <el-tag
+        v-for="c in collections"
+        :key="c.id"
+        :type="selectedCollectionId === c.id ? 'primary' : 'info'"
+        style="cursor: pointer"
+        @click="selectedCollectionId = c.id"
+      >
+        {{ c.name }}
+      </el-tag>
+      <el-button size="small" type="default" @click="showCreateCollectionDialog = true">
+        + 新建集合
+      </el-button>
+    </div>
+
     <div v-if="selectionMode && selectedIds.size > 0" class="batch-bar">
       <span class="batch-count">已选 {{ selectedIds.size }} 项</span>
       <el-button type="primary" :icon="Download" @click="handleBatchDownload">
@@ -220,9 +273,9 @@ onMounted(loadAssets)
     </div>
 
     <div v-loading="loading" class="grid-wrap">
-      <div v-if="items.length > 0" class="asset-grid">
+      <div v-if="displayAssets.length > 0" class="asset-grid">
         <AssetCard
-          v-for="item in items"
+          v-for="item in displayAssets"
           :key="item.id"
           :asset="item"
           :selected="selectedIds.has(item.id)"
@@ -296,6 +349,13 @@ onMounted(loadAssets)
         </div>
       </template>
     </el-drawer>
+    <el-dialog v-model="showCreateCollectionDialog" title="新建集合" width="400px">
+      <el-input v-model="newCollectionName" placeholder="输入集合名称" />
+      <template #footer>
+        <el-button @click="showCreateCollectionDialog = false">取消</el-button>
+        <el-button type="primary" @click="handleCreateCollection">确定</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
