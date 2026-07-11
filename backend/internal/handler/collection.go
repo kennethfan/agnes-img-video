@@ -53,7 +53,7 @@ func (h *CollectionHandler) UpdateCollection(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "参数错误: " + err.Error()})
 		return
 	}
-	if err := h.repo.Update(uint(id), req.Name); err != nil {
+	if err := h.repo.Update(int64(id), req.Name); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "更新集合失败: " + err.Error()})
 		return
 	}
@@ -63,7 +63,7 @@ func (h *CollectionHandler) UpdateCollection(c *gin.Context) {
 // DeleteCollection DELETE /api/v1/collections/:id
 func (h *CollectionHandler) DeleteCollection(c *gin.Context) {
 	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
-	if err := h.repo.Delete(uint(id)); err != nil {
+	if err := h.repo.Delete(int64(id)); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "删除集合失败: " + err.Error()})
 		return
 	}
@@ -74,13 +74,13 @@ func (h *CollectionHandler) DeleteCollection(c *gin.Context) {
 func (h *CollectionHandler) AddAssetsToCollection(c *gin.Context) {
 	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
 	var req struct {
-		AssetIDs []uint `json:"asset_ids" binding:"required"`
+		AssetIDs []int64 `json:"asset_ids" binding:"required"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "参数错误: " + err.Error()})
 		return
 	}
-	if err := h.repo.AddAssets(uint(id), req.AssetIDs); err != nil {
+	if err := h.repo.AddAssets(int64(id), req.AssetIDs); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "添加资产到集合失败: " + err.Error()})
 		return
 	}
@@ -91,13 +91,13 @@ func (h *CollectionHandler) AddAssetsToCollection(c *gin.Context) {
 func (h *CollectionHandler) RemoveAssetsFromCollection(c *gin.Context) {
 	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
 	var req struct {
-		AssetIDs []uint `json:"asset_ids" binding:"required"`
+		AssetIDs []int64 `json:"asset_ids" binding:"required"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "参数错误: " + err.Error()})
 		return
 	}
-	if err := h.repo.RemoveAssets(uint(id), req.AssetIDs); err != nil {
+	if err := h.repo.RemoveAssets(int64(id), req.AssetIDs); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "从集合移除资产失败: " + err.Error()})
 		return
 	}

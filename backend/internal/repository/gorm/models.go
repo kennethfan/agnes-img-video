@@ -100,7 +100,7 @@ type TaskRecord struct {
 func (TaskRecord) TableName() string { return "task_queue" }
 
 type Collection struct {
-	ID        uint      `gorm:"primaryKey"`
+	ID        int64     `gorm:"primaryKey"`
 	Name      string    `gorm:"not null;size:100"`
 	CreatedAt time.Time
 	UpdatedAt time.Time
@@ -110,8 +110,8 @@ type Collection struct {
 func (Collection) TableName() string { return "collections" }
 
 type AssetCollection struct {
-	AssetID      uint `gorm:"primaryKey"`
-	CollectionID uint `gorm:"primaryKey"`
+	AssetID      int64 `gorm:"primaryKey"`
+	CollectionID int64 `gorm:"primaryKey"`
 }
 
 func (AssetCollection) TableName() string { return "asset_collections" }

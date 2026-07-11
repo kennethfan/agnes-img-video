@@ -24,23 +24,27 @@ func (r *CollectionRepository) Create(name string) (*Collection, error) {
 	return c, err
 }
 
-func (r *CollectionRepository) Update(id uint, name string) error {
+func (r *CollectionRepository) Update(id int64, name string) error {
 	return r.db.Model(&Collection{}).Where("id = ?", id).Update("name", name).Error
 }
 
-func (r *CollectionRepository) Delete(id uint) error {
-	r.db.Where("collection_id = ?", id).Delete(&AssetCollection{})
+func (r *CollectionRepository) Delete(id int64) error {
+	if err := r.db.Where("collection_id = ?", id).Delete(&AssetCollection{}).Error; err != nil {
+		return err
+	}
 	return r.db.Delete(&Collection{}, id).Error
 }
 
-func (r *CollectionRepository) AddAssets(collectionID uint, assetIDs []uint) error {
+func (r *CollectionRepository) AddAssets(collectionID int64, assetIDs []int64) error {
 	for _, aid := range assetIDs {
-		r.db.FirstOrCreate(&AssetCollection{AssetID: aid, CollectionID: collectionID})
+		if err := r.db.FirstOrCreate(&AssetCollection{AssetID: aid, CollectionID: collectionID}).Error; err != nil {
+			return err
+		}
 	}
 	return nil
 }
 
-func (r *CollectionRepository) RemoveAssets(collectionID uint, assetIDs []uint) error {
+func (r *CollectionRepository) RemoveAssets(collectionID int64, assetIDs []int64) error {
 	return r.db.Where("collection_id = ? AND asset_id IN ?", collectionID, assetIDs).
 		Delete(&AssetCollection{}).Error
 }
