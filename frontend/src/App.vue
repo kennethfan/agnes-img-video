@@ -18,6 +18,7 @@ import DBManage from './views/DBManage.vue'
 import TaskRecords from './views/TaskRecords.vue'
 import Settings from './views/Settings.vue'
 import WorkflowWizard from './views/WorkflowWizard.vue'
+import TemplateManager from './views/TemplateManager.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -66,6 +67,7 @@ function navigateTo(page: string) {
         <WorkflowWizard v-else-if="activePage === 'image_refine'" />
         <WorkflowWizard v-else-if="activePage === 'comic'" />
         <WorkflowWizard v-else-if="activePage === 'novel'" />
+        <TemplateManager v-else-if="activePage === 'templates'" />
       </main>
     </div>
   </div>

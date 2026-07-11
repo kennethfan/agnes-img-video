@@ -53,6 +53,7 @@ const groups = [
       { id: 'assets', label: '作品库' },
       { id: 'tasks', label: '任务记录' },
       { id: 'history', label: '历史记录' },
+      { id: 'templates', label: '模板管理' },
     ],
   },
   {
