@@ -1,5 +1,7 @@
 package gorm
 
+import "time"
+
 type History struct {
 	ID     int64   `gorm:"primaryKey"`
 	Time   string  `gorm:"index"`
@@ -96,3 +98,20 @@ type TaskRecord struct {
 }
 
 func (TaskRecord) TableName() string { return "task_queue" }
+
+type Collection struct {
+	ID        uint      `gorm:"primaryKey"`
+	Name      string    `gorm:"not null;size:100"`
+	CreatedAt time.Time
+	UpdatedAt time.Time
+	Assets    []Asset   `gorm:"many2many:asset_collections;"`
+}
+
+func (Collection) TableName() string { return "collections" }
+
+type AssetCollection struct {
+	AssetID      uint `gorm:"primaryKey"`
+	CollectionID uint `gorm:"primaryKey"`
+}
+
+func (AssetCollection) TableName() string { return "asset_collections" }

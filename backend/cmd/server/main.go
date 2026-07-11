@@ -100,6 +100,9 @@ func main() {
 	handler.SetAssetRepo(assetRepo)
 	assetHandler := handler.NewAssetHandler(assetRepo, settingsRepo)
 
+	collectionRepo := gormrepo.NewCollectionRepository(gormDB)
+	collectionHandler := handler.NewCollectionHandler(collectionRepo)
+
 	storyboardRepo := gormrepo.NewStoryboardRepository(gormDB)
 	storyboardGenerator := service.NewStoryboardGenerator(svc, taskQueue, storyboardRepo)
 	storyboardHandler := handler.NewStoryboardHandler(storyboardRepo, storyboardGenerator)
@@ -170,6 +173,13 @@ func main() {
 
 		api.GET("/db/export", dbHandler.ExportDB)
 		api.POST("/db/restore", dbHandler.RestoreDB)
+
+		api.GET("/collections", collectionHandler.ListCollections)
+		api.POST("/collections", collectionHandler.CreateCollection)
+		api.PUT("/collections/:id", collectionHandler.UpdateCollection)
+		api.DELETE("/collections/:id", collectionHandler.DeleteCollection)
+		api.POST("/collections/:id/assets", collectionHandler.AddAssetsToCollection)
+		api.DELETE("/collections/:id/assets", collectionHandler.RemoveAssetsFromCollection)
 
 		api.POST("/upload-to-github", handler.UploadToGitHub)
 		api.GET("/download", handler.ProxyDownload)
