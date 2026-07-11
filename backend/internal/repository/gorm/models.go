@@ -115,3 +115,20 @@ type AssetCollection struct {
 }
 
 func (AssetCollection) TableName() string { return "asset_collections" }
+
+// PromptTemplate Prompt 模板/风格预设
+type PromptTemplate struct {
+	ID             int64     `gorm:"primaryKey"`
+	Name           string    `gorm:"not null;size:200"`
+	Type           string    `gorm:"default:template;size:20"` // template | preset
+	Category       string    `gorm:"size:50"`                   // 人物/产品/背景/封面/海报/社媒/自定义
+	Prompt         string    `gorm:"type:text"`
+	NegativePrompt string    `gorm:"type:text"`
+	Size           string    `gorm:"size:20"`
+	Strength       float64   `gorm:"default:0.75"`
+	Model          string    `gorm:"size:100"`
+	CreatedAt      time.Time
+	UpdatedAt      time.Time
+}
+
+func (PromptTemplate) TableName() string { return "prompt_templates" }

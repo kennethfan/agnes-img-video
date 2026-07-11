@@ -103,6 +103,9 @@ func main() {
 	collectionRepo := gormrepo.NewCollectionRepository(gormDB)
 	collectionHandler := handler.NewCollectionHandler(collectionRepo)
 
+	templateRepo := gormrepo.NewTemplateRepository(gormDB)
+	templateHandler := handler.NewTemplateHandler(templateRepo)
+
 	storyboardRepo := gormrepo.NewStoryboardRepository(gormDB)
 	storyboardGenerator := service.NewStoryboardGenerator(svc, taskQueue, storyboardRepo)
 	storyboardHandler := handler.NewStoryboardHandler(storyboardRepo, storyboardGenerator)
@@ -180,6 +183,14 @@ func main() {
 		api.DELETE("/collections/:id", collectionHandler.DeleteCollection)
 		api.POST("/collections/:id/assets", collectionHandler.AddAssetsToCollection)
 		api.DELETE("/collections/:id/assets", collectionHandler.RemoveAssetsFromCollection)
+
+		api.GET("/templates", templateHandler.ListTemplates)
+		api.POST("/templates", templateHandler.CreateTemplate)
+		api.PUT("/templates/:id", templateHandler.UpdateTemplate)
+		api.DELETE("/templates/:id", templateHandler.DeleteTemplate)
+		api.POST("/templates/export", templateHandler.ExportTemplates)
+		api.POST("/templates/import", templateHandler.ImportTemplates)
+		api.POST("/history/:id/save-template", templateHandler.SaveFromHistory)
 
 		api.POST("/upload-to-github", handler.UploadToGitHub)
 		api.GET("/download", handler.ProxyDownload)

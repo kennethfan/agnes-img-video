@@ -35,6 +35,7 @@ func OpenDB(cfg DBConfig) (*gorm.DB, error) {
 		&StoryboardProject{}, &StoryboardShot{},
 		&Setting{}, &Asset{}, &AccessLog{}, &TaskRecord{},
 		&Collection{}, &AssetCollection{},
+		&PromptTemplate{},
 	); err != nil {
 		return nil, fmt.Errorf("自动迁移失败: %w", err)
 	}
