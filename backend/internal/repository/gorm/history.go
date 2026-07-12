@@ -149,6 +149,14 @@ func (r *HistoryRepository) FindPendingVideos() ([]repository.PendingVideoInfo, 
 	return results, nil
 }
 
+func (r *HistoryRepository) GetRecordsByProjectID(projectID int64) ([]model.HistoryRecord, error) {
+	var hs []History
+	if err := r.db.Where("project_id = ?", projectID).Order("id DESC").Find(&hs).Error; err != nil {
+		return nil, err
+	}
+	return toHistoryRecords(hs), nil
+}
+
 func (r *HistoryRepository) TrimRecords(max int) error {
 	sub := r.db.Model(&History{}).Select("id").Order("id DESC").Limit(max)
 	return r.db.Where("id NOT IN (?)", sub).Delete(&History{}).Error
@@ -183,11 +191,12 @@ func toHistoryRecords(hs []History) []model.HistoryRecord {
 			images = []string{}
 		}
 		rec := model.HistoryRecord{
-			ID:     h.ID,
-			Time:   h.Time,
-			Mode:   h.Mode,
-			Prompt: h.Prompt,
-			Images: images,
+			ID:        h.ID,
+			Time:      h.Time,
+			Mode:      h.Mode,
+			Prompt:    h.Prompt,
+			Images:    images,
+			ProjectID: h.ProjectID,
 		}
 		if h.Extra != nil {
 			var extra any

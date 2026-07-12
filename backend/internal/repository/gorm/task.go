@@ -104,6 +104,18 @@ func (r *TaskRepository) ListTasks(taskType, status string, limit, offset int) (
 	return result, nil
 }
 
+func (r *TaskRepository) ListByProjectID(projectID int64) ([]*model.TaskRecord, error) {
+	var ts []TaskRecord
+	if err := r.db.Where("project_id = ?", projectID).Order("created_at DESC").Find(&ts).Error; err != nil {
+		return nil, err
+	}
+	result := make([]*model.TaskRecord, len(ts))
+	for i, t := range ts {
+		result[i] = toTaskRecord(&t)
+	}
+	return result, nil
+}
+
 func (r *TaskRepository) CleanupOlderThan(hours int) (int64, error) {
 	res := r.db.Where("completed_at IS NOT NULL AND completed_at < datetime('now', ?)",
 		fmt.Sprintf("-%d hours", hours)).Delete(&TaskRecord{})
@@ -123,6 +135,7 @@ func toTaskRecord(t *TaskRecord) *model.TaskRecord {
 		RetryCount: t.RetryCount,
 		CreatedAt:  t.CreatedAt,
 		UpdatedAt:  t.UpdatedAt,
+		ProjectID:  t.ProjectID,
 	}
 	if t.Result != nil {
 		rec.Result = *t.Result

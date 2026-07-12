@@ -3,12 +3,13 @@ package gorm
 import "time"
 
 type History struct {
-	ID     int64   `gorm:"primaryKey"`
-	Time   string  `gorm:"index"`
-	Mode   string  `gorm:"index"`
-	Prompt string
-	Images string  // JSON array
-	Extra  *string
+	ID        int64   `gorm:"primaryKey"`
+	Time      string  `gorm:"index"`
+	Mode      string  `gorm:"index"`
+	Prompt    string
+	Images    string  // JSON array
+	Extra     *string
+	ProjectID int64   `json:"project_id" gorm:"column:project_id;index;default:0"`
 }
 
 func (History) TableName() string { return "history" }
@@ -63,6 +64,7 @@ type Asset struct {
 	OriginalURL string `gorm:"column:original_url"`
 	LocalPath   string `gorm:"column:local_path"`
 	GitHubURL   string `gorm:"column:github_url"`
+	ProjectID   int64  `json:"project_id" gorm:"column:project_id;index;default:0"`
 }
 
 func (Asset) TableName() string { return "assets" }
@@ -95,6 +97,7 @@ type TaskRecord struct {
 	CreatedAt   string  `gorm:"column:created_at"`
 	UpdatedAt   string  `gorm:"column:updated_at"`
 	CompletedAt *string `gorm:"column:completed_at"`
+	ProjectID   int64   `json:"project_id" gorm:"column:project_id;index;default:0"`
 }
 
 func (TaskRecord) TableName() string { return "task_queue" }
@@ -135,18 +138,19 @@ func (PromptTemplate) TableName() string { return "prompt_templates" }
 
 // Project 创作项目
 type Project struct {
-	ID        int64         `gorm:"primaryKey" json:"id"`
-	Title     string        `gorm:"size:200" json:"title"`
-	Brief     string        `gorm:"type:text" json:"brief"`
-	AIResult  string        `gorm:"type:text" json:"ai_result"`
-	Status    string        `gorm:"size:20;default:draft" json:"status"`
-	CoverURL  string        `gorm:"type:text" json:"cover_url"`
-	FinalURL  string        `gorm:"type:text" json:"final_url"`
-	AssetIDs  string        `gorm:"type:text" json:"asset_ids"`
-	Notes     string        `gorm:"type:text" json:"notes"`
-	CreatedAt time.Time     `json:"created_at"`
-	UpdatedAt time.Time     `json:"updated_at"`
-	Steps     []ProjectStep `gorm:"foreignKey:ProjectID" json:"steps"`
+	ID           int64         `gorm:"primaryKey" json:"id"`
+	Title        string        `gorm:"size:200" json:"title"`
+	Brief        string        `gorm:"type:text" json:"brief"`
+	AIResult     string        `gorm:"type:text" json:"ai_result"`
+	Status       string        `gorm:"size:20;default:draft" json:"status"`
+	CoverURL     string        `gorm:"type:text" json:"cover_url"`
+	FinalURL     string        `gorm:"type:text" json:"final_url"`
+	AssetIDs     string        `gorm:"type:text" json:"asset_ids"`
+	Notes        string        `gorm:"type:text" json:"notes"`
+	StepProgress string        `gorm:"type:text" json:"step_progress"`
+	CreatedAt    time.Time     `json:"created_at"`
+	UpdatedAt    time.Time     `json:"updated_at"`
+	Steps        []ProjectStep `gorm:"foreignKey:ProjectID" json:"steps"`
 }
 
 func (Project) TableName() string { return "projects" }

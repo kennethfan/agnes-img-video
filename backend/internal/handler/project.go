@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -71,10 +72,11 @@ func (h *ProjectHandler) GetProject(c *gin.Context) {
 }
 
 type updateProjectRequest struct {
-	Title  *string `json:"title"`
-	Brief  *string `json:"brief"`
-	Status *string `json:"status"`
-	Notes  *string `json:"notes"`
+	Title    *string `json:"title"`
+	Brief    *string `json:"brief"`
+	Status   *string `json:"status"`
+	Notes    *string `json:"notes"`
+	CoverURL *string `json:"cover_url"`
 }
 
 func (h *ProjectHandler) UpdateProject(c *gin.Context) {
@@ -106,6 +108,9 @@ func (h *ProjectHandler) UpdateProject(c *gin.Context) {
 	}
 	if req.Notes != nil {
 		project.Notes = *req.Notes
+	}
+	if req.CoverURL != nil {
+		project.CoverURL = *req.CoverURL
 	}
 
 	if err := h.repo.Update(project); err != nil {
@@ -373,6 +378,209 @@ func (h *ProjectHandler) IdeateBrief(c *gin.Context) {
 		"brief_text":       briefText,
 		"generated_prompt": generatedPrompt,
 	})
+}
+
+// ==================== 项目仪表盘 ====================
+
+type dashboardFile struct {
+	ID        int64  `json:"id"`
+	Type      string `json:"type"`
+	Source    string `json:"source"`
+	URL       string `json:"url"`
+	Prompt    string `json:"prompt"`
+	Step      string `json:"step"`
+	CreatedAt string `json:"created_at"`
+}
+
+type dashboardStats struct {
+	FileCount      int               `json:"file_count"`
+	OptimizedCount int               `json:"optimized_count"`
+	RunningTasks   int               `json:"running_tasks"`
+	LastActivity   string            `json:"last_activity"`
+	StepProgress   map[string]string `json:"step_progress"`
+}
+
+type stepProgressRequest struct {
+	Step   string `json:"step" binding:"required"`
+	Status string `json:"status" binding:"required"`
+}
+
+var validSteps = map[string]bool{"ideate": true, "generate": true, "refine": true, "finalize": true}
+var validStatuses = map[string]bool{"pending": true, "in_progress": true, "completed": true}
+
+// GetProjectFiles 聚合返回项目关联的所有文件（来自 history + assets）
+func (h *ProjectHandler) GetProjectFiles(c *gin.Context) {
+	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "无效的项目 ID"})
+		return
+	}
+
+	var files []dashboardFile
+
+	// 从 history 查
+	if records, err := historyRepo.GetRecordsByProjectID(id); err == nil {
+		for _, r := range records {
+			fileType := "image"
+			if strings.Contains(r.Mode, "video") {
+				fileType = "video"
+			}
+			for _, img := range r.Images {
+				files = append(files, dashboardFile{
+					ID:        r.ID,
+					Type:      fileType,
+					Source:    "history",
+					URL:       img,
+					Prompt:    r.Prompt,
+					Step:      "",
+					CreatedAt: r.Time,
+				})
+			}
+		}
+	}
+
+	// 从 asset 查
+	if assets, err := assetRepo.GetByProjectID(id); err == nil {
+		for _, a := range assets {
+			u := a.OriginalURL
+			if u == "" {
+				u = a.LocalPath
+			}
+			if u == "" {
+				u = a.GitHubURL
+			}
+			files = append(files, dashboardFile{
+				ID:        a.ID,
+				Type:      a.Type,
+				Source:    "asset",
+				URL:       u,
+				Prompt:    a.Prompt,
+				Step:      "",
+				CreatedAt: a.Time,
+			})
+		}
+	}
+
+	// 按创建时间倒序
+	sort.Slice(files, func(i, j int) bool {
+		return files[i].CreatedAt > files[j].CreatedAt
+	})
+
+	c.JSON(http.StatusOK, gin.H{"files": files})
+}
+
+// GetProjectStats 返回项目统计
+func (h *ProjectHandler) GetProjectStats(c *gin.Context) {
+	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "无效的项目 ID"})
+		return
+	}
+
+	project, err := h.repo.GetByID(id)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "项目不存在"})
+		return
+	}
+
+	stats := dashboardStats{
+		StepProgress: parseStepProgress(project.StepProgress),
+	}
+
+	// 文件数：history + asset
+	if records, err := historyRepo.GetRecordsByProjectID(id); err == nil {
+		for _, r := range records {
+			stats.FileCount += len(r.Images)
+		}
+	}
+	if assets, err := assetRepo.GetByProjectID(id); err == nil {
+		stats.FileCount += len(assets)
+		// 计算已优化的图片数（本地已保存或已上传 GitHub 的）
+		for _, a := range assets {
+			if a.LocalPath != "" || a.GitHubURL != "" {
+				stats.OptimizedCount++
+			}
+		}
+	}
+
+	// 运行中的任务
+	if tasks, err := taskRepo.ListByProjectID(id); err == nil {
+		for _, t := range tasks {
+			if t.Status == "pending" || t.Status == "processing" {
+				stats.RunningTasks++
+			}
+		}
+	}
+
+	// 最后活动时间 = max(project.UpdatedAt, 最新文件的 created_at)
+	stats.LastActivity = project.UpdatedAt.Format(time.RFC3339)
+	if records, err := historyRepo.GetRecordsByProjectID(id); err == nil && len(records) > 0 {
+		if records[0].Time > stats.LastActivity {
+			stats.LastActivity = records[0].Time
+		}
+	}
+
+	c.JSON(http.StatusOK, stats)
+}
+
+// UpdateStepProgress 更新项目步骤进度
+func (h *ProjectHandler) UpdateStepProgress(c *gin.Context) {
+	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "无效的项目 ID"})
+		return
+	}
+
+	var req stepProgressRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "参数错误: " + err.Error()})
+		return
+	}
+
+	if !validSteps[req.Step] {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "无效的步骤名称，有效值: ideate, generate, refine, finalize"})
+		return
+	}
+	if !validStatuses[req.Status] {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "无效的状态值，有效值: pending, in_progress, completed"})
+		return
+	}
+
+	project, err := h.repo.GetByID(id)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "项目不存在"})
+		return
+	}
+
+	progress := parseStepProgress(project.StepProgress)
+	progress[req.Step] = req.Status
+
+	bytes, _ := json.Marshal(progress)
+	if err := h.repo.UpdateField(id, "step_progress", string(bytes)); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "更新进度失败: " + err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"step_progress": progress})
+}
+
+// parseStepProgress 解析 StepProgress JSON 字符串，返回 map
+func parseStepProgress(s string) map[string]string {
+	def := map[string]string{"ideate": "pending", "generate": "pending", "refine": "pending", "finalize": "pending"}
+	if s == "" {
+		return def
+	}
+	var parsed map[string]string
+	if err := json.Unmarshal([]byte(s), &parsed); err != nil {
+		return def
+	}
+	// 确保所有步骤键存在
+	for k := range def {
+		if _, ok := parsed[k]; !ok {
+			parsed[k] = "pending"
+		}
+	}
+	return parsed
 }
 
 // extractJSON 从 AI 响应中提取 JSON，支持剥离 markdown 代码块标记和前后文本

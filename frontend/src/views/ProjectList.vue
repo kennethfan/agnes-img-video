@@ -106,6 +106,22 @@ const statusTypes: Record<string, string> = {
 function statusLabel(s: string) {
   return statusLabels[s] || s
 }
+
+function stepProgressSummary(sp: string | null | undefined): string {
+  if (!sp) return ''
+  try {
+    const data = JSON.parse(sp)
+    const steps: Record<string, string> = { ideate: '发想', generate: '生成', refine: '优化', finalize: '定稿' }
+    return Object.entries(steps)
+      .filter(([k]) => data[k])
+      .map(([k, v]) => {
+        if (data[k] === 'completed') return v + ' ✓'
+        if (data[k] === 'in_progress') return v + ' ●'
+        return v + ' ○'
+      })
+      .join(' | ')
+  } catch { return '' }
+}
 </script>
 
 <template>
@@ -146,7 +162,10 @@ function statusLabel(s: string) {
             <div class="card-brief" v-if="p.brief">
               {{ p.brief.length > 80 ? p.brief.slice(0, 80) + '...' : p.brief }}
             </div>
-            <div class="card-meta">
+            <div class="card-meta" v-if="p.step_progress">
+              <span class="step-summary">{{ stepProgressSummary(p.step_progress) }}</span>
+            </div>
+            <div class="card-meta" v-else>
               <span>{{ p.steps?.length || 0 }} 个步骤</span>
               <span>{{ p.updated_at?.slice(0, 10) }}</span>
             </div>
@@ -234,6 +253,11 @@ function statusLabel(s: string) {
   margin-top: 12px;
   color: #c0c4cc;
   font-size: 12px;
+}
+.step-summary {
+  font-size: 12px;
+  color: #909399;
+  line-height: 1.4;
 }
 .card-actions {
   display: flex;

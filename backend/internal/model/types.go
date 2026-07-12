@@ -54,12 +54,13 @@ type ImageResponse struct {
 // ==================== 历史记录 ====================
 
 type HistoryRecord struct {
-	ID     int64    `json:"id"`
-	Time   string   `json:"time"`
-	Mode   string   `json:"mode"`
-	Prompt string   `json:"prompt"`
-	Images []string `json:"images"`
-	Extra  any      `json:"extra,omitempty"`
+	ID        int64    `json:"id"`
+	Time      string   `json:"time"`
+	Mode      string   `json:"mode"`
+	Prompt    string   `json:"prompt"`
+	Images    []string `json:"images"`
+	Extra     any      `json:"extra,omitempty"`
+	ProjectID int64    `json:"project_id"`
 }
 
 type BatchDeleteRequest struct {
@@ -193,12 +194,13 @@ type Asset struct {
 	ID          int64  `json:"id" gorm:"primaryKey"`
 	Mode        string `json:"mode" gorm:"index"`
 	Prompt      string `json:"prompt"`
-	Type        string `json:"type"`    // "image" | "video"
-	Time        string `json:"time"`    // 保存时间
+	Type        string `json:"type"`
+	Time        string `json:"time"`
 	Favorite    bool   `json:"favorite"`
 	OriginalURL string `json:"original_url" gorm:"column:original_url"`
 	LocalPath   string `json:"local_path" gorm:"column:local_path"`
 	GitHubURL   string `json:"github_url" gorm:"column:github_url"`
+	ProjectID   int64  `json:"project_id" gorm:"column:project_id;index;default:0"`
 }
 
 // ==================== 资产管理 ====================
@@ -297,6 +299,7 @@ type TaskRecord struct {
 	CreatedAt   string `json:"created_at"`
 	UpdatedAt   string `json:"updated_at"`
 	CompletedAt string `json:"completed_at,omitempty"`
+	ProjectID   int64  `json:"project_id"`
 }
 
 type TaskEvent struct {

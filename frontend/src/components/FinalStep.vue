@@ -1,88 +1,110 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, computed, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Check, Edit, Plus } from '@element-plus/icons-vue'
-import { updateProject } from '../api/projects'
-import { saveAsset } from '../api/assets'
-import ImageResult from './ImageResult.vue'
-import type { Project } from '../types'
+import { Check } from '@element-plus/icons-vue'
+import { updateProject, getProjectFiles } from '../api/projects'
+import type { Project, ProjectFile } from '../types'
 
 const props = defineProps<{ project: Project | null }>()
 const emit = defineEmits<{ updated: [] }>()
 
-const editingNotes = ref(false)
+const router = useRouter()
 const notes = ref('')
-const finalUrl = ref('')
-const saving = ref(false)
-const savingSteps = ref<Set<number>>(new Set())
+const selectedCover = ref('')
+const completing = ref(false)
+const projectFiles = ref<ProjectFile[]>([])
 
-async function saveStepOutput(stepId: number, imageUrl: string) {
-  savingSteps.value = new Set([...savingSteps.value, stepId])
-  try {
-    await saveAsset({ image_url: imageUrl, prompt: '来自创作项目', mode: 'image' })
-    ElMessage.success('已保存到作品库')
-  } catch (e: any) {
-    ElMessage.error(e.message || '保存失败')
-  } finally {
-    const next = new Set(savingSteps.value)
-    next.delete(stepId)
-    savingSteps.value = next
+interface OutputItem {
+  url: string
+  label: string
+  stepType: string
+}
+
+const allOutputs = computed<OutputItem[]>(() => {
+  const items: OutputItem[] = []
+  // 收集 ProjectStep 输出
+  if (props.project?.steps) {
+    for (const step of props.project.steps) {
+      if (step.output && (step.step_type === 'generate' || step.step_type === 'refine')) {
+        const pos = step.position || step.id
+        const label = step.step_type === 'generate' ? `生成 #${pos}` : `优化 #${pos}`
+        items.push({ url: step.output, label, stepType: step.step_type })
+      }
+    }
   }
-}
-
-function startEditNotes() {
-  if (!props.project) return
-  notes.value = props.project.notes || ''
-  finalUrl.value = props.project.final_url || ''
-  editingNotes.value = true
-}
-
-async function saveFinal() {
-  if (!props.project) return
-  saving.value = true
-  try {
-    await updateProject(props.project.id, {
-      status: 'completed',
-      notes: notes.value
-    })
-    ElMessage.success('已保存定稿信息')
-    editingNotes.value = false
-    emit('updated')
-  } catch (e: any) {
-    ElMessage.error('保存失败: ' + (e.message || ''))
-  } finally {
-    saving.value = false
+  // 补充 getProjectFiles 中的图片（去重）
+  const seen = new Set(items.map(i => i.url))
+  for (const f of projectFiles.value) {
+    if (f.type === 'image' && f.url && !seen.has(f.url)) {
+      items.push({ url: f.url, label: f.step || '历史记录', stepType: 'generate' })
+      seen.add(f.url)
+    }
   }
-}
-
-async function markCompleted() {
-  if (!props.project) return
-  try {
-    await ElMessageBox.confirm('确认将此项目标记为已完成？', '定稿确认')
-    await updateProject(props.project.id, { status: 'completed' })
-    ElMessage.success('项目已标记为已完成')
-    emit('updated')
-  } catch (e: any) {
-    if (e !== 'cancel') ElMessage.error('操作失败')
-  }
-}
+  return items
+})
 
 function getStepsByType(type: string) {
   return props.project?.steps?.filter(s => s.step_type === type) || []
+}
+
+async function loadFiles() {
+  if (!props.project) return
+  try {
+    projectFiles.value = await getProjectFiles(props.project.id)
+  } catch { /* 非阻塞 */ }
+}
+
+onMounted(loadFiles)
+
+async function completeProject() {
+  if (!props.project) return
+  if (!selectedCover.value && allOutputs.value.length > 0) {
+    try {
+      await ElMessageBox.confirm('尚未选择封面图片，确定要完成吗？', '提示', {
+        type: 'warning',
+        confirmButtonText: '确定完成',
+        cancelButtonText: '去选择',
+      })
+    } catch {
+      return
+    }
+  }
+  completing.value = true
+  try {
+    await updateProject(props.project.id, {
+      status: 'completed',
+      notes: notes.value || undefined,
+      cover_url: selectedCover.value || undefined,
+    })
+    ElMessage.success('🎉 项目已完成！')
+    emit('updated')
+    router.push(`/projects/${props.project.id}/dashboard`)
+  } catch (e: any) {
+    ElMessage.error('完成失败: ' + (e.message || ''))
+  } finally {
+    completing.value = false
+  }
 }
 </script>
 
 <template>
   <div class="final-step">
-    <div class="step-intro">
-      <h3><el-icon><Check /></el-icon> 定稿</h3>
-      <p>查看生成结果，添加备注，完成项目。</p>
+    <!-- 页头 -->
+    <div class="step-header">
+      <h3>🎯 定稿 — 成果画廊</h3>
+      <p v-if="project" class="step-summary">
+        共 {{ allOutputs.length }} 张生成结果
+        <template v-if="getStepsByType('refine').length">
+          ｜优化 {{ getStepsByType('refine').length }} 次
+        </template>
+      </p>
     </div>
 
     <div v-if="!project" class="empty">暂无项目数据</div>
 
     <template v-else>
-      <!-- 状态 -->
+      <!-- 已完成标记 -->
       <el-alert
         v-if="project.status === 'completed'"
         title="此项目已完成"
@@ -92,73 +114,73 @@ function getStepsByType(type: string) {
         class="mb-4"
       />
 
-      <!-- 生成记录 -->
-      <div v-if="getStepsByType('generate').length" class="section">
-        <h4>生成记录（{{ getStepsByType('generate').length }} 条）</h4>
-        <div v-for="step in getStepsByType('generate')" :key="step.id" class="step-record">
-          <div class="record-label">输入: {{ step.input?.slice(0, 100) }}</div>
-          <div v-if="step.output" class="record-output">
-            <ImageResult :images="[step.output]" :loading="false" prompt="" mode="" />
-            <div style="margin-top: 8px">
-              <el-button
-                size="small"
-                type="success"
-                :icon="Plus"
-                :loading="savingSteps.has(step.id)"
-                :disabled="savingSteps.has(step.id)"
-                @click="saveStepOutput(step.id, step.output)"
-              >
-                {{ savingSteps.has(step.id) ? '保存中...' : '保存到作品库' }}
-              </el-button>
+      <!-- 成果画廊（有图片时展示） -->
+      <div v-if="allOutputs.length" class="section">
+        <h4>🖼️ 成果画廊</h4>
+        <p class="section-tip">点击图片设为项目封面</p>
+        <div class="gallery-grid">
+          <div
+            v-for="(item, idx) in allOutputs"
+            :key="idx"
+            class="gallery-card"
+            :class="{ 'is-cover': selectedCover === item.url }"
+            @click="selectedCover = item.url"
+          >
+            <el-image :src="item.url" fit="cover" loading="lazy" />
+            <div class="card-badge" :class="item.stepType">
+              {{ item.stepType === 'generate' ? '生成' : '优化' }}
             </div>
+            <div v-if="selectedCover === item.url" class="card-cover-badge">
+              <el-icon><Check /></el-icon> 封面
+            </div>
+            <div class="card-label">{{ item.label }}</div>
           </div>
         </div>
       </div>
 
-      <div v-if="getStepsByType('refine').length" class="section">
-        <h4>优化记录（{{ getStepsByType('refine').length }} 条）</h4>
-        <div v-for="step in getStepsByType('refine')" :key="step.id" class="step-record">
-          <div class="record-label">优化: {{ step.input?.slice(0, 100) }}</div>
-          <div v-if="step.output" class="record-output">
-            <ImageResult :images="[step.output]" :loading="false" prompt="" mode="" />
-            <div style="margin-top: 8px">
-              <el-button
-                size="small"
-                type="success"
-                :icon="Plus"
-                :loading="savingSteps.has(step.id)"
-                :disabled="savingSteps.has(step.id)"
-                @click="saveStepOutput(step.id, step.output)"
-              >
-                {{ savingSteps.has(step.id) ? '保存中...' : '保存到作品库' }}
-              </el-button>
-            </div>
-          </div>
+      <!-- 封面预览 -->
+      <div v-if="selectedCover" class="section">
+        <h4>📌 封面预览</h4>
+        <div class="cover-preview-wrap">
+          <el-image :src="selectedCover" fit="contain" class="cover-preview" />
+          <el-button
+            size="small"
+            text
+            type="warning"
+            @click="selectedCover = ''"
+            style="margin-top: 8px"
+          >
+            取消选择
+          </el-button>
         </div>
       </div>
 
-      <!-- 备注编辑 -->
+      <!-- 定稿备注 -->
       <div class="section">
-        <h4>项目备注</h4>
-        <div v-if="!editingNotes">
-          <p v-if="project.notes" class="notes-preview">{{ project.notes }}</p>
-          <p v-else class="notes-empty">暂无备注</p>
-          <el-button size="small" :icon="Edit" @click="startEditNotes">编辑</el-button>
-        </div>
-        <div v-else class="notes-edit">
-          <el-input v-model="notes" type="textarea" :rows="4" placeholder="定稿备注..." />
-          <div class="notes-actions">
-            <el-button @click="editingNotes = false">取消</el-button>
-            <el-button type="primary" :loading="saving" @click="saveFinal">保存</el-button>
-          </div>
-        </div>
+        <h4>📝 定稿备注</h4>
+        <el-input
+          v-model="notes"
+          type="textarea"
+          :rows="3"
+          placeholder="添加完成备注…"
+        />
       </div>
 
-      <!-- 定稿操作 -->
-      <div v-if="project.status !== 'completed'" class="final-actions">
-        <el-button type="success" :icon="Check" @click="markCompleted">
-          标记为已完成
+      <!-- 完成操作 -->
+      <div class="final-actions">
+        <el-button
+          type="primary"
+          size="large"
+          :icon="Check"
+          :loading="completing"
+          :disabled="project.status === 'completed'"
+          @click="completeProject"
+        >
+          完成项目
         </el-button>
+        <p class="action-hint">
+          标记项目完成并跳转到仪表盘
+        </p>
       </div>
     </template>
   </div>
@@ -166,21 +188,20 @@ function getStepsByType(type: string) {
 
 <style scoped>
 .final-step {
-  max-width: 700px;
+  max-width: 800px;
   margin: 0 auto;
 }
-.step-intro {
+.step-header {
   margin-bottom: 24px;
 }
-.step-intro h3 {
-  display: flex;
-  align-items: center;
-  gap: 8px;
+.step-header h3 {
   margin: 0 0 8px;
+  font-size: 18px;
 }
-.step-intro p {
+.step-summary {
   margin: 0;
   color: #909399;
+  font-size: 14px;
 }
 .empty {
   text-align: center;
@@ -188,46 +209,121 @@ function getStepsByType(type: string) {
   color: #c0c4cc;
 }
 .section {
-  margin-bottom: 24px;
+  margin-bottom: 28px;
 }
 .section h4 {
-  margin: 0 0 12px;
+  margin: 0 0 8px;
   font-size: 15px;
 }
-.step-record {
-  background: #f5f7fa;
-  border-radius: 6px;
-  padding: 12px;
-  margin-bottom: 8px;
-}
-.record-label {
+.section-tip {
+  margin: 0 0 12px;
   font-size: 13px;
-  color: #909399;
-  margin-bottom: 8px;
-}
-.record-output {
-  max-width: 300px;
-}
-.notes-preview {
-  white-space: pre-wrap;
-  line-height: 1.5;
-  color: #606266;
-}
-.notes-empty {
   color: #c0c4cc;
 }
-.notes-edit {
-  display: flex;
-  flex-direction: column;
+
+/* 画廊网格 */
+.gallery-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
   gap: 12px;
 }
-.notes-actions {
-  display: flex;
-  gap: 8px;
+.gallery-card {
+  position: relative;
+  border-radius: 8px;
+  overflow: hidden;
+  cursor: pointer;
+  border: 3px solid transparent;
+  transition: border-color 0.2s, transform 0.15s;
+  background: #f5f7fa;
 }
-.final-actions {
-  margin-top: 32px;
+.gallery-card:hover {
+  transform: translateY(-2px);
+}
+.gallery-card.is-cover {
+  border-color: #409eff;
+  box-shadow: 0 0 0 2px rgba(64, 158, 255, 0.2);
+}
+.gallery-card :deep(.el-image) {
+  width: 100%;
+  height: 160px;
+  display: block;
+}
+.card-badge {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 4px;
+  color: #fff;
+}
+.card-badge.generate { background: #67c23a; }
+.card-badge.refine  { background: #e6a23c; }
+.card-cover-badge {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: #409eff;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+.card-label {
+  padding: 6px 8px;
+  font-size: 12px;
+  color: #606266;
   text-align: center;
+}
+
+/* 封面预览 */
+.cover-preview-wrap {
+  text-align: center;
+}
+.cover-preview {
+  max-width: 400px;
+  max-height: 300px;
+  border-radius: 8px;
+  border: 1px solid #e4e7ed;
+}
+
+/* 统计摘要 */
+.stats-summary {
+  background: #f5f7fa;
+  border-radius: 8px;
+  padding: 16px;
+}
+.stat-card {
+  text-align: center;
+}
+.stat-value {
+  font-size: 28px;
+  font-weight: 700;
+  color: #303133;
+  line-height: 1.2;
+}
+.stat-label {
+  font-size: 13px;
+  color: #909399;
+  margin-top: 4px;
+}
+
+/* 完成操作 */
+.final-actions {
+  text-align: center;
+  padding: 24px 0 12px;
+}
+.final-actions .el-button--large {
+  padding: 16px 48px;
+  font-size: 16px;
+}
+.action-hint {
+  margin: 12px 0 0;
+  font-size: 13px;
+  color: #c0c4cc;
 }
 .mb-4 {
   margin-bottom: 16px;

@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { ref, onMounted, watch } from 'vue'
+import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { ArrowLeft, ArrowRight, Picture, Edit, Check, ChatLineSquare } from '@element-plus/icons-vue'
-import { getProject } from '../api/projects'
+import { ArrowLeft, ArrowRight, Picture, Edit, Check, ChatLineSquare, DataBoard } from '@element-plus/icons-vue'
+import { getProject, updateStepProgress } from '../api/projects'
 import type { Project } from '../types'
 import IdeateStep from '../components/IdeateStep.vue'
 import GenStep from '../components/GenStep.vue'
@@ -55,9 +56,23 @@ function prevStep() {
   if (idx > 0) goStep(steps[idx - 1])
 }
 
-function nextStep() {
+const router = useRouter()
+
+async function nextStepWithProgress() {
+  if (!project.value) return
   const idx = steps.indexOf(currentStep.value)
-  if (idx < steps.length - 1) goStep(steps[idx + 1])
+  if (idx < steps.length - 1) {
+    try {
+      await updateStepProgress(project.value.id, currentStep.value, 'completed')
+    } catch { /* 非阻塞 */ }
+    goStep(steps[idx + 1])
+  }
+}
+
+function goToDashboard() {
+  if (project.value) {
+    router.push(`/projects/${project.value.id}/dashboard`)
+  }
 }
 </script>
 
@@ -66,6 +81,9 @@ function nextStep() {
     <div class="editor-header">
       <el-button text @click="emit('back')">
         <el-icon><ArrowLeft /></el-icon> 返回列表
+      </el-button>
+      <el-button text @click="goToDashboard" v-if="project">
+        <el-icon><DataBoard /></el-icon> 仪表盘
       </el-button>
       <h3 v-if="project">{{ project.title || '未命名项目' }}</h3>
     </div>
@@ -116,7 +134,7 @@ function nextStep() {
       <el-button v-if="currentStep !== 'ideate'" @click="prevStep">
         <el-icon><ArrowLeft /></el-icon> 上一步
       </el-button>
-      <el-button v-if="currentStep !== 'finalize'" type="primary" @click="nextStep">
+      <el-button v-if="currentStep !== 'finalize'" type="primary" @click="nextStepWithProgress">
         下一步 <el-icon><ArrowRight /></el-icon>
       </el-button>
     </div>

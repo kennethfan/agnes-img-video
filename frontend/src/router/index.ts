@@ -23,6 +23,7 @@ const routes = [
   { path: '/novel',        name: 'novel',        component: () => import('../views/WorkflowWizard.vue') },
   { path: '/projects',     name: 'projects',     component: () => import('../views/ProjectList.vue') },
   { path: '/project-editor/:id', name: 'project_editor', component: () => import('../views/ProjectEditor.vue') },
+  { path: '/projects/:id/dashboard', name: 'project_dashboard', component: () => import('../views/ProjectDashboard.vue') },
 ]
 
 const router = createRouter({

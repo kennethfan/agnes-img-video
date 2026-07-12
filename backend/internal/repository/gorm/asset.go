@@ -55,6 +55,14 @@ func (r *AssetRepository) UpdateStoragePaths(id int64, localPath, githubURL stri
 	return nil
 }
 
+func (r *AssetRepository) GetByProjectID(projectID int64) ([]model.Asset, error) {
+	var assets []model.Asset
+	if err := r.db.Where("project_id = ?", projectID).Order("id DESC").Find(&assets).Error; err != nil {
+		return nil, fmt.Errorf("查询项目资产失败: %w", err)
+	}
+	return assets, nil
+}
+
 func (r *AssetRepository) GetByIDs(ids []int64) ([]model.Asset, error) {
 	var assets []model.Asset
 	if err := r.db.Where("id IN ?", ids).Find(&assets).Error; err != nil {

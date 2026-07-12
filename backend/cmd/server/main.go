@@ -112,6 +112,7 @@ func main() {
 
 	projectRepo := gormrepo.NewProjectRepository(gormDB)
 	projectHandler := handler.NewProjectHandler(projectRepo, svc)
+	handler.SetTaskRepo(taskRepo)
 
 	settingsHandler := handler.NewSettingsHandler(settingsRepo)
 
@@ -205,9 +206,12 @@ func main() {
 			projects.POST("/:id/duplicate", projectHandler.DuplicateProject)
 			projects.POST("/:id/ai-recommend", projectHandler.AIRecommend)
 			projects.POST("/:id/steps", projectHandler.AddStep)
-				projects.PUT("/steps/:stepId", projectHandler.UpdateStep)
-				projects.DELETE("/steps/:stepId", projectHandler.DeleteStep)
-				projects.POST("/:id/ideate-brief", projectHandler.IdeateBrief)
+			projects.PUT("/steps/:stepId", projectHandler.UpdateStep)
+			projects.DELETE("/steps/:stepId", projectHandler.DeleteStep)
+			projects.POST("/:id/ideate-brief", projectHandler.IdeateBrief)
+			projects.GET("/:id/files", projectHandler.GetProjectFiles)
+			projects.GET("/:id/stats", projectHandler.GetProjectStats)
+			projects.PUT("/:id/step-progress", projectHandler.UpdateStepProgress)
 		}
 
 		api.POST("/upload-to-github", handler.UploadToGitHub)

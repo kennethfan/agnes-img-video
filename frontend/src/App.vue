@@ -21,6 +21,7 @@ import WorkflowWizard from './views/WorkflowWizard.vue'
 import TemplateManager from './views/TemplateManager.vue'
 import ProjectList from './views/ProjectList.vue'
 import ProjectEditor from './views/ProjectEditor.vue'
+import ProjectDashboard from './views/ProjectDashboard.vue'
 import type { Project } from './types'
 
 const route = useRoute()
@@ -32,7 +33,7 @@ const currentProjectId = ref<number>(0)
 watch(() => route.name, (name) => {
   if (name && typeof name === 'string') {
     activePage.value = name
-    if (name === 'project_editor') {
+    if (name === 'project_editor' || name === 'project_dashboard') {
       currentProjectId.value = Number(route.params.id) || 0
     }
   }
@@ -85,6 +86,7 @@ function backToProjects() {
         <Settings v-else-if="activePage === 'settings'" />
         <ProjectList v-else-if="activePage === 'projects'" @edit-project="openProjectEditor" />
         <ProjectEditor v-else-if="activePage === 'project_editor'" :project-id="currentProjectId" @back="backToProjects" />
+        <ProjectDashboard v-else-if="activePage === 'project_dashboard'" :project-id="currentProjectId" />
         <WorkflowWizard v-else-if="activePage === 'image_refine'" />
         <WorkflowWizard v-else-if="activePage === 'comic'" />
         <WorkflowWizard v-else-if="activePage === 'novel'" />

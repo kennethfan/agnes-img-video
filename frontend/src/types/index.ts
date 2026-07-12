@@ -65,6 +65,7 @@ export interface HistoryRecord {
   prompt: string
   images: string[]
   extra?: Record<string, unknown>
+  project_id?: number
 }
 
 export interface DeleteHistoryRequest {
@@ -181,6 +182,7 @@ export interface TaskRecord {
   created_at: string
   updated_at: string
   completed_at?: string
+  project_id?: number
 }
 
 export interface TaskCreateResponse {
@@ -215,6 +217,7 @@ export interface Project {
   final_url: string
   asset_ids: string
   notes: string
+  step_progress: string  // JSON string {"ideate":"completed",...}
   created_at: string
   updated_at: string
   steps: ProjectStep[]
@@ -226,15 +229,36 @@ export interface CreateProjectRequest {
 }
 
 export interface UpdateProjectRequest {
-  title?: string
-  brief?: string
-  status?: string
-  notes?: string
+	title?: string
+	brief?: string
+	status?: string
+	notes?: string
+	cover_url?: string
 }
 
 export interface ProjectStepRequest {
   step_type: string
   position?: number
+}
+
+// ==================== 项目仪表盘 ====================
+
+export interface ProjectFile {
+  id: number
+  type: 'image' | 'video'
+  source: 'history' | 'asset'
+  url: string
+  prompt: string
+  step: string
+  created_at: string
+}
+
+export interface ProjectStats {
+  file_count: number
+  optimized_count: number
+  running_tasks: number
+  last_activity: string
+  step_progress: Record<string, string>
 }
 
 // ==================== 存储设置 ====================

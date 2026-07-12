@@ -47,6 +47,11 @@ func (r *ProjectRepository) Update(project *Project) error {
 	}).Error
 }
 
+// UpdateField 更新项目单个字段（用于 step_progress 等）
+func (r *ProjectRepository) UpdateField(id int64, field, value string) error {
+	return r.db.Model(&Project{}).Where("id = ?", id).Update(field, value).Error
+}
+
 // Delete 删除项目（级联删步骤）
 func (r *ProjectRepository) Delete(id int64) error {
 	r.db.Where("project_id = ?", id).Delete(&ProjectStep{})
