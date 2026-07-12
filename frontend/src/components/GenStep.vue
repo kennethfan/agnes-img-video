@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Picture, VideoCamera } from '@element-plus/icons-vue'
 import { textToImage, imageToImage } from '../api/image'
@@ -7,12 +7,19 @@ import ImageResult from './ImageResult.vue'
 import AssetPickerDialog from './AssetPickerDialog.vue'
 import type { Project } from '../types'
 
-const props = defineProps<{ project: Project | null }>()
+const props = defineProps<{ project: Project | null; initialPrompt?: string }>()
 const emit = defineEmits<{
   generated: [urls: string[]]
 }>()
 
-const prompt = ref('')
+const prompt = ref(props.initialPrompt || sessionStorage.getItem('ideate_prompt') || '')
+// 读完后清理，避免影响后续项目
+sessionStorage.removeItem('ideate_prompt')
+
+// 响应式同步外部传入的 prompt
+watch(() => props.initialPrompt, (val) => {
+  if (val) prompt.value = val
+})
 const mode = ref<'text2image' | 'image2image'>('text2image')
 const imageUrl = ref('')
 const size = ref('1024x1024')

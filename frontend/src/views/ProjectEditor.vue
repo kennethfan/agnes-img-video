@@ -1,10 +1,10 @@
 <script setup lang="ts">
 import { ref, onMounted, watch } from 'vue'
 import { ElMessage } from 'element-plus'
-import { ArrowLeft, ArrowRight, MagicStick, Picture, Edit, Check } from '@element-plus/icons-vue'
-import { getProject, aiRecommend } from '../api/projects'
+import { ArrowLeft, ArrowRight, Picture, Edit, Check, ChatLineSquare } from '@element-plus/icons-vue'
+import { getProject } from '../api/projects'
 import type { Project } from '../types'
-import AIPanel from '../components/AIPanel.vue'
+import IdeateStep from '../components/IdeateStep.vue'
 import GenStep from '../components/GenStep.vue'
 import RefineStep from '../components/RefineStep.vue'
 import FinalStep from '../components/FinalStep.vue'
@@ -12,30 +12,29 @@ import FinalStep from '../components/FinalStep.vue'
 const props = defineProps<{ projectId: number }>()
 const emit = defineEmits<{ back: [] }>()
 
-const steps = ['ai', 'generate', 'refine', 'finalize'] as const
+const steps = ['ideate', 'generate', 'refine', 'finalize'] as const
 type Step = typeof steps[number]
-const stepLabels: Record<Step, string> = { ai: 'AI 推荐', generate: '生成', refine: '优化', finalize: '定稿' }
-const stepIcons: Record<Step, any> = { ai: MagicStick, generate: Picture, refine: Edit, finalize: Check }
+const stepLabels: Record<Step, string> = { ideate: '创意发想', generate: '生成', refine: '优化', finalize: '定稿' }
+const stepIcons: Record<Step, any> = { ideate: ChatLineSquare, generate: Picture, refine: Edit, finalize: Check }
 
-const currentStep = ref<Step>('ai')
+const currentStep = ref<Step>('ideate')
 const project = ref<Project | null>(null)
 const loading = ref(false)
-const aiResult = ref('')
-const aiLoading = ref(false)
 const latestGenUrls = ref<string[]>([])
+const latestBrief = ref('')
+const latestGenPrompt = ref('')
+
+function onBriefGenerated(briefText: string, prompt: string) {
+  latestBrief.value = briefText
+  latestGenPrompt.value = prompt
+  // sessionStorage 兜底，避免 v-if 组件重建时 prop 丢失
+  sessionStorage.setItem('ideate_prompt', prompt)
+}
 
 async function loadProject() {
   loading.value = true
   try {
     project.value = await getProject(props.projectId)
-    if (project.value.ai_result) {
-      try {
-        const parsed = JSON.parse(project.value.ai_result)
-        aiResult.value = parsed.result || project.value.ai_result
-      } catch {
-        aiResult.value = project.value.ai_result
-      }
-    }
   } catch (e: any) {
     ElMessage.error('加载项目失败: ' + (e.message || ''))
   } finally {
@@ -46,21 +45,6 @@ async function loadProject() {
 onMounted(loadProject)
 
 watch(() => props.projectId, loadProject)
-
-async function runAIRecommend() {
-  if (!project.value) return
-  aiLoading.value = true
-  try {
-    const res = await aiRecommend(project.value.id)
-    aiResult.value = res.result
-    ElMessage.success('AI 推荐完成')
-    await loadProject()
-  } catch (e: any) {
-    ElMessage.error('AI 推荐失败: ' + (e.message || ''))
-  } finally {
-    aiLoading.value = false
-  }
-}
 
 function goStep(s: Step) {
   currentStep.value = s
@@ -106,19 +90,14 @@ function nextStep() {
 
     <!-- 步骤内容 -->
     <div class="step-content">
-      <!-- AI 推荐 -->
-      <div v-if="currentStep === 'ai'" class="step-body">
-        <AIPanel
-          :project="project"
-          :aiResult="aiResult"
-          :loading="aiLoading"
-          @recommend="runAIRecommend"
-        />
+      <!-- 创意发想 -->
+      <div v-if="currentStep === 'ideate'" class="step-body">
+        <IdeateStep :project="project" @brief-generated="onBriefGenerated" />
       </div>
 
       <!-- 生成 -->
       <div v-if="currentStep === 'generate'" class="step-body">
-        <GenStep :project="project" @generated="latestGenUrls = $event" />
+        <GenStep :project="project" :initialPrompt="latestGenPrompt" @generated="latestGenUrls = $event" />
       </div>
 
       <!-- 优化 -->
@@ -134,7 +113,7 @@ function nextStep() {
 
     <!-- 步骤操作 -->
     <div class="step-actions">
-      <el-button v-if="currentStep !== 'ai'" @click="prevStep">
+      <el-button v-if="currentStep !== 'ideate'" @click="prevStep">
         <el-icon><ArrowLeft /></el-icon> 上一步
       </el-button>
       <el-button v-if="currentStep !== 'finalize'" type="primary" @click="nextStep">

@@ -29,10 +29,14 @@ pnpm dev                   # → http://localhost:5173
 | Asset gallery | `backend/internal/handler/asset.go` | Uses AssetRepository |
 | Config management | `backend/internal/handler/config_handler.go` | GET/PUT .config.json |
 | Storyboard | `backend/internal/handler/storyboard.go` | Projects + shots CRUD |
+| Project management | `backend/internal/handler/project.go` | Projects CRUD + AI recommend + steps |
+| Asset collections | `backend/internal/handler/collection.go` | Collections CRUD + add/remove assets |
+| Prompt templates | `backend/internal/handler/template.go` | Templates CRUD + export/import |
+| Task queue management | `backend/internal/handler/task_handler.go` | List/stream/cancel/retry tasks |
 | Core business logic | `backend/internal/service/` | AgnesClient, TaskQueue, GithubStorage |
-| GORM persistence | `backend/internal/repository/gorm/` | 5 repositories (History/Storyboard/Settings/AccessLog/Task) |
+| GORM persistence | `backend/internal/repository/gorm/` | 8 repositories (History/Storyboard/Settings/AccessLog/Task/Project/Collection/Template) |
 | Shared types | `backend/internal/model/types.go` | All request/response/SSE types |
-| Frontend views | `frontend/src/views/` | 15 views + 3 wizard subdirs |
+| Frontend views | `frontend/src/views/` | 19 views + 3 wizard subdirs |
 | API client layer | `frontend/src/api/` | Axios wrappers per domain |
 | Pinia stores | `frontend/src/stores/` | redo.ts, wizard.ts |
 | Shared components | `frontend/src/components/` | NavSidebar, ImageResult, ShotCard, AssetCard, TaskProgress |
@@ -54,6 +58,13 @@ pnpm dev                   # → http://localhost:5173
 | `ImageHandler` | struct | `internal/handler/image.go` | Image HTTP handlers |
 | `HistoryRepository` | struct | `internal/repository/gorm/history.go` | GORM CRUD for history |
 | `StoryboardRepository` | struct | `internal/repository/gorm/storyboard.go` | GORM CRUD for storyboard |
+| `ProjectHandler` | struct | `internal/handler/project.go` | Creative projects CRUD + AI Recommend + Steps |
+| `CollectionHandler` | struct | `internal/handler/collection.go` | Asset collections CRUD |
+| `TemplateHandler` | struct | `internal/handler/template.go` | Prompt templates CRUD + export/import |
+| `ProjectRepository` | struct | `internal/repository/gorm/project.go` | GORM CRUD for projects + steps |
+| `CollectionRepository` | struct | `internal/repository/gorm/collection.go` | GORM CRUD for collections |
+| `TemplateRepository` | struct | `internal/repository/gorm/template.go` | GORM CRUD for prompt templates |
+| `AssetRepository` | struct | `internal/repository/gorm/asset.go` | GORM CRUD for workspace assets |
 | `TaskRecord` | struct | `internal/model/types.go` | Unified task record type |
 | `VideoStatus/Event` | struct | `internal/model/types.go` | SSE event types |
 
@@ -103,6 +114,9 @@ No legacy Python/Gradio code — everything goes through the B/S architecture.
 | `internal/handler/db_handler.go` | Export/restore database (JSON format) |
 | `internal/handler/github_handler.go` | Upload/fetch via GitHub |
 | `internal/handler/storyboard.go` | Storyboard CRUD: projects + shots (separate SQLite tables) |
+| `internal/handler/project.go` | `ProjectHandler` — CRUD + AIRecommend + Steps (AddStep/UpdateStep/DeleteStep) |
+| `internal/handler/collection.go` | `CollectionHandler` — CRUD + AddAssets + RemoveAssets |
+| `internal/handler/template.go` | `TemplateHandler` — CRUD + Export/Import + SaveFromHistory |
 | `internal/middleware/cors.go` | Allow localhost:5173 / :4173 |
 | `internal/repository/gorm/gorm.go` | GORM `OpenDB()` + AutoMigrate (7 models) |
 | `internal/repository/gorm/history.go` | GORM CRUD for history + favorites |
@@ -110,6 +124,10 @@ No legacy Python/Gradio code — everything goes through the B/S architecture.
 | `internal/repository/gorm/settings.go` | GORM key-value settings persistence |
 | `internal/repository/gorm/access_log.go` | GORM access log CRUD + daily cleanup |
 | `internal/repository/gorm/task.go` | GORM task record CRUD + optimistic lock cancel |
+| `internal/repository/gorm/project.go` | `ProjectRepository` — Project + ProjectStep GORM CRUD |
+| `internal/repository/gorm/collection.go` | `CollectionRepository` — Collection + CollectionAssets GORM CRUD |
+| `internal/repository/gorm/template.go` | `TemplateRepository` — PromptTemplate GORM CRUD/export/import |
+| `internal/repository/gorm/asset.go` | `AssetRepository` — Asset CRUD/list/favorite/transfer |
 | `internal/repository/interfaces.go` | Repository interface definitions |
 | `scripts/recover_history.go` | Rebuild history records from `outputs/` filenames after data loss |
 
@@ -131,6 +149,18 @@ DELETE /storyboard/projects/:id POST /storyboard/projects/:id/duplicate
 POST /storyboard/projects/:id/shots PUT /storyboard/projects/:id/shots/reorder
 PUT  /storyboard/shots/:id     DELETE /storyboard/shots/:id
 POST /storyboard/projects/:id/generate
+GET  /collections              POST /collections              PUT  /collections/:id
+DELETE /collections/:id        POST /collections/:id/assets   DELETE /collections/:id/assets
+GET  /templates                POST /templates                PUT  /templates/:id
+DELETE /templates/:id          POST /templates/export         POST /templates/import
+POST /history/:id/save-template
+GET  /projects                 POST /projects                 GET  /projects/:id
+PUT  /projects/:id             DELETE /projects/:id           POST /projects/:id/duplicate
+POST /projects/:id/ai-recommend                               POST /projects/:id/steps
+PUT  /steps/:stepId            DELETE /steps/:stepId
+GET  /tasks                    GET  /tasks/:id                 GET  /tasks/:id/stream
+POST /tasks/:id/cancel          POST /tasks/:id/retry
+POST /assets/:id/transfer
 GET  /outputs/*filepath        (static files)
 ```
 
@@ -163,7 +193,7 @@ When `GITHUB_TOKEN` and `GITHUB_REPO` are set, generated images/videos are uploa
 
 | Path | Role |
 |---|---|
-| `src/views/` | 15 views: TextToImage, ImageToImage, BatchGen, ScriptGen, TextToVideo, ImageToVideo, MultiImageVideo, Ideas, History, Storyboard, Assets, AccessLogs, DBManage, TaskRecords, Settings + 3 wizard subdirs (comic/novel/image) |
+| `src/views/` | 19 views: TextToImage, ImageToImage, BatchGen, ScriptGen, TextToVideo, ImageToVideo, MultiImageVideo, Ideas, History, Storyboard, Assets, ProjectList, ProjectEditor, TemplateManager, WorkflowWizard, AccessLogs, DBManage, TaskRecords, Settings + 3 wizard subdirs (comic/novel/image) |
 | `src/components/ImageResult.vue` | Image gallery with preview + download |
 | `src/api/client.ts` | Axios instance (baseURL: '', 120s timeout) |
 | `src/api/image.ts` | textToImage, imageToImage, batchGenerate |
@@ -177,6 +207,10 @@ When `GITHUB_TOKEN` and `GITHUB_REPO` are set, generated images/videos are uploa
 | `src/api/github.ts` | uploadToGithub, proxyDownload |
 | `src/api/db.ts` | exportDB, restoreDB |
 | `src/api/access-logs.ts` | getLogs, deleteLog, clearLogs |
+| `src/api/projects.ts` | Project CRUD API client |
+| `src/api/templates.ts` | Template CRUD + export/import API client |
+| `src/api/collections.ts` | Collection CRUD API client |
+| `src/api/task.ts` | Task list/stream/cancel/retry API client |
 | `src/stores/redo.ts` | Pinia store: cross-view "redo" data passing via custom event `redo-trigger` |
 | `src/utils/sse.ts` | `connectSSE()` — EventSource helper for video progress |
 | `src/types/index.ts` | TypeScript interfaces for all API request/response types |
@@ -248,7 +282,7 @@ The `modeToTab` mapping in `src/stores/redo.ts` translates `text2image|image2ima
 - **Config & runtime data** (`.config.json`, `history.db`): all in `backend/`. Copy `backend/.env.example` to `backend/.env` for local dev.
 - **No auth middleware** — API is designed for local/dev use only. API key is sent to Agnes AI, not validated by the backend itself.
 - **Startup recovery**: on boot, scans SQLite for pending video tasks (images empty + extra has taskId) and checks their status, updating history records for completed ones.
-- **Frontend navigation**: uses Vue Router + `NavSidebar` component in `App.vue` with 18 page states (15 views + 3 wizard subdirs). `activePage` ref drives conditional rendering via `v-if` chain.
+- **Frontend navigation**: uses Vue Router + `NavSidebar` component in `App.vue` with 22 page states (19 views + 3 wizard subdirs). `activePage` ref drives conditional rendering via `v-if` chain.
 - **Frontend TypeScript 6**: `erasableSyntaxOnly` enabled in tsconfig — no enums or namespaces; use `as const` or union types.
 - **Axios error interceptor**: errors are caught and converted to a plain `Error` with the server message. Always use `.catch()` or try/catch; raw Axios errors are never exposed to views.
 

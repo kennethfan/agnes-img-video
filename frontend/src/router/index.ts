@@ -21,6 +21,8 @@ const routes = [
   { path: '/image-refine', name: 'image_refine', component: () => import('../views/WorkflowWizard.vue') },
   { path: '/comic',        name: 'comic',        component: () => import('../views/WorkflowWizard.vue') },
   { path: '/novel',        name: 'novel',        component: () => import('../views/WorkflowWizard.vue') },
+  { path: '/projects',     name: 'projects',     component: () => import('../views/ProjectList.vue') },
+  { path: '/project-editor/:id', name: 'project_editor', component: () => import('../views/ProjectEditor.vue') },
 ]
 
 const router = createRouter({

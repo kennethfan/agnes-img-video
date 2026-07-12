@@ -24,7 +24,7 @@ watch(() => props.defaultImageUrl, (url) => {
   if (url) {
     sourceImage.value = url
   }
-})
+}, { immediate: true })
 const strength = ref(0.6)
 const size = ref('1024x1024')
 
@@ -70,6 +70,17 @@ async function refine() {
           style="flex: 1"
         />
         <el-button @click="showAssetPicker = true" :icon="Picture">从作品库</el-button>
+      </div>
+
+      <div v-if="sourceImage" class="preview-wrap">
+        <el-image
+          :src="sourceImage"
+          fit="contain"
+          :preview-teleported="true"
+          :preview-src-list="[sourceImage]"
+          style="width: 100%; max-height: 300px; border-radius: 6px"
+        />
+        <span class="preview-label">原图预览</span>
       </div>
 
       <el-input
@@ -150,6 +161,23 @@ async function refine() {
   gap: 8px;
   font-size: 13px;
   color: #606266;
+}
+.preview-wrap {
+  position: relative;
+  border: 1px solid #dcdfe6;
+  border-radius: 6px;
+  padding: 8px;
+  background: #fafafa;
+}
+.preview-label {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  font-size: 12px;
+  color: #fff;
+  background: rgba(0,0,0,0.55);
+  padding: 2px 8px;
+  border-radius: 4px;
 }
 .result-section {
   margin-top: 32px;

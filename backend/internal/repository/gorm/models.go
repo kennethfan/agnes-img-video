@@ -132,3 +132,34 @@ type PromptTemplate struct {
 }
 
 func (PromptTemplate) TableName() string { return "prompt_templates" }
+
+// Project 创作项目
+type Project struct {
+	ID        int64         `gorm:"primaryKey" json:"id"`
+	Title     string        `gorm:"size:200" json:"title"`
+	Brief     string        `gorm:"type:text" json:"brief"`
+	AIResult  string        `gorm:"type:text" json:"ai_result"`
+	Status    string        `gorm:"size:20;default:draft" json:"status"`
+	CoverURL  string        `gorm:"type:text" json:"cover_url"`
+	FinalURL  string        `gorm:"type:text" json:"final_url"`
+	AssetIDs  string        `gorm:"type:text" json:"asset_ids"`
+	Notes     string        `gorm:"type:text" json:"notes"`
+	CreatedAt time.Time     `json:"created_at"`
+	UpdatedAt time.Time     `json:"updated_at"`
+	Steps     []ProjectStep `gorm:"foreignKey:ProjectID" json:"steps"`
+}
+
+func (Project) TableName() string { return "projects" }
+
+// ProjectStep 项目步骤
+type ProjectStep struct {
+	ID        int64     `gorm:"primaryKey" json:"id"`
+	ProjectID int64     `gorm:"index" json:"project_id"`
+	StepType  string    `gorm:"size:20" json:"step_type"` // generate | refine | finalize
+	Position  int       `json:"position"`
+	Input     string    `gorm:"type:text" json:"input"`
+	Output    string    `gorm:"type:text" json:"output"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
+func (ProjectStep) TableName() string { return "project_steps" }

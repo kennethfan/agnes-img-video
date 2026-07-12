@@ -60,6 +60,7 @@ async function handleSaveToGallery(url: string) {
           下载
         </el-button>
         <el-button
+          v-if="props.prompt && props.mode"
           size="small"
           type="success"
           :loading="savingUrls.has(img)"

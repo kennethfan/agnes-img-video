@@ -193,6 +193,50 @@ export interface TaskSSEHandlers {
   onError?: (data: { error: string }) => void
 }
 
+// ==================== 创作项目 ====================
+
+export interface ProjectStep {
+  id: number
+  project_id: number
+  step_type: string
+  position: number
+  input: string
+  output: string
+  created_at: string
+}
+
+export interface Project {
+  id: number
+  title: string
+  brief: string
+  ai_result: string
+  status: 'draft' | 'generating' | 'refining' | 'completed'
+  cover_url: string
+  final_url: string
+  asset_ids: string
+  notes: string
+  created_at: string
+  updated_at: string
+  steps: ProjectStep[]
+}
+
+export interface CreateProjectRequest {
+  title: string
+  brief?: string
+}
+
+export interface UpdateProjectRequest {
+  title?: string
+  brief?: string
+  status?: string
+  notes?: string
+}
+
+export interface ProjectStepRequest {
+  step_type: string
+  position?: number
+}
+
 // ==================== 存储设置 ====================
 
 export interface Settings {

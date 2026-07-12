@@ -30,6 +30,10 @@ func SetAssetRepo(repo repository.AssetRepository) {
 	assetRepo = repo
 }
 
+func GetAssetRepo() repository.AssetRepository {
+	return assetRepo
+}
+
 type HistoryHandler struct {
 	repo repository.HistoryRepository
 }

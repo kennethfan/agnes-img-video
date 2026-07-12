@@ -40,6 +40,7 @@ const groups = [
     icon: '⚡',
     label: '创作',
     items: [
+      { id: 'projects', label: '创作项目' },
       { id: 'image_refine', label: '图片精修' },
       { id: 'comic', label: '漫画生成' },
       { id: 'novel', label: '小说生成' },

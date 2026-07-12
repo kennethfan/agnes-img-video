@@ -19,22 +19,41 @@ import TaskRecords from './views/TaskRecords.vue'
 import Settings from './views/Settings.vue'
 import WorkflowWizard from './views/WorkflowWizard.vue'
 import TemplateManager from './views/TemplateManager.vue'
+import ProjectList from './views/ProjectList.vue'
+import ProjectEditor from './views/ProjectEditor.vue'
+import type { Project } from './types'
 
 const route = useRoute()
 const router = useRouter()
 const activePage = ref('text2img')
+const currentProjectId = ref<number>(0)
 
 // 路由变化 → 同步 activePage（浏览器前进/后退 & 刷新恢复）
 watch(() => route.name, (name) => {
   if (name && typeof name === 'string') {
     activePage.value = name
+    if (name === 'project_editor') {
+      currentProjectId.value = Number(route.params.id) || 0
+    }
   }
 }, { immediate: true })
 
 // 页面切换：同步 activePage + URL
 function navigateTo(page: string) {
   activePage.value = page
+  if (page === 'project_editor') return // project_editor 通过 router.push 带参数导航
   router.push({ name: page })
+}
+
+function openProjectEditor(project: Project) {
+  currentProjectId.value = project.id
+  activePage.value = 'project_editor'
+  router.push({ name: 'project_editor', params: { id: project.id } })
+}
+
+function backToProjects() {
+  activePage.value = 'projects'
+  router.push({ name: 'projects' })
 }
 </script>
 
@@ -64,6 +83,8 @@ function navigateTo(page: string) {
         <AccessLogs v-else-if="activePage === 'access_logs'" />
         <DBManage v-else-if="activePage === 'db_manage'" />
         <Settings v-else-if="activePage === 'settings'" />
+        <ProjectList v-else-if="activePage === 'projects'" @edit-project="openProjectEditor" />
+        <ProjectEditor v-else-if="activePage === 'project_editor'" :project-id="currentProjectId" @back="backToProjects" />
         <WorkflowWizard v-else-if="activePage === 'image_refine'" />
         <WorkflowWizard v-else-if="activePage === 'comic'" />
         <WorkflowWizard v-else-if="activePage === 'novel'" />

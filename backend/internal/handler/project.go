@@ -324,7 +324,7 @@ func (h *ProjectHandler) IdeateBrief(c *gin.Context) {
 
 {
   "brief_text": "完整的创作简报文本（中文），包括主题、风格、氛围、构图、关键元素等描述",
-  "generated_prompt": "一段可直接用于 AI 文生图的提示词（英文），包含所有确定的关键信息"
+	  "generated_prompt": "一段可直接用于 AI 文生图的提示词（中文），包含所有确定的关键信息"
 }`
 
 	userPrompt := fmt.Sprintf("项目标题：%s\n原始简报：%s\n\n用户想法：\n%s\n\n请根据以上内容生成创作简报。", project.Title, project.Brief, req.Idea)
