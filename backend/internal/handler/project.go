@@ -36,8 +36,8 @@ func (h *ProjectHandler) CreateProject(c *gin.Context) {
 		return
 	}
 	project := &gormrepo.Project{
-		Title: req.Title,
-		Brief: req.Brief,
+		Title:  req.Title,
+		Brief:  req.Brief,
 		Status: "draft",
 	}
 	if err := h.repo.Create(project); err != nil {
@@ -71,10 +71,10 @@ func (h *ProjectHandler) GetProject(c *gin.Context) {
 }
 
 type updateProjectRequest struct {
-	Title   *string `json:"title"`
-	Brief   *string `json:"brief"`
-	Status  *string `json:"status"`
-	Notes   *string `json:"notes"`
+	Title  *string `json:"title"`
+	Brief  *string `json:"brief"`
+	Status *string `json:"status"`
+	Notes  *string `json:"notes"`
 }
 
 func (h *ProjectHandler) UpdateProject(c *gin.Context) {
@@ -293,7 +293,7 @@ func (h *ProjectHandler) DeleteStep(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"ok": true})
 }
 
-// IdeateBrief 从聊天历史生成结构化创作简报
+// IdeateBrief 根据用户的想法生成结构化创作简报
 func (h *ProjectHandler) IdeateBrief(c *gin.Context) {
 	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
 	if err != nil {
@@ -307,15 +307,15 @@ func (h *ProjectHandler) IdeateBrief(c *gin.Context) {
 		return
 	}
 
-		var req struct {
-			Idea string `json:"idea" binding:"required"`
-		}
-		if err := c.ShouldBindJSON(&req); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "参数错误: " + err.Error()})
-			return
-		}
+	var req struct {
+		Idea string `json:"idea" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "参数错误: " + err.Error()})
+		return
+	}
 
-		systemPrompt := `你是一个创意总结专家。根据用户提供的创作想法，直接生成一份结构化创作简报。
+	systemPrompt := `你是一个创意总结专家。根据用户提供的创作想法，直接生成一份结构化创作简报。
 
 规则：
 1. 直接输出简报，不要反问用户任何问题
@@ -327,7 +327,7 @@ func (h *ProjectHandler) IdeateBrief(c *gin.Context) {
   "generated_prompt": "一段可直接用于 AI 文生图的提示词（英文），包含所有确定的关键信息"
 }`
 
-		userPrompt := fmt.Sprintf("项目标题：%s\n原始简报：%s\n\n用户想法：\n%s\n\n请根据以上内容生成创作简报。", project.Title, project.Brief, req.Idea)
+	userPrompt := fmt.Sprintf("项目标题：%s\n原始简报：%s\n\n用户想法：\n%s\n\n请根据以上内容生成创作简报。", project.Title, project.Brief, req.Idea)
 
 	summary, err := h.svc.Chat(systemPrompt, userPrompt, 0.3)
 	if err != nil {
