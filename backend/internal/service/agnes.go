@@ -52,6 +52,32 @@ func NewAgnesClient(apiKey, baseURL, imageModel, videoModel, chatModel string) *
 	}
 }
 
+// ==================== 通用聊天 ====================
+
+// Chat 调用聊天 API 返回纯文本回复
+func (c *AgnesClient) Chat(systemPrompt, userPrompt string, temperature float64) (string, error) {
+	req := model.ChatCompletionRequest{
+		Model: c.chatModel,
+		Messages: []model.ChatMessage{
+			{Role: "system", Content: systemPrompt},
+			{Role: "user", Content: userPrompt},
+		},
+		Temperature: temperature,
+		MaxTokens:   2048,
+	}
+
+	var resp model.ChatCompletionResponse
+	if err := c.doRequest("POST", "/chat/completions", req, &resp); err != nil {
+		return "", fmt.Errorf("AI 聊天失败: %w", err)
+	}
+
+	if len(resp.Choices) == 0 {
+		return "", fmt.Errorf("API 返回中未找到内容")
+	}
+
+	return resp.Choices[0].Message.Content, nil
+}
+
 // ==================== 图片生成 ====================
 
 func (c *AgnesClient) TextToImage(prompt, size string, n int, negativePrompt string) ([]string, error) {

@@ -110,6 +110,9 @@ func main() {
 	storyboardGenerator := service.NewStoryboardGenerator(svc, taskQueue, storyboardRepo)
 	storyboardHandler := handler.NewStoryboardHandler(storyboardRepo, storyboardGenerator)
 
+	projectRepo := gormrepo.NewProjectRepository(gormDB)
+	projectHandler := handler.NewProjectHandler(projectRepo, svc)
+
 	settingsHandler := handler.NewSettingsHandler(settingsRepo)
 
 	// 数据库导出与恢复（JSON 格式）
@@ -191,6 +194,21 @@ func main() {
 		api.POST("/templates/export", templateHandler.ExportTemplates)
 		api.POST("/templates/import", templateHandler.ImportTemplates)
 		api.POST("/history/:id/save-template", templateHandler.SaveFromHistory)
+
+		projects := api.Group("/projects")
+		{
+			projects.GET("", projectHandler.ListProjects)
+			projects.POST("", projectHandler.CreateProject)
+			projects.GET("/:id", projectHandler.GetProject)
+			projects.PUT("/:id", projectHandler.UpdateProject)
+			projects.DELETE("/:id", projectHandler.DeleteProject)
+			projects.POST("/:id/duplicate", projectHandler.DuplicateProject)
+			projects.POST("/:id/ai-recommend", projectHandler.AIRecommend)
+			projects.POST("/:id/steps", projectHandler.AddStep)
+				projects.PUT("/steps/:stepId", projectHandler.UpdateStep)
+				projects.DELETE("/steps/:stepId", projectHandler.DeleteStep)
+				projects.POST("/:id/ideate-brief", projectHandler.IdeateBrief)
+		}
 
 		api.POST("/upload-to-github", handler.UploadToGitHub)
 		api.GET("/download", handler.ProxyDownload)

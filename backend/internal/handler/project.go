@@ -11,7 +11,6 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/agnes-image-tool/backend/internal/model"
 	gormrepo "github.com/agnes-image-tool/backend/internal/repository/gorm"
 	"github.com/agnes-image-tool/backend/internal/service"
 )
@@ -292,66 +291,6 @@ func (h *ProjectHandler) DeleteStep(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"ok": true})
-}
-
-// IdeateChat 创意发想多轮聊天
-func (h *ProjectHandler) IdeateChat(c *gin.Context) {
-	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "无效的项目 ID"})
-		return
-	}
-
-	project, err := h.repo.GetByID(id)
-	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "项目不存在"})
-		return
-	}
-
-	var req struct {
-		Messages []struct {
-			Role    string `json:"role"`
-			Content string `json:"content"`
-		} `json:"messages" binding:"required"`
-	}
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "参数错误: " + err.Error()})
-		return
-	}
-
-	systemPrompt := `你是一个创意发想助手，帮助用户完善创作灵感。
-
-你的工作方式：
-1. 用户会有一个大致的创作方向，通过对话引导用户深入思考
-2. 从主题、风格、色调、构图、氛围等维度提问，帮助用户把模糊的想法变具体
-3. 每次回复提供有建设性的建议，同时鼓励用户继续深化
-4. 当用户想法足够成熟时，可以提示用户点击「生成创作简报」来总结
-
-请用中文回复，语气亲切有创意。`
-
-	contextMsg := fmt.Sprintf("项目标题：%s\n创意简报：%s\n\n请基于以上项目信息，开始与用户进行创意发想对话。", project.Title, project.Brief)
-
-	messages := []model.ChatMessage{
-		{Role: "system", Content: systemPrompt},
-		{Role: "user", Content: contextMsg},
-	}
-
-	// 只保留最近 5 轮对话（10 条消息），防止上下文溢出导致超时
-	const maxMsgs = 10
-	if len(req.Messages) > maxMsgs {
-		req.Messages = req.Messages[len(req.Messages)-maxMsgs:]
-	}
-	for _, msg := range req.Messages {
-		messages = append(messages, model.ChatMessage{Role: msg.Role, Content: msg.Content})
-	}
-
-	result, err := h.svc.ChatWithHistory(messages, 0.8)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "AI 回复失败: " + err.Error()})
-		return
-	}
-
-	c.JSON(http.StatusOK, gin.H{"reply": result})
 }
 
 // IdeateBrief 从聊天历史生成结构化创作简报
