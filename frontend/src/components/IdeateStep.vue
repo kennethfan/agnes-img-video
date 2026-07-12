@@ -42,6 +42,8 @@ async function generateBrief() {
 function copyResult(text: string) {
   navigator.clipboard.writeText(text).then(() => {
     ElMessage.success('已复制')
+  }).catch(() => {
+    ElMessage.warning('复制失败，请手动复制')
   })
 }
 </script>

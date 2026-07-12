@@ -381,11 +381,13 @@ func extractJSON(s string) string {
 	if json.Valid([]byte(s)) {
 		return s
 	}
-	// 剥离 markdown 代码块 ```json ... ```
-	if idx := strings.Index(s, "```json"); idx >= 0 {
-		rest := s[idx+7:]
-		if end := strings.Index(rest, "```"); end >= 0 {
-			return strings.TrimSpace(rest[:end])
+	// 剥离 markdown 代码块 ```json ... ``` 或 ```JSON ... ```
+	for _, marker := range []string{"```json", "```JSON"} {
+		if idx := strings.Index(s, marker); idx >= 0 {
+			rest := s[idx+len(marker):]
+			if end := strings.Index(rest, "```"); end >= 0 {
+				return strings.TrimSpace(rest[:end])
+			}
 		}
 	}
 	// 剥离普通代码块 ``` ... ```
