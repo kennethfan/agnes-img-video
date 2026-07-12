@@ -36,11 +36,36 @@ async function loadProject() {
   loading.value = true
   try {
     project.value = await getProject(props.projectId)
+    // 恢复步骤进度：跳转到第一个未完成的步骤
+    const sp = project.value.step_progress
+    if (sp) {
+      try {
+        const data = JSON.parse(sp)
+        let found = false
+        for (const s of steps) {
+          if (data[s] !== 'completed') {
+            currentStep.value = s
+            found = true
+            break
+          }
+        }
+        // 全部已完成 → 跳转到定稿页展示完成状态
+        if (!found) currentStep.value = 'finalize'
+      } catch { /* 忽略解析错误 */ }
+    }
   } catch (e: any) {
     ElMessage.error('加载项目失败: ' + (e.message || ''))
   } finally {
     loading.value = false
   }
+}
+
+function isStepDone(s: string): boolean {
+  if (!project.value?.step_progress) return false
+  try {
+    const data = JSON.parse(project.value.step_progress)
+    return data[s] === 'completed'
+  } catch { return false }
 }
 
 onMounted(loadProject)
@@ -94,11 +119,11 @@ function goToDashboard() {
         v-for="(s, i) in steps"
         :key="s"
         class="step-item"
-        :class="{ active: currentStep === s, done: steps.indexOf(currentStep) > i }"
+        :class="{ active: currentStep === s, done: isStepDone(s) }"
         @click="goStep(s)"
       >
         <div class="step-dot">
-          <el-icon v-if="steps.indexOf(currentStep) > i"><Check /></el-icon>
+          <el-icon v-if="isStepDone(s)"><Check /></el-icon>
           <el-icon v-else><component :is="stepIcons[s]" /></el-icon>
         </div>
         <span>{{ stepLabels[s] }}</span>

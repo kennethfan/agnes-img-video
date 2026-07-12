@@ -3,7 +3,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Check } from '@element-plus/icons-vue'
-import { updateProject, getProjectFiles } from '../api/projects'
+import { updateProject, getProjectFiles, updateStepProgress } from '../api/projects'
 import type { Project, ProjectFile } from '../types'
 
 const props = defineProps<{ project: Project | null }>()
@@ -72,11 +72,14 @@ async function completeProject() {
   }
   completing.value = true
   try {
-    await updateProject(props.project.id, {
-      status: 'completed',
-      notes: notes.value || undefined,
-      cover_url: selectedCover.value || undefined,
-    })
+    await Promise.all([
+      updateProject(props.project.id, {
+        status: 'completed',
+        notes: notes.value || undefined,
+        cover_url: selectedCover.value || undefined,
+      }),
+      updateStepProgress(props.project.id, 'finalize', 'completed'),
+    ])
     ElMessage.success('🎉 项目已完成！')
     emit('updated')
     router.push(`/projects/${props.project.id}/dashboard`)
