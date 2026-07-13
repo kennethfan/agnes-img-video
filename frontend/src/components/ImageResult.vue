@@ -2,26 +2,19 @@
 import { ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import { saveAsset } from '../api/assets'
-import { useRedoStore } from '../stores/redo'
 const props = defineProps<{
   images: string[]
   loading: boolean
   prompt: string
   mode: string
   projectId?: number
-  hideRefine?: boolean
 }>()
 
 const savingUrls = ref<Set<string>>(new Set())
-const redoStore = useRedoStore()
+const emit = defineEmits<{ 'refine-image': [url: string] }>()
 
 function handleRefine(img: string) {
-  redoStore.setRedoData({
-    mode: 'image2image',
-    imageUrl: img,
-    prompt: props.prompt,
-    inputMode: 'url',
-  })
+  emit('refine-image', img)
 }
 
 function downloadImage(url: string) {
@@ -72,7 +65,7 @@ async function handleSaveToGallery(url: string) {
           {{ savingUrls.has(img) ? '保存中...' : '保存到作品库' }}
         </el-button>
         <el-button
-          v-if="props.mode === 'image2image' && !props.hideRefine"
+          v-if="props.mode === 'image2image'"
           size="small"
           @click="handleRefine(img)"
         >

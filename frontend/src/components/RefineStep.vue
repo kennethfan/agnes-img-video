@@ -31,6 +31,12 @@ const size = ref('1024x1024')
 const refining = ref(false)
 const resultUrls = ref<string[]>([])
 
+function onRefineImage(url: string) {
+  sourceImage.value = url
+  // 滚动到顶部让用户看到源图预览并调整提示词
+  window.scrollTo({ top: 0, behavior: 'smooth' })
+}
+
 async function refine() {
   if (!sourceImage.value) {
     ElMessage.warning('请输入源图片 URL')
@@ -116,7 +122,7 @@ async function refine() {
 
     <div v-if="resultUrls.length" class="result-section">
       <h4>优化结果</h4>
-      <ImageResult :images="resultUrls" :loading="false" :prompt="prompt" mode="image2image" :projectId="props.project?.id" hideRefine />
+      <ImageResult :images="resultUrls" :loading="false" :prompt="prompt" mode="image2image" :projectId="props.project?.id" @refine-image="onRefineImage" />
     </div>
   </div>
 
