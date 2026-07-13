@@ -1,7 +1,7 @@
 # AGENTS.md — Agnes Creator Studio
 
-**Generated:** 2026-07-10
-**Commit:** b69b356 (dev)
+**Generated:** 2026-07-12
+**Commit:** dc89073 (dev)
 **Stack:** Go 1.25 · Gin · SQLite · Vue 3 · TypeScript 6 · Vite 8 · Element Plus · Pinia · Axios · SSE
 
 ## Quick Start
@@ -36,10 +36,12 @@ pnpm dev                   # → http://localhost:5173
 | Core business logic | `backend/internal/service/` | AgnesClient, TaskQueue, GithubStorage |
 | GORM persistence | `backend/internal/repository/gorm/` | 8 repositories (History/Storyboard/Settings/AccessLog/Task/Project/Collection/Template) |
 | Shared types | `backend/internal/model/types.go` | All request/response/SSE types |
-| Frontend views | `frontend/src/views/` | 19 views + 3 wizard subdirs |
+| Frontend views | `frontend/src/views/` | 20 views + 3 wizard subdirs |
+| Project dashboard | `frontend/src/views/ProjectDashboard.vue` | Stats, file aggregation, step progress |
 | API client layer | `frontend/src/api/` | Axios wrappers per domain |
 | Pinia stores | `frontend/src/stores/` | redo.ts, wizard.ts |
-| Shared components | `frontend/src/components/` | NavSidebar, ImageResult, ShotCard, AssetCard, TaskProgress |
+| Shared components | `frontend/src/components/` | NavSidebar, ImageResult, ShotCard, AssetCard, TaskProgress, StepProgressBar, ProjectStatsCards, ProjectFileGrid, AssetPickerDialog, AIPanel |
+| Workflow step components | `frontend/src/components/` | IdeateStep, GenStep, RefineStep, FinalStep — project creation 4-step flow |
 | Types | `frontend/src/types/index.ts` | All TS interfaces |
 | SSE utility | `frontend/src/utils/sse.ts` | EventSource helper |
 | App entry | `frontend/src/App.vue` | Vue Router + NavSidebar navigation |
@@ -80,6 +82,14 @@ pnpm dev                   # → http://localhost:5173
 | `AssetCard` | component | `components/AssetCard.vue` | Asset gallery card |
 | `TaskProgress` | component | `components/TaskProgress.vue` | SSE-driven progress bar |
 | `NavSidebar` | component | `components/NavSidebar.vue` | Left navigation sidebar |
+| `IdeateStep` | component | `components/IdeateStep.vue` | Ideation step — textarea idea input → AI brief |
+| `GenStep` | component | `components/GenStep.vue` | Generation step — batch image gen from brief |
+| `RefineStep` | component | `components/RefineStep.vue` | Refinement step — image + prompt refinement |
+| `FinalStep` | component | `components/FinalStep.vue` | Finalize step — gallery + cover + complete project |
+| `StepProgressBar` | component | `components/StepProgressBar.vue` | Step progress indicator for projects |
+| `ProjectStatsCards` | component | `components/ProjectStatsCards.vue` | Dashboard stat cards (images/videos/files) |
+| `ProjectFileGrid` | component | `components/ProjectFileGrid.vue` | Dashboard file grid with filtering |
+| `AssetPickerDialog` | component | `components/AssetPickerDialog.vue` | Gallery asset picker dialog for cross-step selection |
 
 ## Project Structure
 
@@ -193,7 +203,7 @@ When `GITHUB_TOKEN` and `GITHUB_REPO` are set, generated images/videos are uploa
 
 | Path | Role |
 |---|---|
-| `src/views/` | 19 views: TextToImage, ImageToImage, BatchGen, ScriptGen, TextToVideo, ImageToVideo, MultiImageVideo, Ideas, History, Storyboard, Assets, ProjectList, ProjectEditor, TemplateManager, WorkflowWizard, AccessLogs, DBManage, TaskRecords, Settings + 3 wizard subdirs (comic/novel/image) |
+| `src/views/` | 20 views: TextToImage, ImageToImage, BatchGen, ScriptGen, TextToVideo, ImageToVideo, MultiImageVideo, Ideas, History, Storyboard, Assets, ProjectList, ProjectEditor, ProjectDashboard, TemplateManager, WorkflowWizard, AccessLogs, DBManage, TaskRecords, Settings + 3 wizard subdirs (comic/novel/image) |
 | `src/components/ImageResult.vue` | Image gallery with preview + download |
 | `src/api/client.ts` | Axios instance (baseURL: '', 120s timeout) |
 | `src/api/image.ts` | textToImage, imageToImage, batchGenerate |
