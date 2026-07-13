@@ -33,6 +33,7 @@ async function handleSaveToGallery(file: ProjectFile) {
 const activeTab = ref<'all' | 'image' | 'video'>('all')
 
 const filteredFiles = computed(() => {
+  if (!props.files) return []
   if (activeTab.value === 'all') return props.files
   return props.files.filter(f => f.type === activeTab.value)
 })
