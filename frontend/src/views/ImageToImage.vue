@@ -52,6 +52,18 @@ onMounted(async () => {
     const res = await getHistory()
     historyList.value = (res as any).records || []
   } catch { /* silent */ }
+
+  // 消费跨视图重做数据（来自 ImageResult "继续精修"）
+  const redo = redoStore.consumeRedoData()
+  if (redo && redo.data.mode === 'image2image') {
+    const d = redo.data
+    prompt.value = d.prompt || ''
+    negativePrompt.value = d.negativePrompt || ''
+    size.value = d.size || '1024x1024'
+    strength.value = d.strength || 0.75
+    inputMode.value = d.inputMode || 'url'
+    imageUrl.value = d.imageUrl || ''
+  }
 })
 
 function applyTemplate(row: PromptTemplate) {
