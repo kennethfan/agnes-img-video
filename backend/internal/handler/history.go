@@ -122,12 +122,12 @@ func deleteRecordFiles(images []string) {
 	}
 }
 
-func saveHistoryRecord(prompt string, imagePaths []string, mode string, extra any) int64 {
+func saveHistoryRecord(prompt string, imagePaths []string, mode string, extra any, projectID int64) int64 {
 	if historyRepo == nil {
 		log.Printf("[History] repository 未初始化，跳过历史记录")
 		return 0
 	}
-	id, err := historyRepo.InsertRecord(prompt, imagePaths, mode, extra)
+	id, err := historyRepo.InsertRecord(prompt, imagePaths, mode, extra, projectID)
 	if err != nil {
 		log.Printf("[History] 保存失败: %v", err)
 		return 0

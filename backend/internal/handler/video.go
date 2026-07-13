@@ -57,7 +57,7 @@ func (h *VideoHandler) TextToVideo(c *gin.Context) {
 		return
 	}
 
-	saveHistoryRecord(req.Prompt, []string{}, "text2video", map[string]any{"taskId": taskID})
+	saveHistoryRecord(req.Prompt, []string{}, "text2video", map[string]any{"taskId": taskID}, req.ProjectID)
 	log.Printf("[Video] 文生视频任务已创建: task=%d", taskID)
 	c.JSON(http.StatusOK, model.VideoTaskResponse{TaskID: taskID})
 }
@@ -87,6 +87,10 @@ func (h *VideoHandler) ImageToVideo(c *gin.Context) {
 		if req.Prompt == "" {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "prompt 不能为空"})
 			return
+		}
+		pid := c.PostForm("project_id")
+		if pid != "" {
+			req.ProjectID, _ = strconv.ParseInt(pid, 10, 64)
 		}
 	}
 
@@ -149,7 +153,7 @@ func (h *VideoHandler) ImageToVideo(c *gin.Context) {
 		return
 	}
 
-	saveHistoryRecord(req.Prompt, []string{}, "image2video", map[string]any{"taskId": taskID})
+	saveHistoryRecord(req.Prompt, []string{}, "image2video", map[string]any{"taskId": taskID}, req.ProjectID)
 	log.Printf("[Video] 图生视频任务已创建: task=%d", taskID)
 	c.JSON(http.StatusOK, model.VideoTaskResponse{TaskID: taskID})
 }
@@ -193,7 +197,7 @@ func (h *VideoHandler) MultiImageVideo(c *gin.Context) {
 		return
 	}
 
-	saveHistoryRecord(req.Prompt, []string{}, "multi_image_video", map[string]any{"taskId": taskID})
+	saveHistoryRecord(req.Prompt, []string{}, "multi_image_video", map[string]any{"taskId": taskID}, req.ProjectID)
 	log.Printf("[Video] 多图视频任务已创建: task=%d", taskID)
 	c.JSON(http.StatusOK, model.VideoTaskResponse{TaskID: taskID})
 }
@@ -226,7 +230,7 @@ func (h *VideoHandler) GenerateScript(c *gin.Context) {
 		"duration": req.Duration,
 		"style":    req.Style,
 		"language": req.Language,
-	})
+	}, req.ProjectID)
 
 	c.JSON(http.StatusOK, model.ScriptGenResponse{Script: script})
 }
@@ -346,7 +350,7 @@ func SetupVideoHistoryCallback(task *service.TaskQueue, svc *service.AgnesClient
 		if recordType == "" {
 			recordType = "video"
 		}
-		saveHistoryRecord(prompt, paths, recordType, nil)
+		saveHistoryRecord(prompt, paths, recordType, nil, 0)
 		log.Printf("[History] 任务 %d 历史已保存", taskID)
 	})
 }
