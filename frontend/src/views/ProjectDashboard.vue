@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { ArrowLeft } from '@element-plus/icons-vue'
@@ -53,8 +53,15 @@ function goBack() {
   router.push(`/project-editor/${projectId}`)
 }
 
+const previewFile = ref<ProjectFile | null>(null)
+const previewVisible = computed(() => previewFile.value !== null)
+
 function onPreview(file: ProjectFile) {
-  window.open(file.url, '_blank')
+  previewFile.value = file
+}
+
+function closePreview() {
+  previewFile.value = null
 }
 
 onMounted(loadData)
@@ -80,10 +87,33 @@ onMounted(loadData)
 
       <el-card shadow="never" class="section-card">
         <template #header><span>生成文件</span></template>
-        <ProjectFileGrid :files="files" @preview="onPreview" />
+        <ProjectFileGrid :files="files" :projectId="projectId" @preview="onPreview" />
       </el-card>
     </div>
   </div>
+
+  <el-dialog
+    v-model="previewVisible"
+    :title="previewFile?.prompt || '预览'"
+    width="80%"
+    top="5vh"
+    destroy-on-close
+    @close="closePreview"
+  >
+    <div style="text-align: center">
+      <img
+        v-if="previewFile?.type === 'image'"
+        :src="previewFile?.url"
+        style="max-width: 100%; max-height: 75vh; border-radius: 6px"
+      />
+      <video
+        v-else
+        :src="previewFile?.url"
+        controls
+        style="max-width: 100%; max-height: 75vh; border-radius: 6px"
+      />
+    </div>
+  </el-dialog>
 </template>
 
 <style scoped>

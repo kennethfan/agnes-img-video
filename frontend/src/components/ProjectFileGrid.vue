@@ -2,10 +2,33 @@
 import { ref, computed } from 'vue'
 import { ElMessage } from 'element-plus'
 import type { ProjectFile } from '../types'
-import { Download, View } from '@element-plus/icons-vue'
+import { Download, View, FolderAdd, Link } from '@element-plus/icons-vue'
+import { saveAsset } from '../api/assets'
 
-const props = defineProps<{ files: ProjectFile[] }>()
+const props = defineProps<{ files: ProjectFile[]; projectId?: number }>()
 const emit = defineEmits<{ preview: [file: ProjectFile] }>()
+
+const savingUrls = ref<Set<string>>(new Set())
+
+async function handleSaveToGallery(file: ProjectFile) {
+  if (savingUrls.value.has(file.url)) return
+  savingUrls.value = new Set([...savingUrls.value, file.url])
+  try {
+    await saveAsset({
+      image_url: file.url,
+      prompt: file.prompt,
+      mode: file.mode || (file.type === 'video' ? 'text2video' : 'text2image'),
+      project_id: props.projectId,
+    })
+    ElMessage.success('已保存到作品库')
+  } catch (e: any) {
+    ElMessage.error(e.message || '保存到作品库失败')
+  } finally {
+    const next = new Set(savingUrls.value)
+    next.delete(file.url)
+    savingUrls.value = next
+  }
+}
 
 const activeTab = ref<'all' | 'image' | 'video'>('all')
 
@@ -25,6 +48,10 @@ function getThumbnailUrl(file: ProjectFile): string {
     return file.url.replace(/\.(mp4|webm)$/, '.jpg') || '/placeholder-video.png'
   }
   return file.url
+}
+
+function downloadFile(url: string) {
+  window.open('/api/v1/download?url=' + encodeURIComponent(url), '_blank')
 }
 
 function copyUrl(url: string) {
@@ -61,8 +88,22 @@ function copyUrl(url: string) {
             <el-tooltip content="预览">
               <el-button size="small" circle :icon="View" @click="emit('preview', file)" />
             </el-tooltip>
+            <el-tooltip content="下载">
+              <el-button size="small" circle :icon="Download" @click="downloadFile(file.url)" />
+            </el-tooltip>
             <el-tooltip content="复制链接">
-              <el-button size="small" circle :icon="Download" @click="copyUrl(file.url)" />
+              <el-button size="small" circle :icon="Link" @click="copyUrl(file.url)" />
+            </el-tooltip>
+            <el-tooltip v-if="file.source === 'history'" content="保存到作品库">
+              <el-button
+                size="small"
+                circle
+                type="success"
+                :icon="FolderAdd"
+                :loading="savingUrls.has(file.url)"
+                :disabled="savingUrls.has(file.url)"
+                @click="handleSaveToGallery(file)"
+              />
             </el-tooltip>
           </div>
         </div>
