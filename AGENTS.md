@@ -325,6 +325,20 @@ The `modeToTab` mapping in `src/stores/redo.ts` translates `text2image|image2ima
 - Video status API quirks: strips `/v1` from baseURL for status queries
 - Download path fallback: `outputs/` → `../outputs/`
 
+## 💣 敏感操作规则（必须先确认）
+
+**执行任何敏感操作前，必须口头陈述操作内容、影响范围、回滚方案，经用户明确同意后方可执行。**
+
+敏感操作包括但不限于：
+- 数据库写入/更新/删除（`INSERT`/`UPDATE`/`DELETE`）
+- 文件系统写入/删除/移动
+- 配置修改（`.config.json`、环境变量、启动参数）
+- 网络请求（发送 HTTP 请求到外部服务）
+- Git 操作（`reset`/`rebase`/`force push`）
+- 数据迁移、数据修复
+
+**违规后果**：直接修改数据库或文件导致数据丢失/损坏，责任人承担全部责任。
+
 ## 🚨 数据安全规则（禁止删除运行时数据）
 
 **严禁删除以下运行时数据文件：**
