@@ -3,8 +3,8 @@ import { ref, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { ArrowLeft, ArrowRight, Picture, Edit, Check, ChatLineSquare, DataBoard } from '@element-plus/icons-vue'
-import { getProject, updateStepProgress } from '../api/projects'
-import type { Project } from '../types'
+import { getProject, updateStepProgress, getProjectFiles } from '../api/projects'
+import type { Project, ProjectFile } from '../types'
 import IdeateStep from '../components/IdeateStep.vue'
 import GenStep from '../components/GenStep.vue'
 import RefineStep from '../components/RefineStep.vue'
@@ -53,6 +53,15 @@ async function loadProject() {
         if (!found) currentStep.value = 'finalize'
       } catch { /* 忽略解析错误 */ }
     }
+
+    // 加载项目历史图片，供 refine 步骤恢复预览
+    try {
+      const files: ProjectFile[] = await getProjectFiles(props.projectId)
+      const historyImages = files.filter(f => f.source === 'history' && f.type === 'image')
+      if (historyImages.length > 0) {
+        latestGenUrls.value = historyImages.map(f => f.url)
+      }
+    } catch { /* 非阻塞 */ }
   } catch (e: any) {
     ElMessage.error('加载项目失败: ' + (e.message || ''))
   } finally {
