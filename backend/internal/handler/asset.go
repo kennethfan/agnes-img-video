@@ -31,9 +31,10 @@ func NewAssetHandler(repo repository.AssetRepository, settingsRepo repository.Se
 // SaveAsset 保存到作品库
 func (h *AssetHandler) SaveAsset(c *gin.Context) {
 	var req struct {
-		ImageURL string `json:"image_url"`
-		Prompt   string `json:"prompt"`
-		Mode     string `json:"mode"`
+		ImageURL  string `json:"image_url"`
+		Prompt    string `json:"prompt"`
+		Mode      string `json:"mode"`
+		ProjectID int64  `json:"project_id"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "参数错误: " + err.Error()})
@@ -85,6 +86,7 @@ func (h *AssetHandler) SaveAsset(c *gin.Context) {
 			Favorite:    false,
 			OriginalURL: req.ImageURL,
 			LocalPath:   localPath,
+			ProjectID:   req.ProjectID,
 		}
 		id, err = h.repo.Insert(asset)
 	} else {
@@ -96,6 +98,7 @@ func (h *AssetHandler) SaveAsset(c *gin.Context) {
 			Time:        time.Now().Format("2006-01-02 15:04:05"),
 			Favorite:    false,
 			OriginalURL: req.ImageURL,
+			ProjectID:   req.ProjectID,
 		}
 		id, err = h.repo.Insert(asset)
 		if err == nil {

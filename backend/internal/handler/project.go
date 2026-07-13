@@ -388,6 +388,7 @@ type dashboardFile struct {
 	Source    string `json:"source"`
 	URL       string `json:"url"`
 	Prompt    string `json:"prompt"`
+	Mode      string `json:"mode"`
 	Step      string `json:"step"`
 	CreatedAt string `json:"created_at"`
 }
@@ -432,6 +433,7 @@ func (h *ProjectHandler) GetProjectFiles(c *gin.Context) {
 					Source:    "history",
 					URL:       img,
 					Prompt:    r.Prompt,
+					Mode:      r.Mode,
 					Step:      "",
 					CreatedAt: r.Time,
 				})
@@ -455,6 +457,7 @@ func (h *ProjectHandler) GetProjectFiles(c *gin.Context) {
 				Source:    "asset",
 				URL:       u,
 				Prompt:    a.Prompt,
+				Mode:      a.Mode,
 				Step:      "",
 				CreatedAt: a.Time,
 			})
