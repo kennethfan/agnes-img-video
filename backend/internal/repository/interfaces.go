@@ -15,7 +15,7 @@ type PendingVideoInfo struct {
 }
 
 type HistoryRepository interface {
-	InsertRecord(prompt string, images []string, mode string, extra any) (int64, error)
+	InsertRecord(prompt string, images []string, mode string, extra any, projectID int64) (int64, error)
 	GetRecords(limit int) ([]model.HistoryRecord, error)
 	GetRecordsPaginated(page, perPage int, assetType, search string, favIDs map[int64]bool) ([]model.HistoryRecord, int, error)
 	GetRecordsByIDs(ids []int64) ([]model.HistoryRecord, error)

@@ -32,6 +32,7 @@ type TextToImageRequest struct {
 	Size           string `json:"size"`
 	N              int    `json:"n"`
 	NegativePrompt string `json:"negative_prompt"`
+	ProjectID      int64  `json:"project_id"`
 }
 
 type ImageToImageRequest struct {
@@ -43,8 +44,9 @@ type ImageToImageRequest struct {
 }
 
 type BatchRequest struct {
-	Prompts []string `json:"prompts" binding:"required"`
-	Size    string   `json:"size"`
+	Prompts   []string `json:"prompts" binding:"required"`
+	Size      string   `json:"size"`
+	ProjectID int64    `json:"project_id"`
 }
 
 type ImageResponse struct {
@@ -82,6 +84,7 @@ type VideoCreateRequest struct {
 	NumFrames         *int     `json:"num_frames,omitempty"`
 	ImageURLs         []string `json:"image_urls,omitempty"`
 	Mode              string   `json:"mode,omitempty"`
+	ProjectID         int64    `json:"project_id"`
 }
 
 type VideoTaskResponse struct {
@@ -144,10 +147,11 @@ type AgnesVideoStatusResponse struct {
 // ==================== 脚本生成 ====================
 
 type ScriptGenRequest struct {
-	Topic    string `json:"topic" binding:"required"`
-	Duration int    `json:"duration"`
-	Style    string `json:"style"`
-	Language string `json:"language"`
+	Topic     string `json:"topic" binding:"required"`
+	Duration  int    `json:"duration"`
+	Style     string `json:"style"`
+	Language  string `json:"language"`
+	ProjectID int64  `json:"project_id"`
 }
 
 type ScriptGenResponse struct {

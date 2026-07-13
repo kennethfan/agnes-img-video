@@ -18,16 +18,16 @@ func NewHistoryRepository(db *gorm.DB) *HistoryRepository {
 	return &HistoryRepository{db: db}
 }
 
-func (r *HistoryRepository) InsertRecord(prompt string, images []string, mode string, extra any) (int64, error) {
-	imagesJSON, _ := json.Marshal(images)
-	var extraStr *string
-	if extra != nil {
-		b, _ := json.Marshal(extra)
-		s := string(b)
-		extraStr = &s
-	}
-	h := History{Prompt: prompt, Mode: mode, Images: string(imagesJSON), Extra: extraStr}
-	if err := r.db.Create(&h).Error; err != nil {
+func (r *HistoryRepository) InsertRecord(prompt string, images []string, mode string, extra any, projectID int64) (int64, error) {
+		imagesJSON, _ := json.Marshal(images)
+		var extraStr *string
+		if extra != nil {
+			b, _ := json.Marshal(extra)
+			s := string(b)
+			extraStr = &s
+		}
+		h := History{Prompt: prompt, Mode: mode, Images: string(imagesJSON), Extra: extraStr, ProjectID: projectID}
+		if err := r.db.Create(&h).Error; err != nil {
 		return 0, err
 	}
 	return h.ID, nil
