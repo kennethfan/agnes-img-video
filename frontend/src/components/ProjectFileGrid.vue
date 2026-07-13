@@ -8,6 +8,7 @@ import { saveAsset } from '../api/assets'
 const props = defineProps<{ files: ProjectFile[]; projectId?: number }>()
 const emit = defineEmits<{ preview: [file: ProjectFile] }>()
 
+const safeFiles = computed(() => props.files ?? [])
 const savingUrls = ref<Set<string>>(new Set())
 
 async function handleSaveToGallery(file: ProjectFile) {
@@ -33,9 +34,8 @@ async function handleSaveToGallery(file: ProjectFile) {
 const activeTab = ref<'all' | 'image' | 'video'>('all')
 
 const filteredFiles = computed(() => {
-  if (!props.files) return []
-  if (activeTab.value === 'all') return props.files
-  return props.files.filter(f => f.type === activeTab.value)
+  if (activeTab.value === 'all') return safeFiles.value
+  return safeFiles.value.filter(f => f.type === activeTab.value)
 })
 
 const stepLabel: Record<string, string> = {
@@ -66,9 +66,9 @@ function copyUrl(url: string) {
   <div class="file-grid-panel">
     <div class="file-grid-header">
       <el-radio-group v-model="activeTab" size="small">
-        <el-radio-button value="all">全部 ({{ files.length }})</el-radio-button>
-        <el-radio-button value="image">图片 ({{ files.filter(f => f.type === 'image').length }})</el-radio-button>
-        <el-radio-button value="video">视频 ({{ files.filter(f => f.type === 'video').length }})</el-radio-button>
+        <el-radio-button value="all">全部 ({{ safeFiles.length }})</el-radio-button>
+        <el-radio-button value="image">图片 ({{ safeFiles.filter(f => f.type === 'image').length }})</el-radio-button>
+        <el-radio-button value="video">视频 ({{ safeFiles.filter(f => f.type === 'video').length }})</el-radio-button>
       </el-radio-group>
     </div>
 
