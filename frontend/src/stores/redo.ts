@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
-import { useRouter } from 'vue-router'
+import router from '../router'
 
 // 重做数据接口
 export interface RedoData {
@@ -59,8 +59,7 @@ export const useRedoStore = defineStore('redo', () => {
     // 路由跳转到目标页面
     const routeName = modeToTab[data.mode]
     if (routeName) {
-      const router = useRouter()
-      router.push({ name: routeName })
+	    router.push({ name: routeName })
     }
   }
 
