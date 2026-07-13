@@ -43,7 +43,7 @@ async function refine() {
   refining.value = true
   resultUrls.value = []
   try {
-    const resp = await imageToImage(sourceImage.value, prompt.value, size.value, strength.value)
+    const resp = await imageToImage(sourceImage.value, prompt.value, size.value, strength.value, undefined, props.project?.id)
     if (resp.images?.length) {
       resultUrls.value = resp.images
     }
@@ -116,7 +116,7 @@ async function refine() {
 
     <div v-if="resultUrls.length" class="result-section">
       <h4>优化结果</h4>
-      <ImageResult :images="resultUrls" :loading="false" prompt="" mode="" />
+      <ImageResult :images="resultUrls" :loading="false" :prompt="prompt" mode="image2image" :projectId="props.project?.id" />
     </div>
   </div>
 

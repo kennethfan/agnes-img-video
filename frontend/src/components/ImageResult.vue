@@ -8,6 +8,7 @@ const props = defineProps<{
   loading: boolean
   prompt: string
   mode: string
+  projectId?: number
 }>()
 
 const savingUrls = ref<Set<string>>(new Set())
@@ -29,7 +30,7 @@ function downloadImage(url: string) {
 async function handleSaveToGallery(url: string) {
   savingUrls.value = new Set([...savingUrls.value, url])
   try {
-    await saveAsset({ image_url: url, prompt: props.prompt, mode: props.mode })
+    await saveAsset({ image_url: url, prompt: props.prompt, mode: props.mode, project_id: props.projectId })
     ElMessage.success('已保存到作品库')
   } catch (e: any) {
     ElMessage.error(e.message || '保存到作品库失败')

@@ -42,7 +42,7 @@ async function generate() {
   resultUrls.value = []
   try {
     if (mode.value === 'text2image') {
-      const resp = await textToImage({ prompt: prompt.value, size: size.value, n: 1 })
+      const resp = await textToImage({ prompt: prompt.value, size: size.value, n: 1, project_id: props.project?.id })
       if (resp.images?.length) {
         resultUrls.value = resp.images
       }
@@ -51,7 +51,7 @@ async function generate() {
         ElMessage.warning('请输入参考图片 URL')
         return
       }
-      const resp = await imageToImage(imageUrl.value, prompt.value, size.value, strength.value)
+      const resp = await imageToImage(imageUrl.value, prompt.value, size.value, strength.value, undefined, props.project?.id)
       if (resp.images?.length) {
         resultUrls.value = resp.images
       }
@@ -126,7 +126,7 @@ async function generate() {
 
     <div v-if="resultUrls.length" class="result-section">
       <h4>生成结果</h4>
-      <ImageResult :images="resultUrls" :loading="false" prompt="" mode="" />
+      <ImageResult :images="resultUrls" :loading="false" :prompt="prompt" :mode="mode" :projectId="props.project?.id" />
     </div>
   </div>
 
