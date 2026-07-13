@@ -12,11 +12,13 @@ export interface TextToImageRequest {
   size?: string
   n?: number
   negative_prompt?: string
+  project_id?: number
 }
 
 export interface BatchRequest {
   prompts: string[]
   size?: string
+  project_id?: number
 }
 
 export interface ImageResponse {
@@ -36,6 +38,7 @@ export interface VideoCreateRequest {
   num_frames?: number | null
   image_urls?: string[]
   mode?: string
+  project_id?: number
 }
 
 export interface VideoTaskResponse {
@@ -77,6 +80,7 @@ export interface ScriptGenRequest {
   duration?: number
   style?: string
   language?: string
+  project_id?: number
 }
 
 export interface ScriptGenResponse {
@@ -249,6 +253,7 @@ export interface ProjectFile {
   source: 'history' | 'asset'
   url: string
   prompt: string
+  mode?: string
   step: string
   created_at: string
 }

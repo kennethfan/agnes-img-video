@@ -1,7 +1,7 @@
 import client from './client'
 import type { AssetListResponse, AssetFavoriteRequest, AssetDeleteRequest, AssetItem } from '../types'
 
-export async function saveAsset(data: { image_url: string; prompt: string; mode: string }): Promise<{ id: number }> {
+export async function saveAsset(data: { image_url: string; prompt: string; mode: string; project_id?: number }): Promise<{ id: number }> {
   const res = await client.post('/api/v1/assets', data)
   return res.data
 }
