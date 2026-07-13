@@ -116,7 +116,7 @@ async function refine() {
 
     <div v-if="resultUrls.length" class="result-section">
       <h4>优化结果</h4>
-      <ImageResult :images="resultUrls" :loading="false" :prompt="prompt" mode="image2image" :projectId="props.project?.id" />
+      <ImageResult :images="resultUrls" :loading="false" :prompt="prompt" mode="image2image" :projectId="props.project?.id" hideRefine />
     </div>
   </div>
 

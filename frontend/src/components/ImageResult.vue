@@ -9,6 +9,7 @@ const props = defineProps<{
   prompt: string
   mode: string
   projectId?: number
+  hideRefine?: boolean
 }>()
 
 const savingUrls = ref<Set<string>>(new Set())
@@ -71,7 +72,7 @@ async function handleSaveToGallery(url: string) {
           {{ savingUrls.has(img) ? '保存中...' : '保存到作品库' }}
         </el-button>
         <el-button
-          v-if="props.mode === 'image2image'"
+          v-if="props.mode === 'image2image' && !props.hideRefine"
           size="small"
           @click="handleRefine(img)"
         >
