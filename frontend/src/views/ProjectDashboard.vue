@@ -18,12 +18,23 @@ const files = ref<ProjectFile[]>([])
 const stats = ref<ProjectStats | null>(null)
 const loading = ref(true)
 
-const stepConfig = [
-  { key: 'ideate', label: '创意发想', status: 'pending' },
-  { key: 'generate', label: '生成', status: 'pending' },
-  { key: 'refine', label: '优化', status: 'pending' },
-  { key: 'finalize', label: '定稿', status: 'pending' },
-]
+const stepConfig = ref<{ key: string; label: string; status: string }[]>([])
+
+function buildStepConfig(project: Project) {
+  const isComic = project.type === 'comic'
+  return (isComic ? [
+    { key: 'ideate', label: '构思', status: 'pending' },
+    { key: 'layout', label: '布局', status: 'pending' },
+    { key: 'generate', label: '生成', status: 'pending' },
+    { key: 'refine', label: '精修', status: 'pending' },
+    { key: 'finalize', label: '定稿', status: 'pending' },
+  ] : [
+    { key: 'ideate', label: '创意发想', status: 'pending' },
+    { key: 'generate', label: '生成', status: 'pending' },
+    { key: 'refine', label: '优化', status: 'pending' },
+    { key: 'finalize', label: '定稿', status: 'pending' },
+  ])
+}
 
 async function loadData() {
   loading.value = true
@@ -37,8 +48,9 @@ async function loadData() {
     files.value = f
     stats.value = s
 
+    stepConfig.value = buildStepConfig(p)
     if (s.step_progress) {
-      stepConfig.forEach(st => {
+      stepConfig.value.forEach(st => {
         st.status = s.step_progress[st.key] || 'pending'
       })
     }

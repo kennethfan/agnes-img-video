@@ -16,6 +16,7 @@ const showDialog = ref(false)
 const isEditing = ref(false)
 const editingId = ref<number | null>(null)
 const form = ref({ title: '', brief: '' })
+const projectType = ref<'project' | 'comic'>('project')
 
 async function loadProjects() {
   loading.value = true
@@ -34,6 +35,7 @@ function openNew() {
   isEditing.value = false
   editingId.value = null
   form.value = { title: '', brief: '' }
+  projectType.value = 'project'
   showDialog.value = true
 }
 
@@ -54,7 +56,7 @@ async function saveProject() {
       await updateProject(editingId.value, form.value)
       ElMessage.success('保存成功')
     } else {
-      await createProject(form.value)
+      await createProject({ ...form.value, type: projectType.value })
       ElMessage.success('创建成功')
     }
     showDialog.value = false
@@ -111,7 +113,10 @@ function stepProgressSummary(sp: string | null | undefined): string {
   if (!sp) return ''
   try {
     const data = JSON.parse(sp)
-    const steps: Record<string, string> = { ideate: '发想', generate: '生成', refine: '优化', finalize: '定稿' }
+    const hasLayout = 'layout' in data
+    const steps: Record<string, string> = hasLayout
+      ? { ideate: '构思', layout: '布局', generate: '生成', refine: '精修', finalize: '定稿' }
+      : { ideate: '发想', generate: '生成', refine: '优化', finalize: '定稿' }
     return Object.entries(steps)
       .filter(([k]) => data[k])
       .map(([k, v]) => {
@@ -152,6 +157,8 @@ function stepProgressSummary(sp: string | null | undefined): string {
                 <el-tag :type="statusTypes[p.status] || 'info'" size="small">
                   {{ statusLabel(p.status) }}
                 </el-tag>
+                <el-tag v-if="p.type === 'comic'" type="warning" size="small">漫画</el-tag>
+                <el-tag v-else-if="p.type === 'project'" type="" size="small">创作</el-tag>
               </div>
               <div class="card-actions" @click.stop>
                 <el-button text @click="openEdit(p)"><el-icon><Edit /></el-icon></el-button>
@@ -182,6 +189,12 @@ function stepProgressSummary(sp: string | null | undefined): string {
       <el-form :model="form" label-width="60px">
         <el-form-item label="标题">
           <el-input v-model="form.title" placeholder="项目名称" />
+        </el-form-item>
+        <el-form-item label="类型" v-if="!isEditing">
+          <el-radio-group v-model="projectType">
+            <el-radio value="project">创作项目</el-radio>
+            <el-radio value="comic">漫画项目</el-radio>
+          </el-radio-group>
         </el-form-item>
         <el-form-item label="简报">
           <el-input

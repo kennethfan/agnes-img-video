@@ -1,29 +1,54 @@
 <script setup lang="ts">
-import { ref, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, watch, provide } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { ArrowLeft, ArrowRight, Picture, Edit, Check, ChatLineSquare, DataBoard } from '@element-plus/icons-vue'
+import { ArrowLeft, ArrowRight, Picture, Edit, Check, ChatLineSquare, Grid, DataBoard } from '@element-plus/icons-vue'
 import { getProject, updateStepProgress, getProjectFiles } from '../api/projects'
-import type { Project, ProjectFile } from '../types'
+import type { Project, ProjectFile, ComicData, ComicPanel } from '../types'
 import IdeateStep from '../components/IdeateStep.vue'
 import GenStep from '../components/GenStep.vue'
 import RefineStep from '../components/RefineStep.vue'
 import FinalStep from '../components/FinalStep.vue'
+import ComicIdeateStep from './comic/ComicIdeateStep.vue'
+import ComicLayoutStep from './comic/ComicLayoutStep.vue'
+import ComicGenerateStep from './comic/ComicGenerateStep.vue'
+import ComicRefineStep from './comic/ComicRefineStep.vue'
+import ComicFinalStep from './comic/ComicFinalStep.vue'
 
 const props = defineProps<{ projectId: number }>()
 const emit = defineEmits<{ back: [] }>()
 
-const steps = ['ideate', 'generate', 'refine', 'finalize'] as const
-type Step = typeof steps[number]
-const stepLabels: Record<Step, string> = { ideate: '创意发想', generate: '生成', refine: '优化', finalize: '定稿' }
-const stepIcons: Record<Step, any> = { ideate: ChatLineSquare, generate: Picture, refine: Edit, finalize: Check }
+const projectSteps = ['ideate', 'generate', 'refine', 'finalize'] as const
+const comicSteps = ['ideate', 'layout', 'generate', 'refine', 'finalize'] as const
 
-const currentStep = ref<Step>('ideate')
+const steps = computed(() => {
+  if (project.value?.type === 'comic') return comicSteps as readonly string[]
+  return projectSteps as readonly string[]
+})
+
+const stepLabels = computed(() => {
+  if (project.value?.type === 'comic') {
+    return { ideate: '构思', layout: '布局', generate: '生成', refine: '精修', finalize: '定稿' } as Record<string, string>
+  }
+  return { ideate: '创意发想', generate: '生成', refine: '优化', finalize: '定稿' } as Record<string, string>
+})
+
+const stepIcons: Record<string, any> = {
+  ideate: ChatLineSquare, layout: Grid, generate: Picture, refine: Edit, finalize: Check,
+}
+
+const currentStep = ref<string>('ideate')
 const project = ref<Project | null>(null)
 const loading = ref(false)
 const latestGenUrls = ref<string[]>([])
 const latestBrief = ref('')
 const latestGenPrompt = ref('')
+const comicData = ref<ComicData | null>(null)
+const comicPanels = ref<ComicPanel[]>([])
+provide('comicData', comicData)
+provide('comicPanels', comicPanels)
+const projectIdRef = computed(() => props.projectId)
+provide('projectId', projectIdRef)
 
 function onBriefGenerated(briefText: string, prompt: string) {
   latestBrief.value = briefText
@@ -38,19 +63,20 @@ async function loadProject() {
     project.value = await getProject(props.projectId)
     // 恢复步骤进度：跳转到第一个未完成的步骤
     const sp = project.value.step_progress
+    const stepList = steps.value
     if (sp) {
       try {
         const data = JSON.parse(sp)
         let found = false
-        for (const s of steps) {
+        for (const s of stepList) {
           if (data[s] !== 'completed') {
             currentStep.value = s
             found = true
             break
           }
         }
-        // 全部已完成 → 跳转到定稿页展示完成状态
-        if (!found) currentStep.value = 'finalize'
+        // 全部已完成 → 跳转到最后一步展示完成状态
+        if (!found) currentStep.value = stepList[stepList.length - 1]
       } catch { /* 忽略解析错误 */ }
     }
 
@@ -81,26 +107,60 @@ onMounted(loadProject)
 
 watch(() => props.projectId, loadProject)
 
-function goStep(s: Step) {
+function goStep(s: string) {
   currentStep.value = s
 }
 
 function prevStep() {
-  const idx = steps.indexOf(currentStep.value)
-  if (idx > 0) goStep(steps[idx - 1])
+  const stepList = steps.value
+  const idx = stepList.indexOf(currentStep.value)
+  if (idx > 0) goStep(stepList[idx - 1])
 }
 
 const router = useRouter()
 
 async function nextStepWithProgress() {
   if (!project.value) return
-  const idx = steps.indexOf(currentStep.value)
-  if (idx < steps.length - 1) {
+  const stepList = steps.value
+  const idx = stepList.indexOf(currentStep.value)
+
+  // 漫画 ideate 步骤：如果 comicData 为空，尝试从 sessionStorage 恢复
+  if (project.value.type === 'comic' && currentStep.value === 'ideate' && !comicData.value) {
+    const saved = sessionStorage.getItem('comic_ideate_data')
+    if (saved) {
+      try {
+        comicData.value = JSON.parse(saved)
+      } catch { /* 忽略 */ }
+    }
+  }
+
+  if (idx < stepList.length - 1) {
     try {
       await updateStepProgress(project.value.id, currentStep.value, 'completed')
     } catch { /* 非阻塞 */ }
-    goStep(steps[idx + 1])
+    goStep(stepList[idx + 1])
   }
+}
+
+// === 漫画组件事件回调 ===
+function onStorylineGenerated(data: ComicData) {
+  comicData.value = data
+  nextStepWithProgress()
+}
+
+function onPanelsReady(panels: ComicPanel[]) {
+  comicPanels.value = panels
+  comicData.value = { ...comicData.value || { storyline: '', characters: '', style: '', layout: '', panels: [] }, panels }
+  nextStepWithProgress()
+}
+
+function onRefined(panels: ComicPanel[]) {
+  comicPanels.value = panels
+  nextStepWithProgress()
+}
+
+function onComicCompleted() {
+  nextStepWithProgress()
 }
 
 function goToDashboard() {
@@ -135,40 +195,71 @@ function goToDashboard() {
           <el-icon v-if="isStepDone(s)"><Check /></el-icon>
           <el-icon v-else><component :is="stepIcons[s]" /></el-icon>
         </div>
-        <span>{{ stepLabels[s] }}</span>
+        <span>{{ stepLabels[s] || s }}</span>
         <div v-if="i < steps.length - 1" class="step-line" />
       </div>
     </div>
 
     <!-- 步骤内容 -->
     <div class="step-content">
-      <!-- 创意发想 -->
-      <div v-if="currentStep === 'ideate'" class="step-body">
-        <IdeateStep :project="project" @brief-generated="onBriefGenerated" />
+      <!-- ========== 创作项目步骤 ========== -->
+      <div v-if="project?.type !== 'comic'">
+        <!-- 创意发想 -->
+        <div v-if="currentStep === 'ideate'" class="step-body">
+          <IdeateStep :project="project" @brief-generated="onBriefGenerated" />
+        </div>
+
+        <!-- 生成 -->
+        <div v-if="currentStep === 'generate'" class="step-body">
+          <GenStep :project="project" :initialPrompt="latestGenPrompt" @generated="latestGenUrls = $event" />
+        </div>
+
+        <!-- 优化 -->
+        <div v-if="currentStep === 'refine'" class="step-body">
+          <RefineStep :project="project" :defaultImageUrl="latestGenUrls[0] || ''" />
+        </div>
+
+        <!-- 定稿 -->
+        <div v-if="currentStep === 'finalize'" class="step-body">
+          <FinalStep :project="project" @updated="loadProject" />
+        </div>
       </div>
 
-      <!-- 生成 -->
-      <div v-if="currentStep === 'generate'" class="step-body">
-        <GenStep :project="project" :initialPrompt="latestGenPrompt" @generated="latestGenUrls = $event" />
-      </div>
+      <!-- ========== 漫画项目步骤 ========== -->
+      <div v-if="project?.type === 'comic'">
+        <!-- 构思 -->
+        <div v-if="currentStep === 'ideate'" class="step-body">
+          <ComicIdeateStep :project="project" @storyline-generated="onStorylineGenerated" />
+        </div>
 
-      <!-- 优化 -->
-      <div v-if="currentStep === 'refine'" class="step-body">
-        <RefineStep :project="project" :defaultImageUrl="latestGenUrls[0] || ''" />
-      </div>
+        <!-- 布局 -->
+        <div v-if="currentStep === 'layout'" class="step-body">
+          <ComicLayoutStep :project="project" :comicData="comicData" @panels-ready="onPanelsReady" />
+        </div>
 
-      <!-- 定稿 -->
-      <div v-if="currentStep === 'finalize'" class="step-body">
-        <FinalStep :project="project" @updated="loadProject" />
+        <!-- 生成 -->
+        <div v-if="currentStep === 'generate'" class="step-body">
+          <ComicGenerateStep />
+        </div>
+
+        <!-- 精修 -->
+        <div v-if="currentStep === 'refine'" class="step-body">
+          <ComicRefineStep :project="project" :panels="comicPanels" @refined="onRefined" />
+        </div>
+
+        <!-- 定稿 -->
+        <div v-if="currentStep === 'finalize'" class="step-body">
+          <ComicFinalStep :project="project" :panels="comicPanels" @completed="onComicCompleted" />
+        </div>
       </div>
     </div>
 
     <!-- 步骤操作 -->
     <div class="step-actions">
-      <el-button v-if="currentStep !== 'ideate'" @click="prevStep">
+      <el-button v-if="currentStep !== steps[0]" @click="prevStep">
         <el-icon><ArrowLeft /></el-icon> 上一步
       </el-button>
-      <el-button v-if="currentStep !== 'finalize'" type="primary" @click="nextStepWithProgress">
+      <el-button v-if="currentStep !== steps[steps.length - 1]" type="primary" @click="nextStepWithProgress">
         下一步 <el-icon><ArrowRight /></el-icon>
       </el-button>
     </div>
