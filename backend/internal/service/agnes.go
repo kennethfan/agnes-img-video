@@ -330,6 +330,49 @@ func (c *AgnesClient) GenerateComicPrompts(theme, layout string, panelCount int)
 	return result.Prompts, nil
 }
 
+// GenerateComicStoryline 调用聊天 API 生成漫画剧本（故事线、角色、画风）
+func (c *AgnesClient) GenerateComicStoryline(theme, style string) (string, error) {
+	systemPrompt := `你是一个漫画剧本创作专家。根据用户提供的漫画主题，创作一份完整的漫画剧本。
+
+要求：
+1. 返回严格的 JSON 格式，不要任何其他内容
+2. JSON 结构：
+{
+  "storyline": "完整的故事线描述，包括起承转合，200-500字",
+  "characters": "主要角色描述，包括外貌、性格、关系",
+  "style": "建议的画风描述，包括色彩、线条、参考风格"
+}
+3. storyline 应该包含清晰的故事脉络：开头→发展→高潮→结局
+4. characters 描述每个角色的特征，2-4个角色
+5. style 描述推荐的视觉风格`
+	if style != "" {
+		systemPrompt += "\n6. 参考用户指定的画风：\n" + style
+	}
+
+	userPrompt := fmt.Sprintf("漫画主题：%s", theme)
+
+	req := model.ChatCompletionRequest{
+		Model: c.chatModel,
+		Messages: []model.ChatMessage{
+			{Role: "system", Content: systemPrompt},
+			{Role: "user", Content: userPrompt},
+		},
+		Temperature: 0.8,
+		MaxTokens:   2048,
+	}
+
+	var resp model.ChatCompletionResponse
+	if err := c.doRequest("POST", "/chat/completions", req, &resp); err != nil {
+		return "", fmt.Errorf("生成漫画剧本失败: %w", err)
+	}
+
+	if len(resp.Choices) == 0 {
+		return "", fmt.Errorf("API 返回中未找到内容")
+	}
+
+	return resp.Choices[0].Message.Content, nil
+}
+
 // SubmitVideoTask 提交视频生成任务到 Agnes API
 func (c *AgnesClient) SubmitVideoTask(payload map[string]any) (string, error) {
 	url := c.baseURL + "/videos"
