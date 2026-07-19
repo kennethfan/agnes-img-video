@@ -7,9 +7,15 @@ const props = defineProps<{
   loading: boolean
   prompt: string
   mode: string
+  projectId?: number
 }>()
 
 const savingUrls = ref<Set<string>>(new Set())
+const emit = defineEmits<{ 'refine-image': [url: string] }>()
+
+function handleRefine(img: string) {
+  emit('refine-image', img)
+}
 
 function downloadImage(url: string) {
   window.open('/api/v1/download?url=' + encodeURIComponent(url), '_blank')
@@ -18,7 +24,7 @@ function downloadImage(url: string) {
 async function handleSaveToGallery(url: string) {
   savingUrls.value = new Set([...savingUrls.value, url])
   try {
-    await saveAsset({ image_url: url, prompt: props.prompt, mode: props.mode })
+    await saveAsset({ image_url: url, prompt: props.prompt, mode: props.mode, project_id: props.projectId })
     ElMessage.success('已保存到作品库')
   } catch (e: any) {
     ElMessage.error(e.message || '保存到作品库失败')
@@ -49,13 +55,21 @@ async function handleSaveToGallery(url: string) {
           下载
         </el-button>
         <el-button
+          v-if="props.prompt && props.mode"
           size="small"
           type="success"
           :loading="savingUrls.has(img)"
           :disabled="savingUrls.has(img)"
           @click="handleSaveToGallery(img)"
         >
-          保存到作品库
+          {{ savingUrls.has(img) ? '保存中...' : '保存到作品库' }}
+        </el-button>
+        <el-button
+          v-if="props.mode === 'image2image'"
+          size="small"
+          @click="handleRefine(img)"
+        >
+          继续精修
         </el-button>
       </div>
     </div>

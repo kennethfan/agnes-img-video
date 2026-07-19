@@ -1,7 +1,7 @@
 # AGENTS.md — Agnes Creator Studio
 
-**Generated:** 2026-07-10
-**Commit:** b69b356 (dev)
+**Generated:** 2026-07-12
+**Commit:** 54a11b6 (dev)
 **Stack:** Go 1.25 · Gin · SQLite · Vue 3 · TypeScript 6 · Vite 8 · Element Plus · Pinia · Axios · SSE
 
 ## Quick Start
@@ -29,13 +29,19 @@ pnpm dev                   # → http://localhost:5173
 | Asset gallery | `backend/internal/handler/asset.go` | Uses AssetRepository |
 | Config management | `backend/internal/handler/config_handler.go` | GET/PUT .config.json |
 | Storyboard | `backend/internal/handler/storyboard.go` | Projects + shots CRUD |
+| Project management | `backend/internal/handler/project.go` | Projects CRUD + AI recommend + steps |
+| Asset collections | `backend/internal/handler/collection.go` | Collections CRUD + add/remove assets |
+| Prompt templates | `backend/internal/handler/template.go` | Templates CRUD + export/import |
+| Task queue management | `backend/internal/handler/task_handler.go` | List/stream/cancel/retry tasks |
 | Core business logic | `backend/internal/service/` | AgnesClient, TaskQueue, GithubStorage |
-| GORM persistence | `backend/internal/repository/gorm/` | 5 repositories (History/Storyboard/Settings/AccessLog/Task) |
+| GORM persistence | `backend/internal/repository/gorm/` | 8 repositories (History/Storyboard/Settings/AccessLog/Task/Project/Collection/Template) |
 | Shared types | `backend/internal/model/types.go` | All request/response/SSE types |
-| Frontend views | `frontend/src/views/` | 15 views + 3 wizard subdirs |
+| Frontend views | `frontend/src/views/` | 20 views + 3 wizard subdirs |
+| Project dashboard | `frontend/src/views/ProjectDashboard.vue` | Stats, file aggregation, step progress |
 | API client layer | `frontend/src/api/` | Axios wrappers per domain |
 | Pinia stores | `frontend/src/stores/` | redo.ts, wizard.ts |
-| Shared components | `frontend/src/components/` | NavSidebar, ImageResult, ShotCard, AssetCard, TaskProgress |
+| Shared components | `frontend/src/components/` | NavSidebar, ImageResult, ShotCard, AssetCard, TaskProgress, StepProgressBar, ProjectStatsCards, ProjectFileGrid, AssetPickerDialog, AIPanel |
+| Workflow step components | `frontend/src/components/` | IdeateStep, GenStep, RefineStep, FinalStep — project creation 4-step flow |
 | Types | `frontend/src/types/index.ts` | All TS interfaces |
 | SSE utility | `frontend/src/utils/sse.ts` | EventSource helper |
 | App entry | `frontend/src/App.vue` | Vue Router + NavSidebar navigation |
@@ -54,6 +60,13 @@ pnpm dev                   # → http://localhost:5173
 | `ImageHandler` | struct | `internal/handler/image.go` | Image HTTP handlers |
 | `HistoryRepository` | struct | `internal/repository/gorm/history.go` | GORM CRUD for history |
 | `StoryboardRepository` | struct | `internal/repository/gorm/storyboard.go` | GORM CRUD for storyboard |
+| `ProjectHandler` | struct | `internal/handler/project.go` | Creative projects CRUD + AI Recommend + Steps |
+| `CollectionHandler` | struct | `internal/handler/collection.go` | Asset collections CRUD |
+| `TemplateHandler` | struct | `internal/handler/template.go` | Prompt templates CRUD + export/import |
+| `ProjectRepository` | struct | `internal/repository/gorm/project.go` | GORM CRUD for projects + steps |
+| `CollectionRepository` | struct | `internal/repository/gorm/collection.go` | GORM CRUD for collections |
+| `TemplateRepository` | struct | `internal/repository/gorm/template.go` | GORM CRUD for prompt templates |
+| `AssetRepository` | struct | `internal/repository/gorm/asset.go` | GORM CRUD for workspace assets |
 | `TaskRecord` | struct | `internal/model/types.go` | Unified task record type |
 | `VideoStatus/Event` | struct | `internal/model/types.go` | SSE event types |
 
@@ -69,6 +82,14 @@ pnpm dev                   # → http://localhost:5173
 | `AssetCard` | component | `components/AssetCard.vue` | Asset gallery card |
 | `TaskProgress` | component | `components/TaskProgress.vue` | SSE-driven progress bar |
 | `NavSidebar` | component | `components/NavSidebar.vue` | Left navigation sidebar |
+| `IdeateStep` | component | `components/IdeateStep.vue` | Ideation step — textarea idea input → AI brief |
+| `GenStep` | component | `components/GenStep.vue` | Generation step — batch image gen from brief |
+| `RefineStep` | component | `components/RefineStep.vue` | Refinement step — image + prompt refinement |
+| `FinalStep` | component | `components/FinalStep.vue` | Finalize step — gallery + cover + complete project |
+| `StepProgressBar` | component | `components/StepProgressBar.vue` | Step progress indicator for projects |
+| `ProjectStatsCards` | component | `components/ProjectStatsCards.vue` | Dashboard stat cards (images/videos/files) |
+| `ProjectFileGrid` | component | `components/ProjectFileGrid.vue` | Dashboard file grid with filtering |
+| `AssetPickerDialog` | component | `components/AssetPickerDialog.vue` | Gallery asset picker dialog for cross-step selection |
 
 ## Project Structure
 
@@ -103,6 +124,9 @@ No legacy Python/Gradio code — everything goes through the B/S architecture.
 | `internal/handler/db_handler.go` | Export/restore database (JSON format) |
 | `internal/handler/github_handler.go` | Upload/fetch via GitHub |
 | `internal/handler/storyboard.go` | Storyboard CRUD: projects + shots (separate SQLite tables) |
+| `internal/handler/project.go` | `ProjectHandler` — CRUD + AIRecommend + Steps (AddStep/UpdateStep/DeleteStep) |
+| `internal/handler/collection.go` | `CollectionHandler` — CRUD + AddAssets + RemoveAssets |
+| `internal/handler/template.go` | `TemplateHandler` — CRUD + Export/Import + SaveFromHistory |
 | `internal/middleware/cors.go` | Allow localhost:5173 / :4173 |
 | `internal/repository/gorm/gorm.go` | GORM `OpenDB()` + AutoMigrate (7 models) |
 | `internal/repository/gorm/history.go` | GORM CRUD for history + favorites |
@@ -110,6 +134,10 @@ No legacy Python/Gradio code — everything goes through the B/S architecture.
 | `internal/repository/gorm/settings.go` | GORM key-value settings persistence |
 | `internal/repository/gorm/access_log.go` | GORM access log CRUD + daily cleanup |
 | `internal/repository/gorm/task.go` | GORM task record CRUD + optimistic lock cancel |
+| `internal/repository/gorm/project.go` | `ProjectRepository` — Project + ProjectStep GORM CRUD |
+| `internal/repository/gorm/collection.go` | `CollectionRepository` — Collection + CollectionAssets GORM CRUD |
+| `internal/repository/gorm/template.go` | `TemplateRepository` — PromptTemplate GORM CRUD/export/import |
+| `internal/repository/gorm/asset.go` | `AssetRepository` — Asset CRUD/list/favorite/transfer |
 | `internal/repository/interfaces.go` | Repository interface definitions |
 | `scripts/recover_history.go` | Rebuild history records from `outputs/` filenames after data loss |
 
@@ -119,18 +147,35 @@ No legacy Python/Gradio code — everything goes through the B/S architecture.
 POST /images/text-to-image     POST /images/image-to-image     POST /images/batch
 POST /videos/text-to-video     POST /videos/image-to-video     POST /videos/multi-image
 POST /videos/generate-script   POST /ideas/expand   POST /comic/generate-prompts
+POST /comic/generate-storyline
 GET  /videos/:taskId           GET  /videos/stream/:taskId
 GET  /config                   PUT  /config
 GET  /history                  DELETE /history
 DELETE /history/:id            POST /history/delete
-GET  /assets                   POST /assets/favorite
-POST /assets/batch-download    DELETE /assets
+GET  /assets                   POST /assets
+POST /assets/favorite          POST /assets/batch-download
+POST /assets/:id/transfer      DELETE /assets
 GET  /storyboard/projects      POST /storyboard/projects
 GET  /storyboard/projects/:id  PUT  /storyboard/projects/:id
 DELETE /storyboard/projects/:id POST /storyboard/projects/:id/duplicate
-POST /storyboard/projects/:id/shots PUT /storyboard/projects/:id/shots/reorder
+POST /storyboard/projects/:id/shots     POST /storyboard/projects/:id/shots/batch
+PUT  /storyboard/projects/:id/shots/reorder
 PUT  /storyboard/shots/:id     DELETE /storyboard/shots/:id
 POST /storyboard/projects/:id/generate
+GET  /collections              POST /collections              PUT  /collections/:id
+DELETE /collections/:id        POST /collections/:id/assets   DELETE /collections/:id/assets
+GET  /templates                POST /templates                PUT  /templates/:id
+DELETE /templates/:id          POST /templates/export         POST /templates/import
+POST /history/:id/save-template
+GET  /projects                 POST /projects                 GET  /projects/:id
+PUT  /projects/:id             DELETE /projects/:id           POST /projects/:id/duplicate
+POST /projects/:id/ai-recommend    POST /projects/:id/steps
+PUT  /steps/:stepId             DELETE /steps/:stepId
+POST /projects/:id/ideate-brief GET  /projects/:id/files
+GET  /projects/:id/stats        PUT  /projects/:id/step-progress
+GET  /tasks                    GET  /tasks/:id                 GET  /tasks/:id/stream
+POST /tasks/:id/cancel          POST /tasks/:id/retry
+POST /assets/:id/transfer
 GET  /outputs/*filepath        (static files)
 ```
 
@@ -148,12 +193,24 @@ make clean    # rm -rf bin/
 
 ### Config
 
-- `.config.json` at `backend/` (gitignored). Fields: `api_key`, `base_url`, `model`, `github_token`, `github_repo`, `github_branch`, `image_model`, `video_model`, `chat_model`.
-- `AGNES_API_KEY`, `GITHUB_TOKEN`, `GITHUB_REPO`, `GITHUB_BRANCH` env vars override `.config.json`.
-- `IMAGE_MODEL`, `VIDEO_MODEL`, `CHAT_MODEL` env vars override model defaults (see `.env.example`).
-- `.env.example` in `backend/` — copy to `backend/.env` for local dev.
-- Default base URL: `https://apihub.agnes-ai.com/v1`
-- Default models: `agnes-image-2.1-flash` (image), `agnes-video-v2.0` (video), `agnes-2.0-flash` (chat/script).
+- **所有配置通过环境变量读取**，无 `.config.json`。
+- 配置来源为 `backend/.env`（从 `.env.example` 复制），以及系统环境变量。
+- API Key **仅通过 `API_KEY_PATH` 环境变量设置路径**，Key 存于单独文件（如 `~/.agnes/api-key`），该文件可设 `chmod 600`。不支持直接写入 `.env`。
+- 完整环境变量列表见 `backend/.env.example`。核心变量：
+
+| 环境变量 | 必需 | 说明 |
+|----------|------|------|
+| `API_KEY_PATH` | 是 | API Key 文件路径 |
+| `BASE_URL` | 否 | API 地址（默认 `https://apihub.agnes-ai.com/v1`） |
+| `IMAGE_MODEL` | 否 | 图像模型（默认 `agnes-image-2.1-flash`） |
+| `VIDEO_MODEL` | 否 | 视频模型（默认 `agnes-video-v2.0`） |
+| `CHAT_MODEL` | 否 | 对话模型（默认 `agnes-2.0-flash`） |
+| `GITHUB_TOKEN` | 否 | GitHub 存储 token |
+| `GITHUB_REPO` | 否 | GitHub 存储仓库 |
+| `GITHUB_BRANCH` | 否 | GitHub 分支（默认 master） |
+| `DB_DRIVER` | 否 | 数据库驱动（默认 sqlite） |
+| `DB_DSN` | 否 | 数据库 DSN（默认 history.db） |
+| `PORT` | 否 | 服务器端口（默认 8080） |
 
 ### GitHub File Storage (Optional)
 
@@ -163,13 +220,14 @@ When `GITHUB_TOKEN` and `GITHUB_REPO` are set, generated images/videos are uploa
 
 | Path | Role |
 |---|---|
-| `src/views/` | 15 views: TextToImage, ImageToImage, BatchGen, ScriptGen, TextToVideo, ImageToVideo, MultiImageVideo, Ideas, History, Storyboard, Assets, AccessLogs, DBManage, TaskRecords, Settings + 3 wizard subdirs (comic/novel/image) |
+| `src/views/` | 20 views: TextToImage, ImageToImage, BatchGen, ScriptGen, TextToVideo, ImageToVideo, MultiImageVideo, Ideas, History, Storyboard, Assets, ProjectList, ProjectEditor, ProjectDashboard, TemplateManager, WorkflowWizard, AccessLogs, DBManage, TaskRecords, Settings + 3 wizard subdirs (comic/novel/image) |
 | `src/components/ImageResult.vue` | Image gallery with preview + download |
 | `src/api/client.ts` | Axios instance (baseURL: '', 120s timeout) |
 | `src/api/image.ts` | textToImage, imageToImage, batchGenerate |
 | `src/api/video.ts` | text-to-video, image-to-video, multi-image, script-gen, task status |
 | `src/api/history.ts` | getHistory, clearHistory, deleteHistory, deleteRecord |
 | `src/api/ideas.ts` | expandIdea — AI idea enhancement |
+| `src/api/ideate.ts` | ideateBrief — AI project brief generation |
 | `src/api/storyboard.ts` | Storyboard CRUD: projects + shots API client |
 | `src/api/history.ts` | getHistory, clearHistory, deleteHistory, deleteRecord |
 | `src/api/assets.ts` | getAssets, toggleFavorite, batchDownload, deleteAssets |
@@ -177,6 +235,10 @@ When `GITHUB_TOKEN` and `GITHUB_REPO` are set, generated images/videos are uploa
 | `src/api/github.ts` | uploadToGithub, proxyDownload |
 | `src/api/db.ts` | exportDB, restoreDB |
 | `src/api/access-logs.ts` | getLogs, deleteLog, clearLogs |
+| `src/api/projects.ts` | Project CRUD API client |
+| `src/api/templates.ts` | Template CRUD + export/import API client |
+| `src/api/collections.ts` | Collection CRUD API client |
+| `src/api/task.ts` | Task list/stream/cancel/retry API client |
 | `src/stores/redo.ts` | Pinia store: cross-view "redo" data passing via custom event `redo-trigger` |
 | `src/utils/sse.ts` | `connectSSE()` — EventSource helper for video progress |
 | `src/types/index.ts` | TypeScript interfaces for all API request/response types |
@@ -248,7 +310,7 @@ The `modeToTab` mapping in `src/stores/redo.ts` translates `text2image|image2ima
 - **Config & runtime data** (`.config.json`, `history.db`): all in `backend/`. Copy `backend/.env.example` to `backend/.env` for local dev.
 - **No auth middleware** — API is designed for local/dev use only. API key is sent to Agnes AI, not validated by the backend itself.
 - **Startup recovery**: on boot, scans SQLite for pending video tasks (images empty + extra has taskId) and checks their status, updating history records for completed ones.
-- **Frontend navigation**: uses Vue Router + `NavSidebar` component in `App.vue` with 18 page states (15 views + 3 wizard subdirs). `activePage` ref drives conditional rendering via `v-if` chain.
+- **Frontend navigation**: uses Vue Router + `NavSidebar` component in `App.vue` with 22 page states (19 views + 3 wizard subdirs). `activePage` ref drives conditional rendering via `v-if` chain.
 - **Frontend TypeScript 6**: `erasableSyntaxOnly` enabled in tsconfig — no enums or namespaces; use `as const` or union types.
 - **Axios error interceptor**: errors are caught and converted to a plain `Error` with the server message. Always use `.catch()` or try/catch; raw Axios errors are never exposed to views.
 
@@ -280,6 +342,20 @@ The `modeToTab` mapping in `src/stores/redo.ts` translates `text2image|image2ima
 - History start-up recovery: re-checks pending video tasks on boot
 - Video status API quirks: strips `/v1` from baseURL for status queries
 - Download path fallback: `outputs/` → `../outputs/`
+
+## 💣 敏感操作规则（必须先确认）
+
+**执行任何敏感操作前，必须口头陈述操作内容、影响范围、回滚方案，经用户明确同意后方可执行。**
+
+敏感操作包括但不限于：
+- 数据库写入/更新/删除（`INSERT`/`UPDATE`/`DELETE`）
+- 文件系统写入/删除/移动
+- 配置修改（`.config.json`、环境变量、启动参数）
+- 网络请求（发送 HTTP 请求到外部服务）
+- Git 操作（`reset`/`rebase`/`force push`）
+- 数据迁移、数据修复
+
+**违规后果**：直接修改数据库或文件导致数据丢失/损坏，责任人承担全部责任。
 
 ## 🚨 数据安全规则（禁止删除运行时数据）
 

@@ -23,7 +23,7 @@ func TestHistoryInsertAndGet(t *testing.T) {
 	db := openDBMemory(t)
 	repo := NewHistoryRepository(db)
 
-	id, err := repo.InsertRecord("test prompt", []string{"img1.png"}, "text2image", nil)
+	id, err := repo.InsertRecord("test prompt", []string{"img1.png"}, "text2image", nil, 0)
 	if err != nil {
 		t.Fatalf("InsertRecord failed: %v", err)
 	}
@@ -51,7 +51,7 @@ func TestHistoryInsertWithExtra(t *testing.T) {
 	repo := NewHistoryRepository(db)
 
 	extra := map[string]any{"taskId": 12345, "source": "batch"}
-	_, err := repo.InsertRecord("extra test", []string{"img.png"}, "text2video", extra)
+	_, err := repo.InsertRecord("extra test", []string{"img.png"}, "text2video", extra, 0)
 	if err != nil {
 		t.Fatalf("InsertRecord failed: %v", err)
 	}
@@ -73,7 +73,7 @@ func TestHistoryGetRecordsPaginated(t *testing.T) {
 	repo := NewHistoryRepository(db)
 
 	for i := range 25 {
-		_, err := repo.InsertRecord("prompt "+string(rune('A'+i)), []string{"img.png"}, "text2image", nil)
+		_, err := repo.InsertRecord("prompt "+string(rune('A'+i)), []string{"img.png"}, "text2image", nil, 0)
 		if err != nil {
 			t.Fatalf("InsertRecord %d failed: %v", i, err)
 		}
@@ -95,9 +95,9 @@ func TestHistoryGetRecordsPaginatedWithFilter(t *testing.T) {
 	db := openDBMemory(t)
 	repo := NewHistoryRepository(db)
 
-	repo.InsertRecord("cat image", []string{"c.png"}, "text2image", nil)
-	repo.InsertRecord("dog video", []string{"d.png"}, "text2video", nil)
-	repo.InsertRecord("car image", []string{"car.png"}, "text2image", nil)
+	repo.InsertRecord("cat image", []string{"c.png"}, "text2image", nil, 0)
+	repo.InsertRecord("dog video", []string{"d.png"}, "text2video", nil, 0)
+	repo.InsertRecord("car image", []string{"car.png"}, "text2image", nil, 0)
 
 	records, total, err := repo.GetRecordsPaginated(1, 20, "image", "", nil)
 	if err != nil {
@@ -123,9 +123,9 @@ func TestHistoryGetRecordsByIDs(t *testing.T) {
 	db := openDBMemory(t)
 	repo := NewHistoryRepository(db)
 
-	id1, _ := repo.InsertRecord("a", []string{"a.png"}, "text2image", nil)
-	id2, _ := repo.InsertRecord("b", []string{"b.png"}, "text2image", nil)
-	repo.InsertRecord("c", []string{"c.png"}, "text2image", nil)
+	id1, _ := repo.InsertRecord("a", []string{"a.png"}, "text2image", nil, 0)
+	id2, _ := repo.InsertRecord("b", []string{"b.png"}, "text2image", nil, 0)
+	repo.InsertRecord("c", []string{"c.png"}, "text2image", nil, 0)
 
 	records, err := repo.GetRecordsByIDs([]int64{id1, id2})
 	if err != nil {
@@ -140,7 +140,7 @@ func TestHistoryDeleteRecord(t *testing.T) {
 	db := openDBMemory(t)
 	repo := NewHistoryRepository(db)
 
-	id, _ := repo.InsertRecord("delete me", []string{"d.png"}, "text2image", nil)
+	id, _ := repo.InsertRecord("delete me", []string{"d.png"}, "text2image", nil, 0)
 	if err := repo.DeleteRecord(id); err != nil {
 		t.Fatalf("DeleteRecord failed: %v", err)
 	}
@@ -154,9 +154,9 @@ func TestHistoryDeleteRecords(t *testing.T) {
 	db := openDBMemory(t)
 	repo := NewHistoryRepository(db)
 
-	id1, _ := repo.InsertRecord("a", []string{"a.png"}, "text2image", nil)
-	id2, _ := repo.InsertRecord("b", []string{"b.png"}, "text2image", nil)
-	repo.InsertRecord("c", []string{"c.png"}, "text2image", nil)
+	id1, _ := repo.InsertRecord("a", []string{"a.png"}, "text2image", nil, 0)
+	id2, _ := repo.InsertRecord("b", []string{"b.png"}, "text2image", nil, 0)
+	repo.InsertRecord("c", []string{"c.png"}, "text2image", nil, 0)
 
 	if err := repo.DeleteRecords([]int64{id1, id2}); err != nil {
 		t.Fatalf("DeleteRecords failed: %v", err)
@@ -171,8 +171,8 @@ func TestHistoryClearRecords(t *testing.T) {
 	db := openDBMemory(t)
 	repo := NewHistoryRepository(db)
 
-	repo.InsertRecord("a", []string{"a.png"}, "text2image", nil)
-	repo.InsertRecord("b", []string{"b.png"}, "text2image", nil)
+	repo.InsertRecord("a", []string{"a.png"}, "text2image", nil, 0)
+	repo.InsertRecord("b", []string{"b.png"}, "text2image", nil, 0)
 
 	if err := repo.ClearRecords(); err != nil {
 		t.Fatalf("ClearRecords failed: %v", err)
@@ -187,7 +187,7 @@ func TestHistoryUpdateRecordImages(t *testing.T) {
 	db := openDBMemory(t)
 	repo := NewHistoryRepository(db)
 
-	id, _ := repo.InsertRecord("update images", []string{"old.png"}, "text2image", nil)
+	id, _ := repo.InsertRecord("update images", []string{"old.png"}, "text2image", nil, 0)
 	if err := repo.UpdateRecordImages(id, []string{"new.png", "new2.png"}); err != nil {
 		t.Fatalf("UpdateRecordImages failed: %v", err)
 	}
@@ -205,7 +205,7 @@ func TestHistoryFindByTaskId(t *testing.T) {
 	repo := NewHistoryRepository(db)
 
 	extra := map[string]any{"taskId": 999}
-	id, _ := repo.InsertRecord("task test", []string{}, "text2video", extra)
+	id, _ := repo.InsertRecord("task test", []string{}, "text2video", extra, 0)
 
 	foundID, err := repo.FindByTaskId(999)
 	if err != nil {
@@ -227,13 +227,13 @@ func TestHistoryFindPendingVideos(t *testing.T) {
 
 	// Should match: empty images + video mode + extra with taskId
 	extra := map[string]any{"taskId": "task_001"}
-	repo.InsertRecord("pending video", []string{}, "text2video", extra)
+	repo.InsertRecord("pending video", []string{}, "text2video", extra, 0)
 
 	// Should NOT match: has images
-	repo.InsertRecord("has images", []string{"img.png"}, "text2video", extra)
+	repo.InsertRecord("has images", []string{"img.png"}, "text2video", extra, 0)
 
 	// Should NOT match: non-video mode
-	repo.InsertRecord("image", []string{}, "text2image", extra)
+	repo.InsertRecord("image", []string{}, "text2image", extra, 0)
 
 	pending, err := repo.FindPendingVideos()
 	if err != nil {
@@ -252,7 +252,7 @@ func TestHistoryTrimRecords(t *testing.T) {
 	repo := NewHistoryRepository(db)
 
 	for range 10 {
-		repo.InsertRecord("x", []string{"x.png"}, "text2image", nil)
+		repo.InsertRecord("x", []string{"x.png"}, "text2image", nil, 0)
 	}
 
 	if err := repo.TrimRecords(3); err != nil {
@@ -268,7 +268,7 @@ func TestHistoryToggleFavorite(t *testing.T) {
 	db := openDBMemory(t)
 	repo := NewHistoryRepository(db)
 
-	id, _ := repo.InsertRecord("fav test", []string{"f.png"}, "text2image", nil)
+	id, _ := repo.InsertRecord("fav test", []string{"f.png"}, "text2image", nil, 0)
 
 	// Favorite
 	if err := repo.ToggleFavorite(id, true); err != nil {
@@ -293,8 +293,8 @@ func TestHistoryGetFavoriteIDs(t *testing.T) {
 	db := openDBMemory(t)
 	repo := NewHistoryRepository(db)
 
-	id1, _ := repo.InsertRecord("a", []string{"a.png"}, "text2image", nil)
-	id2, _ := repo.InsertRecord("b", []string{"b.png"}, "text2image", nil)
+	id1, _ := repo.InsertRecord("a", []string{"a.png"}, "text2image", nil, 0)
+	id2, _ := repo.InsertRecord("b", []string{"b.png"}, "text2image", nil, 0)
 
 	repo.ToggleFavorite(id1, true)
 	repo.ToggleFavorite(id2, true)
@@ -314,7 +314,7 @@ func TestHistoryFindByTaskIdWithJSONExtract(t *testing.T) {
 
 	// SQLite json_extract requires the JSON to be valid
 	extra := map[string]any{"taskId": 42}
-	id, _ := repo.InsertRecord("json extract test", []string{}, "text2video", extra)
+	id, _ := repo.InsertRecord("json extract test", []string{}, "text2video", extra, 0)
 
 	foundID, err := repo.FindByTaskId(42)
 	if err != nil {
@@ -327,5 +327,5 @@ func TestHistoryFindByTaskIdWithJSONExtract(t *testing.T) {
 
 // Ensure HistoryRepository implements repository.HistoryRepository
 var _ = (interface {
-	InsertRecord(string, []string, string, any) (int64, error)
+	InsertRecord(string, []string, string, any, int64) (int64, error)
 })((*HistoryRepository)(nil))

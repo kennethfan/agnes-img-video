@@ -19,24 +19,22 @@ func main() {
 	_ = godotenv.Load(".env") // 从 backend/ 目录加载 .env
 
 	// 所有运行时数据都在 backend/ 目录下
-	configPath := ".config.json"
 	dbPath := "history.db"
 	outputsPath := "outputs"
 
 	// 确保 outputs/ 目录存在
 	os.MkdirAll(outputsPath, 0755)
 
-	// 加载配置
-	cfg, err := config.LoadConfig(configPath)
+	// 从环境变量加载配置
+	cfg, err := config.LoadConfig()
 	if err != nil {
 		log.Printf("警告: 加载配置失败: %v", err)
 	}
 	if cfg.APIKey == "" {
-		log.Fatal("AGNES_API_KEY 环境变量未设置")
+		log.Fatal("API Key 未配置：请在 .env 中设置 API_KEY_PATH")
 	}
 
 	log.Printf("配置加载完成: base_url=%s, image_model=%s, video_model=%s, chat_model=%s", cfg.BaseURL, cfg.ImageModel, cfg.VideoModel, cfg.ChatModel)
-	log.Printf("配置文件: %s", configPath)
 	log.Printf("数据库: %s", dbPath)
 	log.Printf("输出目录: %s", outputsPath)
 
@@ -100,9 +98,19 @@ func main() {
 	handler.SetAssetRepo(assetRepo)
 	assetHandler := handler.NewAssetHandler(assetRepo, settingsRepo)
 
+	collectionRepo := gormrepo.NewCollectionRepository(gormDB)
+	collectionHandler := handler.NewCollectionHandler(collectionRepo)
+
+	templateRepo := gormrepo.NewTemplateRepository(gormDB)
+	templateHandler := handler.NewTemplateHandler(templateRepo)
+
 	storyboardRepo := gormrepo.NewStoryboardRepository(gormDB)
 	storyboardGenerator := service.NewStoryboardGenerator(svc, taskQueue, storyboardRepo)
 	storyboardHandler := handler.NewStoryboardHandler(storyboardRepo, storyboardGenerator)
+
+	projectRepo := gormrepo.NewProjectRepository(gormDB)
+	projectHandler := handler.NewProjectHandler(projectRepo, svc)
+	handler.SetTaskRepo(taskRepo)
 
 	settingsHandler := handler.NewSettingsHandler(settingsRepo)
 
@@ -137,6 +145,7 @@ func main() {
 
 		api.POST("/ideas/expand", ideasHandler.ExpandIdea)
 		api.POST("/comic/generate-prompts", comicHandler.GeneratePrompts)
+		api.POST("/comic/generate-storyline", comicHandler.GenerateStoryline)
 
 		api.GET("/access-logs", accessLogHandler.ListLogs)
 		api.DELETE("/access-logs", accessLogHandler.ClearLogs)
@@ -170,6 +179,39 @@ func main() {
 
 		api.GET("/db/export", dbHandler.ExportDB)
 		api.POST("/db/restore", dbHandler.RestoreDB)
+
+		api.GET("/collections", collectionHandler.ListCollections)
+		api.POST("/collections", collectionHandler.CreateCollection)
+		api.PUT("/collections/:id", collectionHandler.UpdateCollection)
+		api.DELETE("/collections/:id", collectionHandler.DeleteCollection)
+		api.POST("/collections/:id/assets", collectionHandler.AddAssetsToCollection)
+		api.DELETE("/collections/:id/assets", collectionHandler.RemoveAssetsFromCollection)
+
+		api.GET("/templates", templateHandler.ListTemplates)
+		api.POST("/templates", templateHandler.CreateTemplate)
+		api.PUT("/templates/:id", templateHandler.UpdateTemplate)
+		api.DELETE("/templates/:id", templateHandler.DeleteTemplate)
+		api.POST("/templates/export", templateHandler.ExportTemplates)
+		api.POST("/templates/import", templateHandler.ImportTemplates)
+		api.POST("/history/:id/save-template", templateHandler.SaveFromHistory)
+
+		projects := api.Group("/projects")
+		{
+			projects.GET("", projectHandler.ListProjects)
+			projects.POST("", projectHandler.CreateProject)
+			projects.GET("/:id", projectHandler.GetProject)
+			projects.PUT("/:id", projectHandler.UpdateProject)
+			projects.DELETE("/:id", projectHandler.DeleteProject)
+			projects.POST("/:id/duplicate", projectHandler.DuplicateProject)
+			projects.POST("/:id/ai-recommend", projectHandler.AIRecommend)
+			projects.POST("/:id/steps", projectHandler.AddStep)
+			projects.PUT("/steps/:stepId", projectHandler.UpdateStep)
+			projects.DELETE("/steps/:stepId", projectHandler.DeleteStep)
+			projects.POST("/:id/ideate-brief", projectHandler.IdeateBrief)
+			projects.GET("/:id/files", projectHandler.GetProjectFiles)
+			projects.GET("/:id/stats", projectHandler.GetProjectStats)
+			projects.PUT("/:id/step-progress", projectHandler.UpdateStepProgress)
+		}
 
 		api.POST("/upload-to-github", handler.UploadToGitHub)
 		api.GET("/download", handler.ProxyDownload)

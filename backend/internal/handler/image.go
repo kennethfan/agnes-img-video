@@ -46,7 +46,7 @@ func (h *ImageHandler) TextToImage(c *gin.Context) {
 		return
 	}
 
-	saveHistoryRecord(req.Prompt, []string{}, "text2image", map[string]any{"taskId": taskID})
+	saveHistoryRecord(req.Prompt, []string{}, "text2image", map[string]any{"taskId": taskID}, req.ProjectID)
 	c.JSON(http.StatusAccepted, model.TaskCreateResponse{TaskID: taskID})
 }
 
@@ -61,6 +61,8 @@ func (h *ImageHandler) ImageToImage(c *gin.Context) {
 	strength := 0.75
 	negativePrompt := ""
 
+	var projectID int64
+
 	if c.Request.Header.Get("Content-Type") == "application/json" {
 		var req struct {
 			ImageURL       string  `json:"image_url"`
@@ -68,6 +70,7 @@ func (h *ImageHandler) ImageToImage(c *gin.Context) {
 			Size           string  `json:"size"`
 			Strength       float64 `json:"strength"`
 			NegativePrompt string  `json:"negative_prompt"`
+			ProjectID      int64   `json:"project_id"`
 		}
 		if err := c.ShouldBindJSON(&req); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "参数错误: " + err.Error()})
@@ -86,6 +89,7 @@ func (h *ImageHandler) ImageToImage(c *gin.Context) {
 			strength = req.Strength
 		}
 		negativePrompt = req.NegativePrompt
+		projectID = req.ProjectID
 	} else {
 		file, err := c.FormFile("image")
 		if err != nil {
@@ -127,6 +131,7 @@ func (h *ImageHandler) ImageToImage(c *gin.Context) {
 			strength = parseFloat(s)
 		}
 		negativePrompt = c.PostForm("negative_prompt")
+		projectID = parseInt64(c.PostForm("project_id"))
 	}
 
 	params, _ := json.Marshal(map[string]any{
@@ -146,7 +151,7 @@ func (h *ImageHandler) ImageToImage(c *gin.Context) {
 		"taskId":   taskID,
 		"size":     size,
 		"strength": strength,
-	})
+	}, projectID)
 
 	c.JSON(http.StatusAccepted, model.TaskCreateResponse{TaskID: taskID})
 }
@@ -178,7 +183,7 @@ func (h *ImageHandler) BatchGenerate(c *gin.Context) {
 	saveHistoryRecord(strings.Join(req.Prompts, "; "), []string{}, "batch", map[string]any{
 		"taskId": taskID,
 		"size":   req.Size,
-	})
+	}, req.ProjectID)
 
 	c.JSON(http.StatusAccepted, model.TaskCreateResponse{TaskID: taskID})
 }
@@ -192,4 +197,10 @@ func parseFloat(s string) float64 {
 		return 0.75
 	}
 	return f
+}
+
+func parseInt64(s string) int64 {
+	var n int64
+	fmt.Sscanf(s, "%d", &n)
+	return n
 }

@@ -17,9 +17,13 @@ const routes = [
   { path: '/access-logs', name: 'access_logs', component: () => import('../views/AccessLogs.vue') },
   { path: '/db-manage',   name: 'db_manage',   component: () => import('../views/DBManage.vue') },
   { path: '/settings',    name: 'settings',    component: () => import('../views/Settings.vue') },
+  { path: '/templates',   name: 'templates',   component: () => import('../views/TemplateManager.vue') },
   { path: '/image-refine', name: 'image_refine', component: () => import('../views/WorkflowWizard.vue') },
   { path: '/comic',        name: 'comic',        component: () => import('../views/WorkflowWizard.vue') },
   { path: '/novel',        name: 'novel',        component: () => import('../views/WorkflowWizard.vue') },
+  { path: '/projects',     name: 'projects',     component: () => import('../views/ProjectList.vue') },
+  { path: '/project-editor/:id', name: 'project_editor', component: () => import('../views/ProjectEditor.vue') },
+  { path: '/projects/:id/dashboard', name: 'project_dashboard', component: () => import('../views/ProjectDashboard.vue') },
 ]
 
 const router = createRouter({

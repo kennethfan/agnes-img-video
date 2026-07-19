@@ -1,6 +1,6 @@
 # backend/internal/repository/gorm/ — GORM 数据持久层
 
-**12 Go 文件, 5 个仓库** — SQLite/Postgres/MySQL 数据访问 + AutoMigrate。
+**18 个文件 (12 Go + 6 test), 8 个仓库** — SQLite/Postgres/MySQL 数据访问 + AutoMigrate。
 
 ## 文件索引
 
@@ -13,7 +13,11 @@
 | `settings.go` | 键值对配置持久化 | `SettingsRepository` — Get/Update |
 | `access_log.go` | 访问日志写/查/删 + 自动清理 | `AccessLogRepository` — 5 个方法, `StartDailyCleanup()` |
 | `task.go` | 统一任务队列持久化 | `TaskRepository` — 12 个方法, 乐观锁取消 |
-| `*_test.go` (4 个) | 单元测试 | history, settings, storyboard, task |
+| `project.go` | 创作项目+步骤 CRUD | `ProjectRepository` — Create/List/Get/Update/Delete + Duplicate + Step CRUD |
+| `collection.go` | 作品集 CRUD + 资产关联 | `CollectionRepository` — CRUD + AddAssets/RemoveAssets |
+| `template.go` | 提示词模板 CRUD + 导入导出 | `TemplateRepository` — CRUD + Export/Import |
+| `asset.go` | 作品库资产 CRUD | `AssetRepository` — Create/List/Get/ToggleFavorite/Transfer/Delete |
+| `*_test.go` (5 个) | 单元测试 | history, settings, storyboard, task, asset, access_log |
 
 ## 架构
 
@@ -32,11 +36,15 @@ gormDB, err := gormrepo.OpenDB(gormrepo.DBConfig{Driver: "sqlite", DSN: "history
 ```go
 histRepo := gormrepo.NewHistoryRepository(gormDB)
 taskRepo := gormrepo.NewTaskRepository(gormDB)
+projectRepo := gormrepo.NewProjectRepository(gormDB)
+collectionRepo := gormrepo.NewCollectionRepository(gormDB)
+templateRepo := gormrepo.NewTemplateRepository(gormDB)
+assetRepo := gormrepo.NewAssetRepository(gormDB)
 ```
 
 接口定义在 `backend/internal/repository/interfaces.go`，便于替换实现。
 
-### 7 个 GORM 模型 (models.go)
+### 7+ GORM 模型 (models.go + project/collection/template)
 
 | 模型 | 表名 | 关键字段 |
 |------|------|----------|
@@ -47,6 +55,11 @@ taskRepo := gormrepo.NewTaskRepository(gormDB)
 | `Setting` | `settings` | Key (PK), Value |
 | `AccessLog` | `access_logs` | ID, Timestamp, Method, Path, Status, DurationMs, ClientIP, ... |
 | `TaskRecord` | `task_records` | ID, Type, Status, Params(JSON), Result(JSON), Progress, RetryCount, ... |
+| `Project` | `projects` | ID, Title, Brief, AIResult, Status, CoverURL, FinalURL, AssetIDs, Notes, HasAsset (has many Steps) |
+| `ProjectStep` | `project_steps` | ID, ProjectID (FK), StepType, Position, Input, Output |
+| `Asset` | `assets` | ID, Type, Prompt, OriginalURL, SavedURL, Size, StorageType, IsFavorite |
+| `Collection` | `collections` | ID, Name, Assets (many2many via collection_assets) |
+| `PromptTemplate` | `prompt_templates` | ID, Name, Type, Category, Prompt, Size, NegativePrompt, Model, Strength |
 
 ### 键值对存储
 

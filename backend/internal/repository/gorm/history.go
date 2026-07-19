@@ -18,16 +18,16 @@ func NewHistoryRepository(db *gorm.DB) *HistoryRepository {
 	return &HistoryRepository{db: db}
 }
 
-func (r *HistoryRepository) InsertRecord(prompt string, images []string, mode string, extra any) (int64, error) {
-	imagesJSON, _ := json.Marshal(images)
-	var extraStr *string
-	if extra != nil {
-		b, _ := json.Marshal(extra)
-		s := string(b)
-		extraStr = &s
-	}
-	h := History{Prompt: prompt, Mode: mode, Images: string(imagesJSON), Extra: extraStr}
-	if err := r.db.Create(&h).Error; err != nil {
+func (r *HistoryRepository) InsertRecord(prompt string, images []string, mode string, extra any, projectID int64) (int64, error) {
+		imagesJSON, _ := json.Marshal(images)
+		var extraStr *string
+		if extra != nil {
+			b, _ := json.Marshal(extra)
+			s := string(b)
+			extraStr = &s
+		}
+		h := History{Prompt: prompt, Mode: mode, Images: string(imagesJSON), Extra: extraStr, ProjectID: projectID}
+		if err := r.db.Create(&h).Error; err != nil {
 		return 0, err
 	}
 	return h.ID, nil
@@ -149,6 +149,14 @@ func (r *HistoryRepository) FindPendingVideos() ([]repository.PendingVideoInfo, 
 	return results, nil
 }
 
+func (r *HistoryRepository) GetRecordsByProjectID(projectID int64) ([]model.HistoryRecord, error) {
+	var hs []History
+	if err := r.db.Where("project_id = ?", projectID).Order("id DESC").Find(&hs).Error; err != nil {
+		return nil, err
+	}
+	return toHistoryRecords(hs), nil
+}
+
 func (r *HistoryRepository) TrimRecords(max int) error {
 	sub := r.db.Model(&History{}).Select("id").Order("id DESC").Limit(max)
 	return r.db.Where("id NOT IN (?)", sub).Delete(&History{}).Error
@@ -183,11 +191,12 @@ func toHistoryRecords(hs []History) []model.HistoryRecord {
 			images = []string{}
 		}
 		rec := model.HistoryRecord{
-			ID:     h.ID,
-			Time:   h.Time,
-			Mode:   h.Mode,
-			Prompt: h.Prompt,
-			Images: images,
+			ID:        h.ID,
+			Time:      h.Time,
+			Mode:      h.Mode,
+			Prompt:    h.Prompt,
+			Images:    images,
+			ProjectID: h.ProjectID,
 		}
 		if h.Extra != nil {
 			var extra any

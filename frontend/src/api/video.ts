@@ -17,7 +17,8 @@ export async function submitImageToVideo(
   duration: number = 5,
   aspectRatio: string = '16:9',
   frameRate: number = 24,
-  negativePrompt: string = ''
+  negativePrompt: string = '',
+  projectId?: number
 ): Promise<TaskCreateResponse> {
   if (typeof image === 'string') {
     const res = await client.post('/api/v1/videos/image-to-video', {
@@ -27,6 +28,7 @@ export async function submitImageToVideo(
       aspect_ratio: aspectRatio,
       frame_rate: frameRate,
       negative_prompt: negativePrompt || undefined,
+      project_id: projectId,
     }, { timeout: 30000 })
     return res.data
   }
@@ -38,6 +40,9 @@ export async function submitImageToVideo(
   formData.append('frame_rate', String(frameRate))
   if (negativePrompt) {
     formData.append('negative_prompt', negativePrompt)
+  }
+  if (projectId !== undefined) {
+    formData.append('project_id', String(projectId))
   }
 
   const res = await client.post('/api/v1/videos/image-to-video', formData, {

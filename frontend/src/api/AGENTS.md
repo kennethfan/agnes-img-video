@@ -1,6 +1,6 @@
 # frontend/src/api/ — API Client Layer
 
-**12 files** — Axios wrappers for all backend endpoints under `/api/v1`.
+**17 files** — Axios wrappers for all backend endpoints under `/api/v1`.
 
 ## FILE INDEX
 
@@ -11,6 +11,7 @@
 | `video.ts` | `/videos/text-to-video`, `/videos/image-to-video`, `/videos/multi-image`, `/videos/generate-script`, `/videos/:taskId` | Video generation + status |
 | `history.ts` | `/history`, `/history/:id`, `/history/delete` | History CRUD |
 | `ideas.ts` | `/ideas/expand` | AI idea expansion |
+| `ideate.ts` | `/projects/:id/ideate-brief` | AI project brief generation |
 | `comic.ts` | `/comic/generate-prompts` | AI comic prompt generation |
 | `storyboard.ts` | `/storyboard/projects`, `/storyboard/shots` | Storyboard CRUD |
 | `assets.ts` | `/assets`, `/assets/favorite`, `/assets/batch-download` | Asset gallery |
@@ -18,6 +19,10 @@
 | `github.ts` | GitHub upload | File transfer |
 | `db.ts` | `/db/export`, `/db/restore` | Database backup/restore |
 | `access-logs.ts` | `/access-logs` | API call logs |
+| `projects.ts` | `/projects` | Creative project CRUD + AI recommend + steps |
+| `templates.ts` | `/templates` | Prompt template CRUD + export/import |
+| `collections.ts` | `/collections` | Asset collection CRUD |
+| `task.ts` | `/tasks` | Task list/stream/cancel/retry |
 
 ## CORE
 

@@ -17,6 +17,7 @@ import (
 var historyRepo repository.HistoryRepository
 var githubStorage *service.GithubStorage
 var assetRepo repository.AssetRepository
+var taskRepo repository.TaskRepository
 
 func SetHistoryRepo(repo repository.HistoryRepository) {
 	historyRepo = repo
@@ -28,6 +29,18 @@ func SetGithubStorage(gs *service.GithubStorage) {
 
 func SetAssetRepo(repo repository.AssetRepository) {
 	assetRepo = repo
+}
+
+func GetAssetRepo() repository.AssetRepository {
+	return assetRepo
+}
+
+func SetTaskRepo(repo repository.TaskRepository) {
+	taskRepo = repo
+}
+
+func GetTaskRepo() repository.TaskRepository {
+	return taskRepo
 }
 
 type HistoryHandler struct {
@@ -109,12 +122,12 @@ func deleteRecordFiles(images []string) {
 	}
 }
 
-func saveHistoryRecord(prompt string, imagePaths []string, mode string, extra any) int64 {
+func saveHistoryRecord(prompt string, imagePaths []string, mode string, extra any, projectID int64) int64 {
 	if historyRepo == nil {
 		log.Printf("[History] repository 未初始化，跳过历史记录")
 		return 0
 	}
-	id, err := historyRepo.InsertRecord(prompt, imagePaths, mode, extra)
+	id, err := historyRepo.InsertRecord(prompt, imagePaths, mode, extra, projectID)
 	if err != nil {
 		log.Printf("[History] 保存失败: %v", err)
 		return 0

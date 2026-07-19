@@ -13,16 +13,17 @@ type Settings struct {
 // ==================== 配置 ====================
 
 type Config struct {
-	APIKey       string `json:"api_key"`
-	BaseURL      string `json:"base_url"`
-	ImageModel   string `json:"image_model,omitempty"`
-	VideoModel   string `json:"video_model,omitempty"`
-	ChatModel    string `json:"chat_model,omitempty"`
-	GithubToken  string `json:"github_token"`
-	GithubRepo   string `json:"github_repo"`
-	GithubBranch string `json:"github_branch"`
-	DBDriver     string `json:"db_driver,omitempty"`
-	DBDSN        string `json:"db_dsn,omitempty"`
+	APIKey       string
+	ApiKeyPath   string
+	BaseURL      string
+	ImageModel   string
+	VideoModel   string
+	ChatModel    string
+	GithubToken  string
+	GithubRepo   string
+	GithubBranch string
+	DBDriver     string
+	DBDSN        string
 }
 
 // ==================== 图片请求/响应 ====================
@@ -32,6 +33,7 @@ type TextToImageRequest struct {
 	Size           string `json:"size"`
 	N              int    `json:"n"`
 	NegativePrompt string `json:"negative_prompt"`
+	ProjectID      int64  `json:"project_id"`
 }
 
 type ImageToImageRequest struct {
@@ -43,8 +45,9 @@ type ImageToImageRequest struct {
 }
 
 type BatchRequest struct {
-	Prompts []string `json:"prompts" binding:"required"`
-	Size    string   `json:"size"`
+	Prompts   []string `json:"prompts" binding:"required"`
+	Size      string   `json:"size"`
+	ProjectID int64    `json:"project_id"`
 }
 
 type ImageResponse struct {
@@ -54,12 +57,13 @@ type ImageResponse struct {
 // ==================== 历史记录 ====================
 
 type HistoryRecord struct {
-	ID     int64    `json:"id"`
-	Time   string   `json:"time"`
-	Mode   string   `json:"mode"`
-	Prompt string   `json:"prompt"`
-	Images []string `json:"images"`
-	Extra  any      `json:"extra,omitempty"`
+	ID        int64    `json:"id"`
+	Time      string   `json:"time"`
+	Mode      string   `json:"mode"`
+	Prompt    string   `json:"prompt"`
+	Images    []string `json:"images"`
+	Extra     any      `json:"extra,omitempty"`
+	ProjectID int64    `json:"project_id"`
 }
 
 type BatchDeleteRequest struct {
@@ -81,6 +85,7 @@ type VideoCreateRequest struct {
 	NumFrames         *int     `json:"num_frames,omitempty"`
 	ImageURLs         []string `json:"image_urls,omitempty"`
 	Mode              string   `json:"mode,omitempty"`
+	ProjectID         int64    `json:"project_id"`
 }
 
 type VideoTaskResponse struct {
@@ -143,10 +148,11 @@ type AgnesVideoStatusResponse struct {
 // ==================== 脚本生成 ====================
 
 type ScriptGenRequest struct {
-	Topic    string `json:"topic" binding:"required"`
-	Duration int    `json:"duration"`
-	Style    string `json:"style"`
-	Language string `json:"language"`
+	Topic     string `json:"topic" binding:"required"`
+	Duration  int    `json:"duration"`
+	Style     string `json:"style"`
+	Language  string `json:"language"`
+	ProjectID int64  `json:"project_id"`
 }
 
 type ScriptGenResponse struct {
@@ -193,12 +199,13 @@ type Asset struct {
 	ID          int64  `json:"id" gorm:"primaryKey"`
 	Mode        string `json:"mode" gorm:"index"`
 	Prompt      string `json:"prompt"`
-	Type        string `json:"type"`    // "image" | "video"
-	Time        string `json:"time"`    // 保存时间
+	Type        string `json:"type"`
+	Time        string `json:"time"`
 	Favorite    bool   `json:"favorite"`
 	OriginalURL string `json:"original_url" gorm:"column:original_url"`
 	LocalPath   string `json:"local_path" gorm:"column:local_path"`
 	GitHubURL   string `json:"github_url" gorm:"column:github_url"`
+	ProjectID   int64  `json:"project_id" gorm:"column:project_id;index;default:0"`
 }
 
 // ==================== 资产管理 ====================
@@ -297,6 +304,7 @@ type TaskRecord struct {
 	CreatedAt   string `json:"created_at"`
 	UpdatedAt   string `json:"updated_at"`
 	CompletedAt string `json:"completed_at,omitempty"`
+	ProjectID   int64  `json:"project_id"`
 }
 
 type TaskEvent struct {

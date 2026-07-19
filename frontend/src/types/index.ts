@@ -12,11 +12,13 @@ export interface TextToImageRequest {
   size?: string
   n?: number
   negative_prompt?: string
+  project_id?: number
 }
 
 export interface BatchRequest {
   prompts: string[]
   size?: string
+  project_id?: number
 }
 
 export interface ImageResponse {
@@ -36,6 +38,7 @@ export interface VideoCreateRequest {
   num_frames?: number | null
   image_urls?: string[]
   mode?: string
+  project_id?: number
 }
 
 export interface VideoTaskResponse {
@@ -65,6 +68,7 @@ export interface HistoryRecord {
   prompt: string
   images: string[]
   extra?: Record<string, unknown>
+  project_id?: number
 }
 
 export interface DeleteHistoryRequest {
@@ -76,6 +80,7 @@ export interface ScriptGenRequest {
   duration?: number
   style?: string
   language?: string
+  project_id?: number
 }
 
 export interface ScriptGenResponse {
@@ -181,6 +186,7 @@ export interface TaskRecord {
   created_at: string
   updated_at: string
   completed_at?: string
+  project_id?: number
 }
 
 export interface TaskCreateResponse {
@@ -191,6 +197,91 @@ export interface TaskSSEHandlers {
   onProgress?: (data: { progress: number; status: string }) => void
   onComplete?: (data: { result: string }) => void
   onError?: (data: { error: string }) => void
+}
+
+// ==================== 创作项目 ====================
+
+export interface ProjectStep {
+  id: number
+  project_id: number
+  step_type: string
+  position: number
+  input: string
+  output: string
+  created_at: string
+}
+
+export interface ComicPanel {
+  prompt: string
+  image: string
+  caption: string
+  refImage: string
+}
+
+export interface ComicData {
+  layout: string
+  storyline: string
+  characters: string
+  style: string
+  panels: ComicPanel[]
+}
+
+export interface Project {
+  id: number
+  title: string
+  brief: string
+  ai_result: string
+  status: 'draft' | 'generating' | 'refining' | 'completed'
+  cover_url: string
+  final_url: string
+  asset_ids: string
+  notes: string
+  type: 'project' | 'comic'
+  comic_data: string
+  step_progress: string  // JSON string {"ideate":"completed",...}
+  created_at: string
+  updated_at: string
+  steps: ProjectStep[]
+}
+
+export interface CreateProjectRequest {
+  title: string
+  brief?: string
+  type?: string
+}
+
+export interface UpdateProjectRequest {
+	title?: string
+	brief?: string
+	status?: string
+	notes?: string
+	cover_url?: string
+}
+
+export interface ProjectStepRequest {
+  step_type: string
+  position?: number
+}
+
+// ==================== 项目仪表盘 ====================
+
+export interface ProjectFile {
+  id: number
+  type: 'image' | 'video'
+  source: 'history' | 'asset'
+  url: string
+  prompt: string
+  mode?: string
+  step: string
+  created_at: string
+}
+
+export interface ProjectStats {
+  file_count: number
+  optimized_count: number
+  running_tasks: number
+  last_activity: string
+  step_progress: Record<string, string>
 }
 
 // ==================== 存储设置 ====================

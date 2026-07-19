@@ -37,3 +37,24 @@ func (h *ComicHandler) GeneratePrompts(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{"prompts": prompts})
 }
+
+// GenerateStoryline 生成漫画剧本（故事线、角色、画风）
+// POST /api/v1/comic/generate-storyline
+func (h *ComicHandler) GenerateStoryline(c *gin.Context) {
+	var req struct {
+		Theme string `json:"theme" binding:"required"`
+		Style string `json:"style"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "参数错误: " + err.Error()})
+		return
+	}
+
+	result, err := h.svc.GenerateComicStoryline(req.Theme, req.Style)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "生成剧本失败: " + err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"storyline": result})
+}

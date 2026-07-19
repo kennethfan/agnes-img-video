@@ -1,6 +1,6 @@
 # backend/internal/handler/ — HTTP Handlers
 
-**12 files, 9 handler structs** — all API endpoints under `/api/v1`.
+**15 files, 12 handler structs** — all API endpoints under `/api/v1`.
 
 ## HANDLER INDEX
 
@@ -9,10 +9,13 @@
 | `ImageHandler` | `image.go` | TextToImage, ImageToImage (dual input), Batch |
 | `VideoHandler` | `video.go` | TextToVideo, ImageToVideo (dual input), MultiImageVideo, GenerateScript, Status, SSE stream |
 | `HistoryHandler` | `history.go` | GetHistory, ClearHistory, DeleteHistory, DeleteRecord |
-| `AssetHandler` | `asset.go` | ListAssets, ToggleFavorite, BatchDownload, DeleteAssets |
-| `StoryboardHandler` | `storyboard.go` | ListProjects, CreateProject, GetProject, UpdateProject, DeleteProject, DuplicateProject, CreateShot, UpdateShot, DeleteShot, ReorderShots, GenerateShots |
+| `AssetHandler` | `asset.go` | ListAssets, ToggleFavorite, BatchDownload, DeleteAssets, SaveAsset, TransferAsset |
+| `StoryboardHandler` | `storyboard.go` | ListProjects, CreateProject, GetProject, UpdateProject, DeleteProject, DuplicateProject, CreateShot, UpdateShot, DeleteShot, ReorderShots, GenerateShots, BatchCreateShots |
+| `ProjectHandler` | `project.go` | CreateProject, ListProjects, GetProject, UpdateProject, DeleteProject, DuplicateProject, AIRecommend, AddStep, UpdateStep, DeleteStep, IdeateBrief, GetProjectFiles, GetProjectStats, UpdateStepProgress |
+| `CollectionHandler` | `collection.go` | ListCollections, CreateCollection, UpdateCollection, DeleteCollection, AddAssetsToCollection, RemoveAssetsFromCollection |
+| `TemplateHandler` | `template.go` | ListTemplates, CreateTemplate, UpdateTemplate, DeleteTemplate, ExportTemplates, ImportTemplates, SaveFromHistory |
 | `IdeasHandler` | `ideas.go` | ExpandIdea (chat-based AI) |
-| `ComicHandler` | `comic.go` | GeneratePrompts (chat-based AI) |
+| `ComicHandler` | `comic.go` | GeneratePrompts, GenerateStoryline (chat-based AI) |
 | `ConfigHandler` | `config_handler.go` | GET/PUT config |
 | `SettingsHandler` | `settings.go` | GetSettings, UpdateSettings |
 | `DBHandler` | `db_handler.go` | ExportDB (JSON), RestoreDB (upload JSON) |
@@ -29,6 +32,9 @@ NewImageHandler(svc *service.AgnesClient)
 NewVideoHandler(svc *service.AgnesClient, tq *service.TaskQueue)
 NewHistoryHandler(repo *repository.HistoryRepo)
 NewStoryboardHandler(repo *repository.StoryboardRepo)
+NewProjectHandler(repo *gormrepo.ProjectRepository, svc *service.AgnesClient)
+NewCollectionHandler(repo *gormrepo.CollectionRepository)
+NewTemplateHandler(repo *gormrepo.TemplateRepository)
 ...
 ```
 

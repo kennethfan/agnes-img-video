@@ -11,7 +11,8 @@ export async function submitImageToImage(
   prompt: string,
   size: string = '1024x1024',
   strength: number = 0.75,
-  negativePrompt: string = ''
+  negativePrompt: string = '',
+  projectId?: number
 ): Promise<TaskCreateResponse> {
   if (typeof image === 'string') {
     const res = await client.post('/api/v1/images/image-to-image', {
@@ -20,6 +21,7 @@ export async function submitImageToImage(
       size,
       strength,
       negative_prompt: negativePrompt || undefined,
+      project_id: projectId,
     }, { timeout: 60000 })
     return res.data
   }
@@ -30,6 +32,9 @@ export async function submitImageToImage(
   formData.append('strength', String(strength))
   if (negativePrompt) {
     formData.append('negative_prompt', negativePrompt)
+  }
+  if (projectId !== undefined) {
+    formData.append('project_id', String(projectId))
   }
 
   const res = await client.post('/api/v1/images/image-to-image', formData, {
@@ -79,10 +84,11 @@ export async function imageToImage(
   prompt: string,
   size?: string,
   strength?: number,
-  negativePrompt?: string
+  negativePrompt?: string,
+  projectId?: number
 ): Promise<ImageResponse> {
   return submitAndPoll(
-    (d: any) => submitImageToImage(d.image, d.prompt, d.size, d.strength, d.negativePrompt),
-    { image, prompt, size, strength, negativePrompt }
+    (d: any) => submitImageToImage(d.image, d.prompt, d.size, d.strength, d.negativePrompt, d.projectId),
+    { image, prompt, size, strength, negativePrompt, projectId }
   )
 }

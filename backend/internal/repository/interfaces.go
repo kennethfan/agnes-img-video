@@ -15,10 +15,11 @@ type PendingVideoInfo struct {
 }
 
 type HistoryRepository interface {
-	InsertRecord(prompt string, images []string, mode string, extra any) (int64, error)
+	InsertRecord(prompt string, images []string, mode string, extra any, projectID int64) (int64, error)
 	GetRecords(limit int) ([]model.HistoryRecord, error)
 	GetRecordsPaginated(page, perPage int, assetType, search string, favIDs map[int64]bool) ([]model.HistoryRecord, int, error)
 	GetRecordsByIDs(ids []int64) ([]model.HistoryRecord, error)
+	GetRecordsByProjectID(projectID int64) ([]model.HistoryRecord, error)
 	DeleteRecord(id int64) error
 	DeleteRecords(ids []int64) error
 	ClearRecords() error
@@ -107,6 +108,7 @@ type AssetRepository interface {
 	Insert(asset *model.Asset) (int64, error)
 	List(page, perPage int, assetType, search string, favoriteFilter bool) ([]model.Asset, int, error)
 	GetByIDs(ids []int64) ([]model.Asset, error)
+	GetByProjectID(projectID int64) ([]model.Asset, error)
 	ToggleFavorite(id int64, favorite bool) error
 	UpdateGithubURL(id int64, githubURL string) error
 	UpdateStoragePaths(id int64, localPath, githubURL string) error
@@ -125,5 +127,6 @@ type TaskRepository interface {
 	CancelTaskAtomic(id int64) (bool, error)
 	FindPendingTasks() ([]*model.TaskRecord, error)
 	ListTasks(taskType, status string, limit, offset int) ([]*model.TaskRecord, error)
+	ListByProjectID(projectID int64) ([]*model.TaskRecord, error)
 	CleanupOlderThan(hours int) (int64, error)
 }
