@@ -140,6 +140,7 @@ func (PromptTemplate) TableName() string { return "prompt_templates" }
 type Project struct {
 	ID           int64         `gorm:"primaryKey" json:"id"`
 	Title        string        `gorm:"size:200" json:"title"`
+	Type         string        `gorm:"size:10;default:project" json:"type"`
 	Brief        string        `gorm:"type:text" json:"brief"`
 	AIResult     string        `gorm:"type:text" json:"ai_result"`
 	Status       string        `gorm:"size:20;default:draft" json:"status"`
@@ -148,6 +149,7 @@ type Project struct {
 	AssetIDs     string        `gorm:"type:text" json:"asset_ids"`
 	Notes        string        `gorm:"type:text" json:"notes"`
 	StepProgress string        `gorm:"type:text" json:"step_progress"`
+	ComicData    string        `gorm:"type:text" json:"comic_data"`
 	CreatedAt    time.Time     `json:"created_at"`
 	UpdatedAt    time.Time     `json:"updated_at"`
 	Steps        []ProjectStep `gorm:"foreignKey:ProjectID" json:"steps"`
@@ -159,7 +161,7 @@ func (Project) TableName() string { return "projects" }
 type ProjectStep struct {
 	ID        int64     `gorm:"primaryKey" json:"id"`
 	ProjectID int64     `gorm:"index" json:"project_id"`
-	StepType  string    `gorm:"size:20" json:"step_type"` // generate | refine | finalize
+	StepType  string    `gorm:"size:20" json:"step_type"` // ideate | layout | generate | refine | finalize
 	Position  int       `json:"position"`
 	Input     string    `gorm:"type:text" json:"input"`
 	Output    string    `gorm:"type:text" json:"output"`

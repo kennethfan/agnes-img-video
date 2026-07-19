@@ -36,14 +36,16 @@ func (r *ProjectRepository) Create(project *Project) error {
 // Update 更新项目字段
 func (r *ProjectRepository) Update(project *Project) error {
 	return r.db.Model(&Project{}).Where("id = ?", project.ID).Updates(map[string]interface{}{
-		"title":     project.Title,
-		"brief":     project.Brief,
-		"ai_result": project.AIResult,
-		"status":    project.Status,
-		"cover_url": project.CoverURL,
-		"final_url": project.FinalURL,
-		"asset_ids": project.AssetIDs,
-		"notes":     project.Notes,
+		"title":      project.Title,
+		"type":       project.Type,
+		"brief":      project.Brief,
+		"ai_result":  project.AIResult,
+		"status":     project.Status,
+		"cover_url":  project.CoverURL,
+		"final_url":  project.FinalURL,
+		"asset_ids":  project.AssetIDs,
+		"notes":      project.Notes,
+		"comic_data": project.ComicData,
 	}).Error
 }
 
@@ -91,8 +93,10 @@ func (r *ProjectRepository) Duplicate(id int64) (*Project, error) {
 	}
 	newProject := &Project{
 		Title: orig.Title + " (副本)",
+		Type:  orig.Type,
 		Brief: orig.Brief,
 		Notes: orig.Notes,
+		ComicData: orig.ComicData,
 		Status: "draft",
 	}
 	if err := r.db.Create(newProject).Error; err != nil {
