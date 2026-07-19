@@ -1,6 +1,6 @@
 # backend/internal/repository/gorm/ — GORM 数据持久层
 
-**17 个文件 (12 Go + 5 test), 8 个仓库** — SQLite/Postgres/MySQL 数据访问 + AutoMigrate。
+**18 个文件 (12 Go + 6 test), 8 个仓库** — SQLite/Postgres/MySQL 数据访问 + AutoMigrate。
 
 ## 文件索引
 
