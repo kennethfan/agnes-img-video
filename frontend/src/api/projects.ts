@@ -12,7 +12,11 @@ export async function getProject(id: number): Promise<Project> {
 }
 
 export async function createProject(data: CreateProjectRequest): Promise<Project> {
-  const res = await client.post('/api/v1/projects', data)
+  const res = await client.post('/api/v1/projects', {
+    title: data.title,
+    brief: data.brief,
+    type: data.type || 'project',
+  })
   return res.data.project
 }
 

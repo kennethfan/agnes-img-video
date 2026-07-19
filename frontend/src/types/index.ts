@@ -211,6 +211,21 @@ export interface ProjectStep {
   created_at: string
 }
 
+export interface ComicPanel {
+  prompt: string
+  image: string
+  caption: string
+  refImage: string
+}
+
+export interface ComicData {
+  layout: string
+  storyline: string
+  characters: string
+  style: string
+  panels: ComicPanel[]
+}
+
 export interface Project {
   id: number
   title: string
@@ -221,6 +236,8 @@ export interface Project {
   final_url: string
   asset_ids: string
   notes: string
+  type: 'project' | 'comic'
+  comic_data: string
   step_progress: string  // JSON string {"ideate":"completed",...}
   created_at: string
   updated_at: string
@@ -230,6 +247,7 @@ export interface Project {
 export interface CreateProjectRequest {
   title: string
   brief?: string
+  type?: string
 }
 
 export interface UpdateProjectRequest {

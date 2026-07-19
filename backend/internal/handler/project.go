@@ -28,6 +28,7 @@ func NewProjectHandler(repo *gormrepo.ProjectRepository, svc *service.AgnesClien
 type createProjectRequest struct {
 	Title string `json:"title" binding:"required"`
 	Brief string `json:"brief"`
+	Type  string `json:"type"`
 }
 
 func (h *ProjectHandler) CreateProject(c *gin.Context) {
@@ -36,8 +37,13 @@ func (h *ProjectHandler) CreateProject(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "参数错误: " + err.Error()})
 		return
 	}
+	projectType := req.Type
+	if projectType == "" {
+		projectType = "project"
+	}
 	project := &gormrepo.Project{
 		Title:  req.Title,
+		Type:   projectType,
 		Brief:  req.Brief,
 		Status: "draft",
 	}
@@ -45,6 +51,30 @@ func (h *ProjectHandler) CreateProject(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "创建项目失败: " + err.Error()})
 		return
 	}
+
+	// 漫画项目自动生成 5 步模板
+	if projectType == "comic" {
+		comicSteps := []struct {
+			stepType string
+			pos      int
+		}{
+			{"ideate", 0},
+			{"layout", 1},
+			{"generate", 2},
+			{"refine", 3},
+			{"finalize", 4},
+		}
+		for _, s := range comicSteps {
+			h.repo.AddStep(&gormrepo.ProjectStep{
+				ProjectID: project.ID,
+				StepType:  s.stepType,
+				Position:  s.pos,
+			})
+		}
+		stepProgress := `{"ideate":"pending","layout":"pending","generate":"pending","refine":"pending","finalize":"pending"}`
+		h.repo.UpdateField(project.ID, "step_progress", stepProgress)
+	}
+
 	c.JSON(http.StatusOK, gin.H{"project": project})
 }
 
@@ -406,7 +436,7 @@ type stepProgressRequest struct {
 	Status string `json:"status" binding:"required"`
 }
 
-var validSteps = map[string]bool{"ideate": true, "generate": true, "refine": true, "finalize": true}
+var validSteps = map[string]bool{"ideate": true, "layout": true, "generate": true, "refine": true, "finalize": true}
 var validStatuses = map[string]bool{"pending": true, "in_progress": true, "completed": true}
 
 // GetProjectFiles 聚合返回项目关联的所有文件（来自 history + assets）
@@ -541,7 +571,7 @@ func (h *ProjectHandler) UpdateStepProgress(c *gin.Context) {
 	}
 
 	if !validSteps[req.Step] {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "无效的步骤名称，有效值: ideate, generate, refine, finalize"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "无效的步骤名称，有效值: ideate, layout, generate, refine, finalize"})
 		return
 	}
 	if !validStatuses[req.Status] {
@@ -569,7 +599,7 @@ func (h *ProjectHandler) UpdateStepProgress(c *gin.Context) {
 
 // parseStepProgress 解析 StepProgress JSON 字符串，返回 map
 func parseStepProgress(s string) map[string]string {
-	def := map[string]string{"ideate": "pending", "generate": "pending", "refine": "pending", "finalize": "pending"}
+	def := map[string]string{"ideate": "pending", "layout": "pending", "generate": "pending", "refine": "pending", "finalize": "pending"}
 	if s == "" {
 		return def
 	}
