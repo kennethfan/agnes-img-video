@@ -1,7 +1,7 @@
 # AGENTS.md — Agnes Creator Studio
 
 **Generated:** 2026-07-12
-**Commit:** dc89073 (dev)
+**Commit:** 54a11b6 (dev)
 **Stack:** Go 1.25 · Gin · SQLite · Vue 3 · TypeScript 6 · Vite 8 · Element Plus · Pinia · Axios · SSE
 
 ## Quick Start
@@ -147,16 +147,19 @@ No legacy Python/Gradio code — everything goes through the B/S architecture.
 POST /images/text-to-image     POST /images/image-to-image     POST /images/batch
 POST /videos/text-to-video     POST /videos/image-to-video     POST /videos/multi-image
 POST /videos/generate-script   POST /ideas/expand   POST /comic/generate-prompts
+POST /comic/generate-storyline
 GET  /videos/:taskId           GET  /videos/stream/:taskId
 GET  /config                   PUT  /config
 GET  /history                  DELETE /history
 DELETE /history/:id            POST /history/delete
-GET  /assets                   POST /assets/favorite
-POST /assets/batch-download    DELETE /assets
+GET  /assets                   POST /assets
+POST /assets/favorite          POST /assets/batch-download
+POST /assets/:id/transfer      DELETE /assets
 GET  /storyboard/projects      POST /storyboard/projects
 GET  /storyboard/projects/:id  PUT  /storyboard/projects/:id
 DELETE /storyboard/projects/:id POST /storyboard/projects/:id/duplicate
-POST /storyboard/projects/:id/shots PUT /storyboard/projects/:id/shots/reorder
+POST /storyboard/projects/:id/shots     POST /storyboard/projects/:id/shots/batch
+PUT  /storyboard/projects/:id/shots/reorder
 PUT  /storyboard/shots/:id     DELETE /storyboard/shots/:id
 POST /storyboard/projects/:id/generate
 GET  /collections              POST /collections              PUT  /collections/:id
@@ -166,8 +169,10 @@ DELETE /templates/:id          POST /templates/export         POST /templates/im
 POST /history/:id/save-template
 GET  /projects                 POST /projects                 GET  /projects/:id
 PUT  /projects/:id             DELETE /projects/:id           POST /projects/:id/duplicate
-POST /projects/:id/ai-recommend                               POST /projects/:id/steps
-PUT  /steps/:stepId            DELETE /steps/:stepId
+POST /projects/:id/ai-recommend    POST /projects/:id/steps
+PUT  /steps/:stepId             DELETE /steps/:stepId
+POST /projects/:id/ideate-brief GET  /projects/:id/files
+GET  /projects/:id/stats        PUT  /projects/:id/step-progress
 GET  /tasks                    GET  /tasks/:id                 GET  /tasks/:id/stream
 POST /tasks/:id/cancel          POST /tasks/:id/retry
 POST /assets/:id/transfer
@@ -188,12 +193,24 @@ make clean    # rm -rf bin/
 
 ### Config
 
-- `.config.json` at `backend/` (gitignored). Fields: `api_key`, `base_url`, `model`, `github_token`, `github_repo`, `github_branch`, `image_model`, `video_model`, `chat_model`.
-- `AGNES_API_KEY`, `GITHUB_TOKEN`, `GITHUB_REPO`, `GITHUB_BRANCH` env vars override `.config.json`.
-- `IMAGE_MODEL`, `VIDEO_MODEL`, `CHAT_MODEL` env vars override model defaults (see `.env.example`).
-- `.env.example` in `backend/` — copy to `backend/.env` for local dev.
-- Default base URL: `https://apihub.agnes-ai.com/v1`
-- Default models: `agnes-image-2.1-flash` (image), `agnes-video-v2.0` (video), `agnes-2.0-flash` (chat/script).
+- **所有配置通过环境变量读取**，无 `.config.json`。
+- 配置来源为 `backend/.env`（从 `.env.example` 复制），以及系统环境变量。
+- API Key **仅通过 `API_KEY_PATH` 环境变量设置路径**，Key 存于单独文件（如 `~/.agnes/api-key`），该文件可设 `chmod 600`。不支持直接写入 `.env`。
+- 完整环境变量列表见 `backend/.env.example`。核心变量：
+
+| 环境变量 | 必需 | 说明 |
+|----------|------|------|
+| `API_KEY_PATH` | 是 | API Key 文件路径 |
+| `BASE_URL` | 否 | API 地址（默认 `https://apihub.agnes-ai.com/v1`） |
+| `IMAGE_MODEL` | 否 | 图像模型（默认 `agnes-image-2.1-flash`） |
+| `VIDEO_MODEL` | 否 | 视频模型（默认 `agnes-video-v2.0`） |
+| `CHAT_MODEL` | 否 | 对话模型（默认 `agnes-2.0-flash`） |
+| `GITHUB_TOKEN` | 否 | GitHub 存储 token |
+| `GITHUB_REPO` | 否 | GitHub 存储仓库 |
+| `GITHUB_BRANCH` | 否 | GitHub 分支（默认 master） |
+| `DB_DRIVER` | 否 | 数据库驱动（默认 sqlite） |
+| `DB_DSN` | 否 | 数据库 DSN（默认 history.db） |
+| `PORT` | 否 | 服务器端口（默认 8080） |
 
 ### GitHub File Storage (Optional)
 
@@ -210,6 +227,7 @@ When `GITHUB_TOKEN` and `GITHUB_REPO` are set, generated images/videos are uploa
 | `src/api/video.ts` | text-to-video, image-to-video, multi-image, script-gen, task status |
 | `src/api/history.ts` | getHistory, clearHistory, deleteHistory, deleteRecord |
 | `src/api/ideas.ts` | expandIdea — AI idea enhancement |
+| `src/api/ideate.ts` | ideateBrief — AI project brief generation |
 | `src/api/storyboard.ts` | Storyboard CRUD: projects + shots API client |
 | `src/api/history.ts` | getHistory, clearHistory, deleteHistory, deleteRecord |
 | `src/api/assets.ts` | getAssets, toggleFavorite, batchDownload, deleteAssets |

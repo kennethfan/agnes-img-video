@@ -19,24 +19,22 @@ func main() {
 	_ = godotenv.Load(".env") // 从 backend/ 目录加载 .env
 
 	// 所有运行时数据都在 backend/ 目录下
-	configPath := ".config.json"
 	dbPath := "history.db"
 	outputsPath := "outputs"
 
 	// 确保 outputs/ 目录存在
 	os.MkdirAll(outputsPath, 0755)
 
-	// 加载配置
-	cfg, err := config.LoadConfig(configPath)
+	// 从环境变量加载配置
+	cfg, err := config.LoadConfig()
 	if err != nil {
 		log.Printf("警告: 加载配置失败: %v", err)
 	}
 	if cfg.APIKey == "" {
-		log.Fatal("AGNES_API_KEY 环境变量未设置")
+		log.Fatal("API Key 未配置：请在 .env 中设置 API_KEY_PATH")
 	}
 
 	log.Printf("配置加载完成: base_url=%s, image_model=%s, video_model=%s, chat_model=%s", cfg.BaseURL, cfg.ImageModel, cfg.VideoModel, cfg.ChatModel)
-	log.Printf("配置文件: %s", configPath)
 	log.Printf("数据库: %s", dbPath)
 	log.Printf("输出目录: %s", outputsPath)
 
@@ -147,6 +145,7 @@ func main() {
 
 		api.POST("/ideas/expand", ideasHandler.ExpandIdea)
 		api.POST("/comic/generate-prompts", comicHandler.GeneratePrompts)
+		api.POST("/comic/generate-storyline", comicHandler.GenerateStoryline)
 
 		api.GET("/access-logs", accessLogHandler.ListLogs)
 		api.DELETE("/access-logs", accessLogHandler.ClearLogs)

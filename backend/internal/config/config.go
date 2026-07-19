@@ -1,8 +1,10 @@
 package config
 
 import (
-	"encoding/json"
+	"log"
 	"os"
+	"path/filepath"
+	"strings"
 	"sync"
 
 	"github.com/agnes-image-tool/backend/internal/model"
@@ -13,7 +15,6 @@ const (
 	DefaultImageModel = "agnes-image-2.1-flash"
 	DefaultVideoModel = "agnes-video-v2.0"
 	DefaultChatModel  = "agnes-2.0-flash"
-	ConfigFileName    = ".config.json"
 )
 
 var (
@@ -21,8 +22,30 @@ var (
 	cached *model.Config
 )
 
-// LoadConfig 从文件加载配置，环境变量覆盖
-func LoadConfig(configPath string) (*model.Config, error) {
+func resolvePath(path string) string {
+	if strings.HasPrefix(path, "~/") {
+		if home, err := os.UserHomeDir(); err == nil {
+			return filepath.Join(home, path[2:])
+		}
+	}
+	return path
+}
+
+func loadKeyFromFile(path string) (string, error) {
+	resolved := resolvePath(path)
+	data, err := os.ReadFile(resolved)
+	if err != nil {
+		return "", err
+	}
+	key := strings.TrimSpace(string(data))
+	if key == "" {
+		return "", nil
+	}
+	return key, nil
+}
+
+// LoadConfig 从环境变量加载配置，API Key 通过 API_KEY_PATH 指向的文件读取
+func LoadConfig() (*model.Config, error) {
 	cfg := &model.Config{
 		BaseURL:    DefaultBaseURL,
 		ImageModel: DefaultImageModel,
@@ -30,46 +53,12 @@ func LoadConfig(configPath string) (*model.Config, error) {
 		ChatModel:  DefaultChatModel,
 	}
 
-	data, err := os.ReadFile(configPath)
-	if err == nil {
-		var fileCfg model.Config
-		if err := json.Unmarshal(data, &fileCfg); err == nil {
-			if fileCfg.APIKey != "" {
-				cfg.APIKey = fileCfg.APIKey
-			}
-			if fileCfg.BaseURL != "" {
-				cfg.BaseURL = fileCfg.BaseURL
-			}
-			if fileCfg.ImageModel != "" {
-				cfg.ImageModel = fileCfg.ImageModel
-			}
-			if fileCfg.VideoModel != "" {
-				cfg.VideoModel = fileCfg.VideoModel
-			}
-			if fileCfg.ChatModel != "" {
-				cfg.ChatModel = fileCfg.ChatModel
-			}
-			if fileCfg.GithubToken != "" {
-				cfg.GithubToken = fileCfg.GithubToken
-			}
-			if fileCfg.GithubRepo != "" {
-				cfg.GithubRepo = fileCfg.GithubRepo
-			}
-		if fileCfg.GithubBranch != "" {
-			cfg.GithubBranch = fileCfg.GithubBranch
-		}
-		if fileCfg.DBDriver != "" {
-			cfg.DBDriver = fileCfg.DBDriver
-		}
-		if fileCfg.DBDSN != "" {
-			cfg.DBDSN = fileCfg.DBDSN
-		}
+	if envPath := os.Getenv("API_KEY_PATH"); envPath != "" {
+		cfg.ApiKeyPath = envPath
+		log.Printf("[config] 从环境变量 API_KEY_PATH 读取 Key 路径: %s", envPath)
 	}
-	}
-
-	// 环境变量覆盖
-	if envKey := os.Getenv("AGNES_API_KEY"); envKey != "" {
-		cfg.APIKey = envKey
+	if envBaseURL := os.Getenv("BASE_URL"); envBaseURL != "" {
+		cfg.BaseURL = envBaseURL
 	}
 	if envImageModel := os.Getenv("IMAGE_MODEL"); envImageModel != "" {
 		cfg.ImageModel = envImageModel
@@ -94,6 +83,15 @@ func LoadConfig(configPath string) (*model.Config, error) {
 	}
 	if envDSN := os.Getenv("DB_DSN"); envDSN != "" {
 		cfg.DBDSN = envDSN
+	}
+
+	if cfg.ApiKeyPath != "" {
+		if key, err := loadKeyFromFile(cfg.ApiKeyPath); err != nil {
+			log.Printf("警告: 从 %s 读取 API Key 失败: %v", cfg.ApiKeyPath, err)
+		} else if key != "" {
+			cfg.APIKey = key
+			log.Printf("[config] 从 %s 读取 API Key", resolvePath(cfg.ApiKeyPath))
+		}
 	}
 
 	mu.Lock()

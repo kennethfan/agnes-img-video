@@ -13,16 +13,17 @@ type Settings struct {
 // ==================== 配置 ====================
 
 type Config struct {
-	APIKey       string `json:"api_key"`
-	BaseURL      string `json:"base_url"`
-	ImageModel   string `json:"image_model,omitempty"`
-	VideoModel   string `json:"video_model,omitempty"`
-	ChatModel    string `json:"chat_model,omitempty"`
-	GithubToken  string `json:"github_token"`
-	GithubRepo   string `json:"github_repo"`
-	GithubBranch string `json:"github_branch"`
-	DBDriver     string `json:"db_driver,omitempty"`
-	DBDSN        string `json:"db_dsn,omitempty"`
+	APIKey       string
+	ApiKeyPath   string
+	BaseURL      string
+	ImageModel   string
+	VideoModel   string
+	ChatModel    string
+	GithubToken  string
+	GithubRepo   string
+	GithubBranch string
+	DBDriver     string
+	DBDSN        string
 }
 
 // ==================== 图片请求/响应 ====================
