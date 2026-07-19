@@ -1,5 +1,29 @@
-# Vue 3 + TypeScript + Vite
+# Agnes Creator Studio — Frontend
 
-This template should help get you started developing with Vue 3 and TypeScript in Vite. The template uses Vue 3 `<script setup>` SFCs, check out the [script setup docs](https://v3.vuejs.org/api/sfc-script-setup.html#sfc-script-setup) to learn more.
+Vue 3 + TypeScript 6 + Vite 8 + Element Plus 前端应用。
 
-Learn more about the recommended Project Setup and IDE Support in the [Vue Docs TypeScript Guide](https://vuejs.org/guide/typescript/overview.html#project-setup).
+## 快速开始
+
+```bash
+pnpm install
+pnpm dev          # 开发模式 :5173，代理 /api + /outputs → :8080
+pnpm build        # 类型检查 + 生产构建
+```
+
+## 目录结构
+
+```
+src/
+├── views/                  # 20+ 页面组件
+│   └── comic/              # 漫画创建向导
+├── components/             # 复用组件（ImageResult、ShotCard、TaskProgress 等）
+├── api/                    # 17 个 Axios API 封装
+├── stores/                 # Pinia 状态管理
+├── types/                  # TypeScript 类型定义
+└── utils/                  # SSE、工具函数
+```
+
+## Vite 代理
+
+- `/api` → `http://localhost:8080`
+- `/outputs` → `http://localhost:8080`
